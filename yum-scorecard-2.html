@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>YUM! Scorecard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --card: #16213e;
+    --panel: #0f3460;
+    --accent: #e94560;
+    --gold: #f5a623;
+    --green: #4ecdc4;
+    --white: #f0f0f0;
+    --muted: #8899aa;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--white);
+    min-height: 100vh;
+    padding-bottom: 100px;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--panel), #1a1a5e);
+    padding: 18px 16px 14px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  header h1 {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 2.4rem;
+    letter-spacing: 4px;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(245,166,35,0.5);
+  }
+
+  .progress-bar-wrap {
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    height: 10px;
+    margin: 8px auto 0;
+    max-width: 300px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 20px;
+    background: linear-gradient(90deg, var(--green), var(--gold));
+    transition: width 0.5s ease;
+  }
+  .progress-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* DICE ROLLER */
+  .dice-section {
+    padding: 16px;
+    background: var(--card);
+    margin: 12px;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .dice-section h2 {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    color: var(--green);
+    margin-bottom: 12px;
+  }
+
+  .dice-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .die {
+    width: 54px;
+    height: 54px;
+    background: var(--white);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: #111;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    user-select: none;
+  }
+
+  .die.held {
+    background: var(--gold);
+    box-shadow: 0 0 14px rgba(245,166,35,0.6);
+    transform: translateY(-4px);
+  }
+
+  .die.held::after {
+    content: 'HELD';
+    position: absolute;
+    bottom: -18px;
+    font-size: 0.55rem;
+    font-weight: 800;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+  .die-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .die-hold-btn {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Nunito', sans-serif;
+  }
+
+  .die-hold-btn.held-active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #111;
+    box-shadow: 0 0 10px rgba(245,166,35,0.5);
+  }
+
+  .die-label { font-size: 0.7rem; color: var(--muted); text-align: center; margin-top: 4px; }
+
+  .dice-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 10px;
+  }
+
+  .btn {
+    padding: 10px 22px;
+    border-radius: 50px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+    letter-spacing: 1px;
+  }
+  .btn:active { transform: scale(0.95); }
+
+  .btn-roll {
+    background: linear-gradient(135deg, var(--accent), #c0392b);
+    color: white;
+    box-shadow: 0 4px 15px rgba(233,69,96,0.4);
+  }
+
+  .btn-clear {
+    background: rgba(255,255,255,0.1);
+    color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .roll-count {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  /* SCOREBOARD */
+  .score-section {
+    margin: 12px;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.1rem;
+    letter-spacing: 3px;
+    color: var(--accent);
+    padding: 8px 0 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 8px;
+  }
+
+  .score-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+    margin-bottom: 12px;
+  }
+
+  .score-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .score-row:last-child { border-bottom: none; }
+  .score-row:active { background: rgba(255,255,255,0.05); }
+  .score-row.filled { opacity: 0.7; }
+
+  .score-icon {
+    font-size: 1.3rem;
+    width: 36px;
+    text-align: center;
+    flex-shrink: 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .score-info {
+    flex: 1;
+  }
+
+  .score-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--white);
+  }
+
+  .score-hint {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .score-pct {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.08);
+    color: var(--muted);
+    min-width: 46px;
+    text-align: center;
+  }
+
+  .score-value {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.4rem;
+    min-width: 42px;
+    text-align: right;
+    color: var(--gold);
+  }
+
+  .score-value.empty {
+    color: rgba(255,255,255,0.2);
+    font-size: 1rem;
+  }
+
+  /* BONUS ROW */
+  .bonus-row {
+    background: rgba(78,205,196,0.1);
+    border: 1px solid rgba(78,205,196,0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .bonus-label {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--green);
+  }
+
+  .bonus-sub {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .bonus-val {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.5rem;
+    color: var(--green);
+  }
+
+  /* TOTAL */
+  .total-row {
+    background: linear-gradient(135deg, rgba(233,69,96,0.2), rgba(245,166,35,0.2));
+    border: 1px solid rgba(245,166,35,0.3);
+    border-radius: 14px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .total-label {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.4rem;
+    letter-spacing: 3px;
+    color: var(--gold);
+  }
+
+  .total-sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .total-value {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 2.2rem;
+    color: var(--gold);
+    text-shadow: 0 0 15px rgba(245,166,35,0.5);
+  }
+
+  /* MODAL */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .modal-backdrop.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--panel);
+    width: 100%;
+    max-width: 480px;
+    border-radius: 24px 24px 0 0;
+    padding: 24px 20px 40px;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .modal-backdrop.open .modal {
+    transform: translateY(0);
+  }
+
+  .modal h3 {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.6rem;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+
+  .modal-hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  .quick-scores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .quick-btn {
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.15);
+    background: transparent;
+    color: var(--white);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .quick-btn:active, .quick-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(233,69,96,0.5);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn-confirm {
+    flex: 1;
+    background: linear-gradient(135deg, var(--green), #2ecc71);
+    color: #111;
+    box-shadow: 0 4px 15px rgba(78,205,196,0.3);
+  }
+
+  .btn-skip {
+    background: rgba(255,255,255,0.08);
+    color: var(--muted);
+    padding: 10px 18px;
+    border-radius: 50px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .btn-delete {
+    background: rgba(233,69,96,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(233,69,96,0.3);
+    padding: 10px 16px;
+    border-radius: 50px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .pct-bar-wrap {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-top: 3px;
+  }
+
+  .pct-bar {
+    height: 100%;
+    border-radius: 20px;
+    background: linear-gradient(90deg, var(--green), var(--gold));
+    transition: width 0.4s ease;
+  }
+
+  .die-spin { animation: spin 0.3s ease-out; }
+  @keyframes spin {
+    0%   { transform: rotate(0deg) scale(0.7); opacity: 0.5; }
+    60%  { transform: rotate(20deg) scale(1.1); }
+    100% { transform: rotate(0deg) scale(1); opacity: 1; }
+  }
+
+  .score-row.suggested {
+    background: rgba(78,205,196,0.08);
+    border-left: 3px solid var(--green);
+  }
+
+  .new-game-btn {
+    display: block;
+    width: calc(100% - 24px);
+    margin: 0 12px 16px;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--panel), #1a1a5e);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: var(--radius);
+    color: var(--white);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  /* PREDICTION PANEL */
+  .predict-btn {
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: white;
+    box-shadow: 0 4px 15px rgba(124,58,237,0.4);
+    transition: transform 0.1s, opacity 0.2s;
+    letter-spacing: 1px;
+  }
+  .predict-btn:active { transform: scale(0.95); }
+  .predict-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  #predPanel {
+    margin: 0 12px 12px;
+    display: none;
+  }
+
+  .pred-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.15rem;
+    letter-spacing: 3px;
+    color: #a855f7;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pred-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid rgba(168,85,247,0.25);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .pred-row {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+  }
+  .pred-row:last-child { border-bottom: none; }
+
+  .pred-rank {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.6rem;
+    color: rgba(255,255,255,0.12);
+    position: absolute;
+    right: 14px;
+    top: 10px;
+  }
+
+  .pred-cat {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--white);
+    margin-bottom: 2px;
+  }
+
+  .pred-hold {
+    font-size: 0.8rem;
+    color: var(--gold);
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+
+  .pred-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pred-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .pred-bar-fill {
+    height: 100%;
+    border-radius: 20px;
+    background: linear-gradient(90deg, #7c3aed, #a855f7);
+    transition: width 0.6s ease;
+  }
+
+  .pred-pct {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.2rem;
+    color: #a855f7;
+    min-width: 44px;
+    text-align: right;
+  }
+
+  .pred-exp {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .pred-badge-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+
+  .pred-die-chip {
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    background: rgba(168,85,247,0.15);
+    border: 1px solid rgba(168,85,247,0.3);
+    color: #c084fc;
+  }
+
+  .pred-die-chip.keep {
+    background: rgba(245,166,35,0.18);
+    border-color: rgba(245,166,35,0.4);
+    color: var(--gold);
+  }
+
+  .pred-spinner {
+    text-align: center;
+    padding: 18px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+  }
+
+  .pred-note {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 4px;
+    padding: 0 4px 8px;
+  }
+
+
+  .btn-camera {
+    padding: 10px 18px;
+    border-radius: 50px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    background: linear-gradient(135deg, #0f3460, #1a5276);
+    color: white;
+    box-shadow: 0 4px 15px rgba(15,52,96,0.5);
+    transition: transform 0.1s, opacity 0.2s;
+    letter-spacing: 1px;
+    border: 1px solid rgba(78,205,196,0.4);
+  }
+  .btn-camera:active { transform: scale(0.95); }
+  .btn-camera:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  #camStatus {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+    min-height: 18px;
+    transition: color 0.3s;
+  }
+  #camStatus.ok  { color: var(--green); }
+  #camStatus.err { color: var(--accent); }
+  #camStatus.loading { color: #a855f7; }
+
+  #camPreview {
+    display: none;
+    width: 100%;
+    max-height: 160px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-top: 10px;
+    border: 2px solid rgba(78,205,196,0.3);
+  }
+
+
+  #installBanner {
+    display: none;
+    position: fixed;
+    bottom: 16px;
+    left: 12px;
+    right: 12px;
+    z-index: 999;
+    background: linear-gradient(135deg, #0f3460, #1a1a5e);
+    border: 1px solid rgba(78,205,196,0.4);
+    border-radius: 16px;
+    padding: 14px 16px;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+  #installBanner .ib-icon { font-size: 2rem; flex-shrink:0; }
+  #installBanner .ib-text { flex:1; }
+  #installBanner .ib-title { font-weight:800; font-size:0.95rem; color:var(--white); }
+  #installBanner .ib-sub   { font-size:0.75rem; color:var(--muted); margin-top:2px; }
+  #installBanner .ib-btn   {
+    background: linear-gradient(135deg, var(--green), #2ecc71);
+    color:#111; font-weight:800; font-size:0.85rem;
+    border:none; border-radius:50px; padding:8px 16px;
+    cursor:pointer; white-space:nowrap; flex-shrink:0;
+    font-family:'Nunito',sans-serif;
+  }
+  #installBanner .ib-close {
+    background:none; border:none; color:var(--muted);
+    font-size:1.2rem; cursor:pointer; padding:4px; flex-shrink:0;
+  }
+
+</style>
+
+  <!-- PWA -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="YUM!">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="manifest" href="manifest.json">
+  <script>
+    // Inline manifest as blob so single-file works
+    const manifest = {
+      name: "YUM! Scorecard",
+      short_name: "YUM!",
+      description: "Yum / Yahtzee scorecard with dice scanner and predictions",
+      start_url: ".",
+      display: "standalone",
+      background_color: "#1a1a2e",
+      theme_color: "#1a1a2e",
+      orientation: "portrait",
+      icons: [
+        { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a1a2e'/><text y='.9em' font-size='80' x='10'>🎲</text></svg>", sizes: "192x192", type: "image/svg+xml" },
+        { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a1a2e'/><text y='.9em' font-size='80' x='10'>🎲</text></svg>", sizes: "512x512", type: "image/svg+xml" }
+      ]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+    const manifestURL = URL.createObjectURL(blob);
+    document.querySelector('link[rel="manifest"]').href = manifestURL;
+  </script>
+
+  <script>
+    // Inline Service Worker via blob
+    if('serviceWorker' in navigator) {
+      const swCode = `
+        const CACHE = 'yum-v1';
+        self.addEventListener('install', e => {
+          e.waitUntil(caches.open(CACHE).then(c => c.addAll(['.'])));
+          self.skipWaiting();
+        });
+        self.addEventListener('activate', e => {
+          e.waitUntil(clients.claim());
+        });
+        self.addEventListener('fetch', e => {
+          e.respondWith(
+            caches.match(e.request).then(r => r || fetch(e.request))
+          );
+        });
+      `;
+      const swBlob = new Blob([swCode], {type:'text/javascript'});
+      const swURL = URL.createObjectURL(swBlob);
+      navigator.serviceWorker.register(swURL).catch(()=>{});
+    }
+
+    // Show install prompt banner
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      showInstallBanner();
+    });
+
+    function showInstallBanner() {
+      const banner = document.getElementById('installBanner');
+      if(banner) banner.style.display = 'flex';
+    }
+
+    function installApp() {
+      if(!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(()=>{ deferredPrompt=null; hideInstallBanner(); });
+    }
+
+    function hideInstallBanner() {
+      const banner = document.getElementById('installBanner');
+      if(banner) banner.style.display = 'none';
+    }
+  </script>
+
+</head>
+<body>
+
+<!-- INSTALL BANNER -->
+<div id="installBanner">
+  <div class="ib-icon">🎲</div>
+  <div class="ib-text">
+    <div class="ib-title">Install YUM!</div>
+    <div class="ib-sub">Add to home screen as an app</div>
+  </div>
+  <button class="ib-btn" onclick="installApp()">INSTALL</button>
+  <button class="ib-close" onclick="hideInstallBanner()">✕</button>
+</div>
+
+<header>
+  <h1>🎲 YUM!</h1>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="globalProgress" style="width:0%"></div>
+  </div>
+  <div class="progress-label" id="progressLabel">0% Complete · 0 pts</div>
+</header>
+
+<!-- DICE ROLLER -->
+<div class="dice-section" style="margin:12px">
+  <h2>🎲 DICE ROLLER</h2>
+  <div class="dice-row" id="diceRow">
+    <div class="die-wrap">
+      <div class="die" data-i="0" onclick="cycleDie(0)">–</div>
+      <button class="die-hold-btn" data-hold="0" onclick="toggleHold(0)">HOLD</button>
+    </div>
+    <div class="die-wrap">
+      <div class="die" data-i="1" onclick="cycleDie(1)">–</div>
+      <button class="die-hold-btn" data-hold="1" onclick="toggleHold(1)">HOLD</button>
+    </div>
+    <div class="die-wrap">
+      <div class="die" data-i="2" onclick="cycleDie(2)">–</div>
+      <button class="die-hold-btn" data-hold="2" onclick="toggleHold(2)">HOLD</button>
+    </div>
+    <div class="die-wrap">
+      <div class="die" data-i="3" onclick="cycleDie(3)">–</div>
+      <button class="die-hold-btn" data-hold="3" onclick="toggleHold(3)">HOLD</button>
+    </div>
+    <div class="die-wrap">
+      <div class="die" data-i="4" onclick="cycleDie(4)">–</div>
+      <button class="die-hold-btn" data-hold="4" onclick="toggleHold(4)">HOLD</button>
+    </div>
+  </div>
+  <div class="die-label">👆 Tap die to set value &nbsp;·&nbsp; HOLD to lock it</div>
+  <div class="dice-controls">
+    <button class="btn btn-roll" onclick="rollDice()">ROLL</button>
+    <button class="btn btn-clear" onclick="clearDice()">CLEAR</button>
+    <button class="predict-btn" id="predictBtn" onclick="runPrediction()" disabled>🔮 PREDICT</button>
+    <label class="btn-camera" for="camInput" style="display:inline-block;text-align:center">📷 SCAN</label>
+    <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="handleCamImage(event)">
+  </div>
+  <div class="roll-count" id="rollCount">Rolls: 0 / 3</div>
+  <div id="camStatus"></div>
+  <img id="camPreview" alt="Dice photo">
+</div>
+
+<!-- PREDICTION PANEL -->
+<div id="predPanel">
+  <div class="pred-title">🔮 NEXT MOVE PREDICTION</div>
+  <div id="predContent"><div class="pred-spinner">Set all 5 dice then tap PREDICT</div></div>
+  <div class="pred-note">Based on 500 Monte Carlo simulations per option · unfilled categories only</div>
+</div>
+
+<!-- SCORE SECTION -->
+<div class="score-section" id="scoreSection"></div>
+
+<!-- TOTAL -->
+<div style="margin:12px">
+  <div class="total-row">
+    <div>
+      <div class="total-label">GRAND TOTAL</div>
+      <div class="total-sub" id="totalSub">0 of 13 filled</div>
+    </div>
+    <div class="total-value" id="grandTotal">0</div>
+  </div>
+  <button class="new-game-btn" onclick="confirmNewGame()">🔄 NEW GAME</button>
+</div>
+
+<!-- MODAL -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
+  <div class="modal">
+    <h3 id="modalTitle">Score</h3>
+    <div class="modal-hint" id="modalHint"></div>
+    <div class="quick-scores" id="quickScores"></div>
+    <div class="modal-actions">
+      <button class="btn btn-confirm btn" onclick="confirmScore()">✓ CONFIRM</button>
+      <button class="btn-skip" onclick="closeModalEl()">Cancel</button>
+      <button class="btn-delete" id="deleteBtn" onclick="deleteScore()">✕ Clear</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+
+const categories = [
+  // Upper
+  { id:'ones',  name:'Ones',   icon:'d1', hint:'Sum of all 1s (max 5)', max:5,  section:'upper', calc: d=>d.filter(x=>x===1).reduce((a,b)=>a+b,0) },
+  { id:'twos',  name:'Twos',   icon:'d2', hint:'Sum of all 2s (max 10)', max:10, section:'upper', calc: d=>d.filter(x=>x===2).reduce((a,b)=>a+b,0) },
+  { id:'threes',name:'Threes', icon:'d3', hint:'Sum of all 3s (max 15)', max:15, section:'upper', calc: d=>d.filter(x=>x===3).reduce((a,b)=>a+b,0) },
+  { id:'fours', name:'Fours',  icon:'d4', hint:'Sum of all 4s (max 20)', max:20, section:'upper', calc: d=>d.filter(x=>x===4).reduce((a,b)=>a+b,0) },
+  { id:'fives', name:'Fives',  icon:'d5', hint:'Sum of all 5s (max 25)', max:25, section:'upper', calc: d=>d.filter(x=>x===5).reduce((a,b)=>a+b,0) },
+  { id:'sixes', name:'Sixes',  icon:'d6', hint:'Sum of all 6s (max 30)', max:30, section:'upper', calc: d=>d.filter(x=>x===6).reduce((a,b)=>a+b,0) },
+  // Lower
+  { id:'threeKind', name:'3 of a Kind', icon:'🎯', hint:'≥3 same → sum all dice (max 30)', max:30, section:'lower', calc: d=>{const c=counts(d);return Object.values(c).some(v=>v>=3)?d.reduce((a,b)=>a+b,0):0} },
+  { id:'fourKind',  name:'4 of a Kind', icon:'🔥', hint:'≥4 same → sum all dice (max 30)', max:30, section:'lower', calc: d=>{const c=counts(d);return Object.values(c).some(v=>v>=4)?d.reduce((a,b)=>a+b,0):0} },
+  { id:'fullHouse', name:'Full House',  icon:'🏠', hint:'3+2 of a kind → 25 pts', max:25, section:'lower', calc: d=>{const v=Object.values(counts(d)).sort();return(v[0]===2&&v[1]===3)||v[0]===5?25:0} },
+  { id:'smStraight',name:'Sm. Straight',icon:'📏', hint:'4 sequential → 30 pts', max:30, section:'lower', calc: d=>{const u=[...new Set(d)].sort((a,b)=>a-b);const s=u.join('');return['1234','2345','3456'].some(p=>s.includes(p))?30:0} },
+  { id:'lgStraight',name:'Lg. Straight',icon:'📐', hint:'5 sequential → 40 pts', max:40, section:'lower', calc: d=>{const u=[...new Set(d)].sort((a,b)=>a-b);return(u.length===5&&u[4]-u[0]===4)?40:0} },
+  { id:'yum',       name:'YUM!',        icon:'🎲', hint:'5 of a kind → 50 pts', max:50, section:'lower', calc: d=>{return Object.values(counts(d)).some(v=>v===5)?50:0} },
+  { id:'chance',    name:'Chance',      icon:'🎰', hint:'Any roll → sum all dice (max 30)', max:30, section:'lower', calc: d=>d.reduce((a,b)=>a+b,0) },
+];
+
+const UPPER_IDS = ['ones','twos','threes','fours','fives','sixes'];
+const BONUS_TARGET = 63;
+const BONUS_POINTS = 35;
+
+let scores = {};
+let dice = [0,0,0,0,0];
+let held = [false,false,false,false,false];
+let rolled = false;
+let rollsLeft = 3;
+let activeModal = null;
+let selectedScore = null;
+
+function counts(d) {
+  const c={};
+  d.forEach(v=>c[v]=(c[v]||0)+1);
+  return c;
+}
+
+function cycleDie(i) {
+  // Tap to cycle: blank→1→2→3→4→5→6→1 (wraps)
+  dice[i] = dice[i] === 0 ? 1 : (dice[i] % 6) + 1;
+  rolled = dice.some(v => v > 0);
+  renderDice();
+  renderScores();
+}
+
+function rollDice() {
+  if(rollsLeft <= 0) return;
+  dice = dice.map((v,i) => held[i] ? v : Math.floor(Math.random()*6)+1);
+  rolled = true;
+  rollsLeft--;
+  renderDice();
+  renderScores();
+  document.getElementById('rollCount').textContent = `Rolls: ${3-rollsLeft} / 3`;
+}
+
+function clearDice() {
+  dice = [0,0,0,0,0];
+  held = [false,false,false,false,false];
+  rolled = false;
+  rollsLeft = 3;
+  renderDice();
+  renderScores();
+  document.getElementById('rollCount').textContent = 'Rolls: 0 / 3';
+}
+
+function toggleHold(i) {
+  if(dice[i] === 0) return;
+  held[i] = !held[i];
+  renderDice();
+}
+
+function renderDice() {
+  const row = document.getElementById('diceRow');
+  dice.forEach((v,i) => {
+    const el = row.querySelector(`[data-i="${i}"]`);
+    const face = v > 0 ? DICE_FACES[v-1] : '–';
+    if(el.textContent !== face) {
+      el.classList.remove('die-spin');
+      void el.offsetWidth;
+      el.classList.add('die-spin');
+    }
+    el.textContent = face;
+    el.classList.toggle('held', held[i]);
+    const hBtn = row.querySelector(`[data-hold="${i}"]`);
+    if(hBtn) hBtn.classList.toggle('held-active', held[i]);
+  });
+}
+
+function getSuggestedScore(cat) {
+  if(!dice.every(v => v > 0)) return null;
+  return cat.calc(dice);
+}
+
+function renderScores() {
+  const sec = document.getElementById('scoreSection');
+  let html = '';
+
+  // Upper section
+  html += `<div class="score-card">`;
+  html += `<div style="padding:10px 14px 6px;"><div class="section-title">UPPER SECTION</div></div>`;
+  UPPER_IDS.forEach(id => {
+    const cat = categories.find(c=>c.id===id);
+    const val = scores[id];
+    const filled = val !== undefined;
+    const suggested = !filled && dice.every(v=>v>0) ? cat.calc(dice) : null;
+    const pct = filled ? Math.round((val/cat.max)*100) : (suggested !== null ? Math.round((suggested/cat.max)*100) : null);
+    const pctColor = pct >= 75 ? '#4ecdc4' : pct >= 40 ? '#f5a623' : '#e94560';
+    html += `<div class="score-row ${filled?'filled':''} ${suggested!==null&&!filled?'suggested':''}" onclick="openModal('${id}')">
+      <div class="score-icon">${renderIcon(cat.icon)}</div>
+      <div class="score-info">
+        <div class="score-name">${cat.name}</div>
+        <div class="score-hint">${cat.hint}</div>
+        ${pct!==null?`<div class="pct-bar-wrap"><div class="pct-bar" style="width:${pct}%;background:${pctColor}"></div></div>`:''}
+      </div>
+      ${pct!==null?`<div class="score-pct" style="color:${pctColor}">${pct}%</div>`:'<div class="score-pct">–</div>'}
+      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:var(--green);font-size:1.1rem">${suggested}?</span>`:'–')}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Bonus
+  const upperTotal = UPPER_IDS.reduce((s,id)=>s+(scores[id]||0),0);
+  const bonusEarned = upperTotal >= BONUS_TARGET;
+  const bonusProgress = Math.min(upperTotal, BONUS_TARGET);
+  html += `<div class="bonus-row">
+    <div>
+      <div class="bonus-label">🎁 UPPER BONUS</div>
+      <div class="bonus-sub">${upperTotal}/${BONUS_TARGET} pts → +35 bonus${bonusEarned?' ✓':''}</div>
+      <div class="pct-bar-wrap" style="width:180px;margin-top:5px">
+        <div class="pct-bar" style="width:${(bonusProgress/BONUS_TARGET)*100}%"></div>
+      </div>
+    </div>
+    <div class="bonus-val" style="${bonusEarned?'color:var(--gold)':'color:var(--muted)'}">${bonusEarned?'+35':'–'}</div>
+  </div>`;
+
+  // Lower section
+  const lowerIds = categories.filter(c=>c.section==='lower').map(c=>c.id);
+  html += `<div class="score-card">`;
+  html += `<div style="padding:10px 14px 6px;"><div class="section-title">LOWER SECTION</div></div>`;
+  lowerIds.forEach(id => {
+    const cat = categories.find(c=>c.id===id);
+    const val = scores[id];
+    const filled = val !== undefined;
+    const suggested = !filled && dice.every(v=>v>0) ? cat.calc(dice) : null;
+    const pct = filled ? Math.round((val/cat.max)*100) : (suggested !== null ? Math.round((suggested/cat.max)*100) : null);
+    const pctColor = pct >= 75 ? '#4ecdc4' : pct >= 40 ? '#f5a623' : '#e94560';
+    html += `<div class="score-row ${filled?'filled':''} ${suggested!==null&&!filled?'suggested':''}" onclick="openModal('${id}')">
+      <div class="score-icon">${renderIcon(cat.icon)}</div>
+      <div class="score-info">
+        <div class="score-name">${cat.name}</div>
+        <div class="score-hint">${cat.hint}</div>
+        ${pct!==null?`<div class="pct-bar-wrap"><div class="pct-bar" style="width:${pct}%;background:${pctColor}"></div></div>`:''}
+      </div>
+      ${pct!==null?`<div class="score-pct" style="color:${pctColor}">${pct}%</div>`:'<div class="score-pct">–</div>'}
+      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:var(--green);font-size:1.1rem">${suggested}?</span>`:'–')}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  sec.innerHTML = html;
+  updateTotals(upperTotal, bonusEarned);
+}
+
+function updateTotals(upperTotal, bonusEarned) {
+  const lowerTotal = categories.filter(c=>c.section==='lower').reduce((s,c)=>s+(scores[c.id]||0),0);
+  const grand = upperTotal + lowerTotal + (bonusEarned ? BONUS_POINTS : 0);
+  const filled = Object.keys(scores).length;
+  const total = categories.length;
+  const pct = Math.round((filled/total)*100);
+
+  document.getElementById('grandTotal').textContent = grand;
+  document.getElementById('totalSub').textContent = `${filled} of ${total} filled`;
+  document.getElementById('globalProgress').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = `${pct}% Complete · ${grand} pts`;
+}
+
+function openModal(id) {
+  activeModal = id;
+  const cat = categories.find(c=>c.id===id);
+  const val = scores[id];
+  document.getElementById('modalTitle').textContent = `${cat.icon} ${cat.name}`;
+  document.getElementById('modalHint').textContent = cat.hint;
+  document.getElementById('deleteBtn').style.display = val !== undefined ? 'block' : 'none';
+
+  // Build quick-select buttons
+  const qs = document.getElementById('quickScores');
+  let btns = '';
+
+  if(rolled && dice[0]>0) {
+    const suggested = cat.calc(dice);
+    btns += `<button class="quick-btn ${val===suggested?'active':''}" onclick="selectScore(${suggested})">🎲 ${suggested} (current roll)</button>`;
+  }
+
+  const opts = new Set();
+  for(let i=0;i<=cat.max;i++) opts.add(i);
+  [...opts].forEach(v => {
+    if(rolled && dice[0]>0 && v===cat.calc(dice)) return; // already shown
+    btns += `<button class="quick-btn ${val===v?'active':''}" onclick="selectScore(${v})">${v}</button>`;
+  });
+
+  qs.innerHTML = btns;
+  selectedScore = val !== undefined ? val : null;
+
+  const backdrop = document.getElementById('modalBackdrop');
+  backdrop.classList.add('open');
+}
+
+function selectScore(v) {
+  selectedScore = v;
+  document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function confirmScore() {
+  if(selectedScore === null) { closeModalEl(); return; }
+  scores[activeModal] = selectedScore;
+  clearDice();
+  closeModalEl();
+  renderScores();
+}
+
+function deleteScore() {
+  delete scores[activeModal];
+  closeModalEl();
+  renderScores();
+}
+
+function closeModal(e) {
+  if(e.target === document.getElementById('modalBackdrop')) closeModalEl();
+}
+
+function closeModalEl() {
+  document.getElementById('modalBackdrop').classList.remove('open');
+  selectedScore = null;
+}
+
+function confirmNewGame() {
+  if(Object.keys(scores).length > 0) {
+    if(!confirm('Start a new game? Your scores will be cleared.')) return;
+  }
+  scores = {};
+  clearDice();
+  renderScores();
+}
+
+
+// ─── PREDICTION ENGINE ──────────────────────────────────────────────
+function randDie() { return Math.floor(Math.random()*6)+1; }
+
+function greedyHoldForCat(d, catId) {
+  const c = {};
+  d.forEach(v => c[v]=(c[v]||0)+1);
+  const sorted = Object.entries(c).sort((a,b)=>b[1]-a[1]);
+
+  if(catId==='ones')   return d.map(v=>v===1);
+  if(catId==='twos')   return d.map(v=>v===2);
+  if(catId==='threes') return d.map(v=>v===3);
+  if(catId==='fours')  return d.map(v=>v===4);
+  if(catId==='fives')  return d.map(v=>v===5);
+  if(catId==='sixes')  return d.map(v=>v===6);
+
+  // YUM: always hold all dice matching the most common value
+  if(catId==='yum') {
+    const topVal = sorted[0][0];
+    return d.map(v=>String(v)===topVal);
+  }
+  // 4-of-a-kind: hold most common value
+  if(catId==='fourKind') return d.map(v=>String(v)===sorted[0][0]);
+  // 3-of-a-kind: hold most common value
+  if(catId==='threeKind') return d.map(v=>String(v)===sorted[0][0]);
+
+  if(catId==='fullHouse') {
+    // Hold top 2 distinct values
+    const keep = new Set(sorted.slice(0,2).map(e=>Number(e[0])));
+    return d.map(v=>keep.has(v));
+  }
+  if(catId==='smStraight'||catId==='lgStraight') {
+    // Hold the longest sequential run of unique values
+    const uniq=[...new Set(d)].sort((a,b)=>a-b);
+    let best=[],cur=[uniq[0]];
+    for(let i=1;i<uniq.length;i++){
+      if(uniq[i]===uniq[i-1]+1) cur.push(uniq[i]);
+      else { if(cur.length>best.length)best=cur; cur=[uniq[i]]; }
+    }
+    if(cur.length>best.length)best=cur;
+    const keepSet=new Set(best);
+    const held=d.map(()=>false); const used={};
+    d.forEach((v,i)=>{ if(keepSet.has(v)&&!used[v]){held[i]=true;used[v]=true;} });
+    return held;
+  }
+  if(catId==='chance') return d.map(v=>v>=5); // hold 5s and 6s
+  return d.map(()=>false);
+}
+
+// Simulate expected score for a category given held dice and N remaining rolls
+function simulateCatExpected(initHeld, cat, remainRolls, N) {
+  let total=0;
+  for(let i=0;i<N;i++){
+    let d = initHeld.map(v => v===0 ? randDie() : v);
+    for(let r=1; r<remainRolls; r++){
+      const h = greedyHoldForCat(d, cat.id);
+      d = d.map((v,j) => h[j] ? v : randDie());
+    }
+    total += cat.calc(d);
+  }
+  return total/N;
+}
+
+// Find best hold mask for a category
+function bestHoldForCat(cat, remainRolls, N) {
+  let best = { mask:31, initHeld:dice.slice(), exp:0, pct:0 };
+  for(let mask=0;mask<32;mask++){
+    const initHeld = dice.map((v,i)=>((mask>>i)&1)?v:0);
+    const exp = simulateCatExpected(initHeld, cat, remainRolls, N);
+    const pct = Math.round((exp/cat.max)*100);
+    if(exp > best.exp) best = { mask, initHeld, exp, pct };
+  }
+  return best;
+}
+
+function diceLabel(d) {
+  return d.filter(v=>v>0).map(v=>['⚀','⚁','⚂','⚃','⚄','⚅'][v-1]).join(' ');
+}
+
+function holdDesc(initHeld) {
+  const kept = initHeld.filter(v=>v>0);
+  const reroll = initHeld.filter(v=>v===0).length;
+  if(kept.length===0) return 'Re-roll all 5 dice';
+  if(kept.length===5) return 'Keep all — score now!';
+  return `Keep ${diceLabel(initHeld)} · re-roll ${reroll}`;
+}
+
+function runPrediction() {
+  if(!dice.every(v=>v>0)) return;
+  const panel = document.getElementById('predPanel');
+  const cont  = document.getElementById('predContent');
+  panel.style.display='block';
+  cont.innerHTML='<div class="pred-spinner">⏳ Simulating… hang tight</div>';
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  setTimeout(()=>{
+    const unfilledCats = categories.filter(c=>scores[c.id]===undefined);
+    if(unfilledCats.length===0){
+      cont.innerHTML='<div class="pred-spinner">🎉 All categories filled!</div>';
+      return;
+    }
+
+    // Determine rolls left — default 2 if manually set, else use rollsLeft
+    const remRolls = (rollsLeft < 3) ? rollsLeft : 2;
+    const N = 600; // simulations per option
+
+    // Find best hold per category
+    const catResults = unfilledCats.map(cat => {
+      const best = bestHoldForCat(cat, remRolls, N);
+      return { cat, ...best };
+    });
+
+    // Sort all categories by expected %
+    catResults.sort((a,b)=>(b.exp/b.cat.max)-(a.exp/a.cat.max));
+
+    // Always ensure YUM is shown even if not in top
+    const hasYumInResults = catResults.every(r => r.cat.id !== 'yum') === false;
+    const yumResult = catResults.find(r=>r.cat.id==='yum');
+
+    const medals = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'];
+
+    let html = `<div style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;padding:0 2px">
+      Based on ${N} simulations · ${remRolls} roll${remRolls!==1?'s':''} remaining · unfilled only</div>`;
+
+    // ── YUM spotlight always at top ──────────────────────────────
+    if(yumResult) {
+      const yumRank = catResults.indexOf(yumResult)+1;
+      const yr = yumResult;
+      const yPct = yr.pct;
+      const yColor = yPct>=70?'#4ecdc4':yPct>=35?'#f5a623':'#e94560';
+      html += `<div style="background:rgba(124,58,237,0.12);border:1px solid rgba(168,85,247,0.4);
+        border-radius:12px;padding:12px 14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-weight:800;font-size:1rem;color:#c084fc">🎲 YUM! Chance</div>
+          <div style="font-family:'Bebas Neue',cursive;font-size:1.6rem;color:${yColor}">${yPct}%</div>
+        </div>
+        <div style="font-size:0.8rem;color:var(--gold);margin-bottom:6px;font-weight:700">🎯 ${holdDesc(yr.initHeld)}</div>
+        <div style="height:10px;background:rgba(255,255,255,0.08);border-radius:20px;overflow:hidden;margin-bottom:6px">
+          <div style="height:100%;width:${Math.min(yPct,100)}%;border-radius:20px;
+            background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width 0.6s"></div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--muted)">
+          Expected ~${yr.exp.toFixed(1)} pts of 50 max · Ranked #${yumRank} overall</div>
+      </div>`;
+    }
+
+    // ── All categories ranked ────────────────────────────────────
+    html += '<div class="pred-card">';
+    catResults.forEach((r, idx)=>{
+      if(r.cat.id==='yum') return; // already shown above
+      const pct = r.pct;
+      const barColor = pct>=70?'linear-gradient(90deg,#4ecdc4,#2ecc71)':
+                       pct>=40?'linear-gradient(90deg,#f5a623,#f39c12)':
+                       'linear-gradient(90deg,#e94560,#c0392b)';
+      const rank = idx+1;
+      html+=`<div class="pred-row">
+        <div class="pred-rank">#${rank}</div>
+        <div class="pred-cat">${r.cat.icon} ${r.cat.name}</div>
+        <div class="pred-hold">🎯 ${holdDesc(r.initHeld)}</div>
+        <div class="pred-bar-row">
+          <div class="pred-bar-wrap">
+            <div class="pred-bar-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div>
+          </div>
+          <div class="pred-pct">${pct}%</div>
+        </div>
+        <div class="pred-exp">Expected ~${r.exp.toFixed(1)} of ${r.cat.max} max</div>
+      </div>`;
+    });
+    html += '</div>';
+
+    cont.innerHTML = html;
+  }, 40);
+}
+
+// Enable/disable predict button whenever dice change
+const _origRenderDice = renderDice;
+renderDice = function(){
+  _origRenderDice();
+  const btn = document.getElementById('predictBtn');
+  if(btn) btn.disabled = !dice.every(v=>v>0);
+  if(!dice.every(v=>v>0)){
+    document.getElementById('predPanel').style.display='none';
+  }
+};
+
+
+// ─── CAMERA DICE SCAN ───────────────────────────────────────────────
+async function handleCamImage(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+
+  // Show preview
+  const preview = document.getElementById('camPreview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+
+  setStatus('loading', '📷 Reading your dice with AI…');
+
+  // Convert to base64
+  const base64 = await new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result.split(',')[1]);
+    reader.onerror = () => rej(new Error('Read failed'));
+    reader.readAsDataURL(file);
+  });
+
+  const mediaType = file.type || 'image/jpeg';
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mediaType, data: base64 }
+            },
+            {
+              type: 'text',
+              text: `Look at this photo of dice from a Yum/Yahtzee game.
+Count how many dice you can see and identify the number showing on each die (1-6, based on the dots/pips).
+Respond ONLY with a valid JSON array of integers, one per die, in the order you see them left-to-right.
+Example: [2,4,1,6,3]
+If you cannot clearly identify exactly the dice or their values, respond with: null
+Do not include any explanation or extra text — only the JSON array or null.`
+            }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.content?.[0]?.text?.trim();
+
+    if(!raw || raw === 'null') {
+      setStatus('err', '❌ Could not read dice clearly — try better lighting');
+      return;
+    }
+
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch(e) {
+      // Try to extract array from response
+      const match = raw.match(/\[[\d,\s]+\]/);
+      if(match) parsed = JSON.parse(match[0]);
+      else { setStatus('err', '❌ Could not parse dice values — please set manually'); return; }
+    }
+
+    if(!Array.isArray(parsed) || parsed.length === 0) {
+      setStatus('err', '❌ No dice detected — try again with clearer photo');
+      return;
+    }
+
+    // Validate values are 1-6
+    const valid = parsed.filter(v => Number.isInteger(v) && v >= 1 && v <= 6);
+
+    if(valid.length === 0) {
+      setStatus('err', '❌ Invalid dice values detected');
+      return;
+    }
+
+    // Fill in as many dice as detected (pad/trim to 5)
+    const count = valid.length;
+    for(let i=0;i<5;i++){
+      dice[i] = i < valid.length ? valid[i] : 0;
+      held[i] = false;
+    }
+    rolled = dice.some(v=>v>0);
+
+    renderDice();
+    renderScores();
+
+    if(count === 5) {
+      setStatus('ok', `✅ Detected ${count} dice: ${valid.map(v=>['⚀','⚁','⚂','⚃','⚄','⚅'][v-1]).join(' ')}`);
+    } else {
+      setStatus('ok', `⚠️ Detected ${count} dice — set the rest manually`);
+    }
+
+  } catch(err) {
+    console.error(err);
+    setStatus('err', '❌ Scan failed — check connection and try again');
+  }
+
+  // Reset input so same photo can be re-selected
+  event.target.value = '';
+}
+
+function setStatus(type, msg) {
+  const el = document.getElementById('camStatus');
+  el.textContent = msg;
+  el.className = type;
+}
+
+
+function dieIcon(n) {
+  const pipMap = {
+    1: [[50,50]],
+    2: [[28,28],[72,72]],
+    3: [[28,28],[50,50],[72,72]],
+    4: [[28,28],[72,28],[28,72],[72,72]],
+    5: [[28,28],[72,28],[50,50],[28,72],[72,72]],
+    6: [[28,22],[72,22],[28,50],[72,50],[28,78],[72,78]]
+  };
+  const dots = (pipMap[n]||[]).map(([x,y]) =>
+    '<circle cx="'+x+'" cy="'+y+'" r="8.5" fill="#f0f0f0"/>'
+  ).join('');
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 100 100" style="border-radius:8px;flex-shrink:0;display:block">'
+    + '<rect width="100" height="100" rx="20" fill="#1e8a9e"/>'
+    + dots + '</svg>';
+}
+
+function renderIcon(icon) {
+  if(icon && icon.startsWith('d') && icon.length===2) {
+    return dieIcon(parseInt(icon[1]));
+  }
+  return '<span style="font-size:1.3rem">'+icon+'</span>';
+}
+
+// Init
+renderScores();
+</script>
+</body>
+</html>
