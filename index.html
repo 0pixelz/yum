@@ -115,15 +115,7 @@
     transform: translateY(-4px);
   }
 
-  .die.held::after {
-    content: 'HELD';
-    position: absolute;
-    bottom: -18px;
-    font-size: 0.55rem;
-    font-weight: 800;
-    color: var(--gold);
-    letter-spacing: 1px;
-  }
+
 
   .die-wrap {
     display: flex;
@@ -1780,8 +1772,11 @@ function counts(d) {
 }
 
 function cycleDie(i) {
-  // In multiplayer or vs bot, tapping dice does nothing — use ROLL only
-  if(mpMode || botMode) return;
+  // In multiplayer or vs bot, tapping die toggles hold
+  if(mpMode || botMode) {
+    toggleHold(i);
+    return;
+  }
   dice[i] = dice[i] === 0 ? 1 : (dice[i] % 6) + 1;
   rolled = dice.some(v => v > 0);
   renderDice();
