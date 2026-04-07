@@ -467,11 +467,13 @@
     transition: width 0.4s ease;
   }
 
-  .die-spin { animation: spin 0.3s ease-out; }
-  @keyframes spin {
-    0%   { transform: rotate(0deg) scale(0.7); opacity: 0.5; }
-    60%  { transform: rotate(20deg) scale(1.1); }
-    100% { transform: rotate(0deg) scale(1); opacity: 1; }
+  .die-spin { animation: dieRoll 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  @keyframes dieRoll {
+    0%   { transform: scale(0.55) rotate(-15deg); opacity: 0.3; }
+    40%  { transform: scale(1.18) rotate(8deg);   opacity: 1; }
+    65%  { transform: scale(0.93) rotate(-4deg);  opacity: 1; }
+    85%  { transform: scale(1.05) rotate(2deg);   opacity: 1; }
+    100% { transform: scale(1)    rotate(0deg);   opacity: 1; }
   }
 
   .score-row.suggested {
@@ -851,6 +853,431 @@
   }
   #mpToast.show { opacity: 1; }
 
+
+  /* REACTIONS */
+  .reaction-picker {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 700;
+    background: var(--panel);
+    border-radius: 24px 24px 0 0;
+    padding: 16px 16px 36px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+  }
+  .reaction-picker.open { transform: translateY(0); }
+  .reaction-picker-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1rem; letter-spacing: 3px;
+    color: var(--muted); text-align: center;
+    margin-bottom: 14px;
+  }
+  .reaction-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .reaction-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 10px 6px 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: transform 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .reaction-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.12); }
+  .reaction-btn .r-emoji { font-size: 1.6rem; display: block; margin-bottom: 4px; }
+  .reaction-btn .r-label { font-size: 0.62rem; color: var(--muted); font-weight: 700; letter-spacing: 0.5px; }
+  .reaction-close {
+    width: 100%; padding: 12px;
+    background: rgba(255,255,255,0.06);
+    border: none; border-radius: 12px;
+    color: var(--muted); font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 0.85rem; cursor: pointer;
+  }
+
+  /* FLOATING REACTION BUBBLE */
+  .reaction-bubble {
+    position: fixed;
+    z-index: 800;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 8px 14px;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    animation: bubbleIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards,
+               bubbleOut 0.4s ease-in 2.6s forwards;
+    pointer-events: none;
+    max-width: 220px;
+  }
+  .reaction-bubble .rb-emoji { font-size: 1.5rem; }
+  .reaction-bubble .rb-text  { font-size: 0.8rem; font-weight: 700; color: var(--white); }
+  .reaction-bubble .rb-name  { font-size: 0.7rem; color: var(--muted); }
+
+  @keyframes bubbleIn {
+    0%   { transform: scale(0.4) translateY(20px); opacity: 0; }
+    100% { transform: scale(1)   translateY(0);    opacity: 1; }
+  }
+  @keyframes bubbleOut {
+    0%   { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-16px); }
+  }
+
+
+  .lobby-btn-bot {
+    background: linear-gradient(135deg, #1a1a5e, #2d2d8e);
+    color: white;
+    border: 1px solid rgba(168,85,247,0.5);
+    box-shadow: 0 4px 20px rgba(124,58,237,0.3);
+  }
+
+  /* BOT THINKING INDICATOR */
+  #botThinkBar {
+    display: none;
+    margin: 0 12px 10px;
+    background: var(--card);
+    border: 1px solid rgba(168,85,247,0.3);
+    border-radius: 12px;
+    padding: 10px 14px;
+    align-items: center;
+    gap: 10px;
+  }
+  .bot-dots span {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #a855f7;
+    margin: 0 2px;
+    animation: botDot 1.2s infinite ease-in-out;
+  }
+  .bot-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .bot-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes botDot {
+    0%,80%,100% { transform: scale(0.6); opacity:0.4; }
+    40%          { transform: scale(1.2); opacity:1; }
+  }
+
+
+  /* OPPONENT SCORECARD VIEWER */
+  #oppViewer {
+    position: fixed; inset: 0; z-index: 700;
+    background: rgba(0,0,0,0.7);
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  #oppViewer.open { display: flex; }
+  .opp-sheet {
+    background: var(--bg);
+    width: 100%; max-width: 480px;
+    max-height: 88vh;
+    border-radius: 24px 24px 0 0;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.34,1.2,0.64,1);
+    padding-bottom: 30px;
+  }
+  #oppViewer.open .opp-sheet { transform: translateY(0); }
+  .opp-header {
+    position: sticky; top: 0;
+    background: var(--panel);
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 12px;
+    z-index: 2;
+  }
+  .opp-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg,#7c3aed,#a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; flex-shrink: 0;
+  }
+  .opp-hname { font-weight: 800; font-size: 1rem; color: var(--white); }
+  .opp-hscore { font-family:'Bebas Neue',cursive; font-size:1.3rem; color:var(--gold); }
+  .opp-close {
+    margin-left: auto; background: none; border: none;
+    color: var(--muted); font-size: 1.4rem; cursor: pointer; padding: 4px 8px;
+  }
+  .opp-section-title {
+    font-family:'Bebas Neue',cursive; font-size:1rem;
+    letter-spacing:3px; color:var(--accent);
+    padding: 12px 16px 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .opp-score-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .opp-score-row:last-child { border-bottom: none; }
+  .opp-row-icon { width:34px; text-align:center; flex-shrink:0; }
+  .opp-row-info { flex:1; }
+  .opp-row-name { font-weight:700; font-size:0.9rem; }
+  .opp-row-dice {
+    font-size:0.75rem; color:var(--muted); margin-top:2px;
+    display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+  }
+  .opp-die-chip {
+    background: rgba(255,255,255,0.08);
+    border-radius:6px; padding:2px 6px;
+    font-size:1rem; line-height:1.3;
+  }
+  .opp-row-val { font-family:'Bebas Neue',cursive; font-size:1.4rem; color:var(--gold); }
+  .opp-row-empty { color:rgba(255,255,255,0.2); font-size:0.85rem; }
+  .opp-pct-bar {
+    height:4px; background:rgba(255,255,255,0.07);
+    border-radius:10px; margin-top:4px; overflow:hidden;
+  }
+  .opp-pct-fill { height:100%; border-radius:10px; }
+  .opp-bonus-row {
+    margin: 8px 12px;
+    background: rgba(78,205,196,0.08);
+    border: 1px solid rgba(78,205,196,0.2);
+    border-radius: 10px; padding: 10px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+
+  /* GAME OVER POPUP */
+  #gameOverlay {
+    position: fixed; inset: 0; z-index: 900;
+    background: rgba(0,0,0,0.85);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #gameOverlay.open { display: flex; }
+  .gameover-box {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 32px 24px 28px;
+    width: 100%; max-width: 360px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn {
+    0%   { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1);   opacity: 1; }
+  }
+  .gameover-trophy { font-size: 4rem; margin-bottom: 8px; display: block; }
+  .gameover-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 2.2rem; letter-spacing: 4px;
+    margin-bottom: 4px;
+  }
+  .gameover-winner {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.6rem; letter-spacing: 2px;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(245,166,35,0.5);
+    margin-bottom: 16px;
+  }
+  .gameover-scores {
+    background: rgba(255,255,255,0.05);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 22px;
+  }
+  .gameover-score-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .gameover-score-row:last-child { border-bottom: none; }
+  .gameover-score-name { font-weight: 700; font-size: 0.95rem; }
+  .gameover-score-val {
+    font-family: 'Bebas Neue', cursive; font-size: 1.4rem; color: var(--gold);
+  }
+  .gameover-btns { display: flex; flex-direction: column; gap: 10px; }
+  .gameover-btn {
+    padding: 14px; border-radius: 50px; border: none;
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    font-size: 1rem; letter-spacing: 1px; cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .gameover-btn:active { transform: scale(0.97); }
+  .gameover-btn-rematch {
+    background: linear-gradient(135deg, var(--accent), #c0392b);
+    color: white; box-shadow: 0 4px 20px rgba(233,69,96,0.4);
+  }
+  .gameover-btn-quit {
+    background: rgba(255,255,255,0.07);
+    color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+
+  /* SESSION HISTORY */
+  #sessionBtn {
+    display: none;
+    position: fixed; bottom: 24px; right: 16px;
+    z-index: 400;
+    background: linear-gradient(135deg, var(--panel), #1a1a5e);
+    border: 1px solid rgba(245,166,35,0.4);
+    border-radius: 50px;
+    padding: 10px 18px;
+    color: var(--gold);
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1rem; letter-spacing: 2px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    display: none; align-items: center; gap: 8px;
+  }
+  .session-badge {
+    background: var(--accent);
+    color: white; font-size: 0.7rem; font-weight: 800;
+    border-radius: 50%; width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* SESSION OVERLAY */
+  #sessionOverlay {
+    position: fixed; inset: 0; z-index: 800;
+    background: rgba(0,0,0,0.85);
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  #sessionOverlay.open { display: flex; }
+  .session-sheet {
+    background: var(--bg);
+    width: 100%; max-width: 480px;
+    max-height: 90vh;
+    border-radius: 24px 24px 0 0;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.34,1.2,0.64,1);
+    padding-bottom: 40px;
+  }
+  #sessionOverlay.open .session-sheet { transform: translateY(0); }
+  .session-header {
+    position: sticky; top: 0;
+    background: var(--panel);
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 10px;
+    z-index: 2;
+  }
+  .session-header-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.4rem; letter-spacing: 3px; color: var(--gold); flex: 1;
+  }
+  .session-close {
+    background: none; border: none; color: var(--muted);
+    font-size: 1.4rem; cursor: pointer; padding: 4px 8px;
+  }
+
+  /* GAME TAB SELECTOR */
+  .session-tabs {
+    display: flex; overflow-x: auto; gap: 8px;
+    padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.07);
+    scrollbar-width: none;
+  }
+  .session-tabs::-webkit-scrollbar { display: none; }
+  .session-tab {
+    flex-shrink: 0;
+    padding: 8px 16px; border-radius: 50px;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    background: transparent; color: var(--muted);
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    font-size: 0.82rem; cursor: pointer; letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+  .session-tab.active {
+    background: var(--gold); border-color: var(--gold);
+    color: #111;
+  }
+
+  /* SESSION LEADERBOARD SUMMARY */
+  .session-summary {
+    margin: 12px; background: var(--card);
+    border-radius: 14px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .session-summary-title {
+    font-family: 'Bebas Neue', cursive; font-size: 1rem;
+    letter-spacing: 3px; color: var(--green);
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .session-summary-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .session-summary-row:last-child { border-bottom: none; }
+  .ssrow-rank { font-family:'Bebas Neue',cursive; font-size:1.3rem; color:rgba(255,255,255,0.2); width:22px; }
+  .ssrow-name { flex:1; font-weight:700; font-size:0.9rem; }
+  .ssrow-wins { font-size:0.75rem; color:var(--green); font-weight:700; }
+  .ssrow-total { font-family:'Bebas Neue',cursive; font-size:1.4rem; color:var(--gold); }
+
+  /* GAME SCORECARD IN SESSION */
+  .session-game-card {
+    margin: 12px; background: var(--card);
+    border-radius: 14px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .sgc-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.03);
+  }
+  .sgc-title { font-family:'Bebas Neue',cursive; font-size:1rem; letter-spacing:2px; color:var(--muted); }
+  .sgc-winner { font-size:0.8rem; font-weight:800; color:var(--gold); }
+  .sgc-table { width:100%; border-collapse:collapse; }
+  .sgc-table th {
+    padding: 6px 10px; font-size:0.7rem; letter-spacing:1px;
+    color:var(--muted); font-weight:700; text-align:left;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .sgc-table th:not(:first-child) { text-align:center; }
+  .sgc-table td {
+    padding: 7px 10px; font-size:0.82rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+  }
+  .sgc-table td:not(:first-child) { text-align:center; }
+  .sgc-table tr:last-child td { border-bottom: none; }
+  .sgc-cat-name { font-weight:600; font-size:0.82rem; color:var(--white); }
+  .sgc-val { font-family:'Bebas Neue',cursive; font-size:1.1rem; }
+  .sgc-val.best { color:var(--gold); }
+  .sgc-val.zero { color:rgba(255,255,255,0.2); }
+  .sgc-val.empty { color:rgba(255,255,255,0.15); font-size:0.75rem; }
+  .sgc-total-row td { background:rgba(255,255,255,0.04); font-weight:800; }
+
+
+  #confirmModal {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  #confirmModal.open { display: flex; }
+  .confirm-box {
+    background: var(--card); border-radius: 20px;
+    padding: 28px 24px; width: 100%; max-width: 320px;
+    text-align: center; border: 1px solid rgba(255,255,255,0.1);
+    animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .confirm-icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .confirm-msg { font-weight: 700; font-size: 1rem; margin-bottom: 20px; color: var(--white); }
+  .confirm-btns { display: flex; gap: 10px; }
+  .confirm-yes {
+    flex: 1; padding: 13px; border-radius: 50px; border: none;
+    background: linear-gradient(135deg, var(--accent), #c0392b);
+    color: white; font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 0.95rem; cursor: pointer;
+  }
+  .confirm-no {
+    flex: 1; padding: 13px; border-radius: 50px;
+    background: rgba(255,255,255,0.07); color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.12);
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    font-size: 0.95rem; cursor: pointer;
+  }
+
 </style>
 
   <!-- PWA -->
@@ -974,7 +1401,12 @@
     style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem">
   <button class="lobby-btn lobby-btn-join" onclick="joinGame()">👥 JOIN GAME</button>
   <div class="lobby-divider">— OR —</div>
-  <button class="lobby-btn lobby-btn-solo" onclick="startSolo()">🎲 PLAY SOLO</button>
+  <button class="lobby-btn lobby-btn-bot" onclick="startVsBot()">🤖 PLAY VS BOT</button>
+  <div class="lobby-divider">— OR —</div>
+  <button class="lobby-btn lobby-btn-solo" onclick="startSolo()">🎲 PRACTICE MODE</button>
+  <div style="font-size:0.72rem;color:var(--muted);text-align:center;margin-top:-4px;max-width:320px">
+    Set dice manually · scan · get predictions · no rules
+  </div>
 </div>
 
 <!-- WAITING ROOM -->
@@ -1047,7 +1479,6 @@
   <div class="die-label">👆 Tap die to set value &nbsp;·&nbsp; HOLD to lock it</div>
   <div class="dice-controls">
     <button class="btn btn-roll" onclick="rollDice()">ROLL</button>
-    <button class="btn btn-clear" onclick="clearDice()">CLEAR</button>
     <button class="predict-btn" id="predictBtn" onclick="runPrediction()" disabled>🔮 PREDICT</button>
     <label class="btn-camera" for="camInput" style="display:inline-block;text-align:center">📷 SCAN</label>
     <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="handleCamImage(event)">
@@ -1064,6 +1495,17 @@
   <div class="pred-note">Based on 500 Monte Carlo simulations per option · unfilled categories only</div>
 </div>
 
+
+<!-- BOT THINKING BAR -->
+<div id="botThinkBar" style="display:none;margin:0 12px 10px;background:var(--card);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:10px 14px;align-items:center;gap:10px">
+  <span style="font-size:1.3rem">🤖</span>
+  <div style="flex:1">
+    <div style="font-weight:800;font-size:0.85rem;color:#c084fc" id="botThinkMsg">Bot is thinking…</div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:2px">Calculating best move</div>
+  </div>
+  <div class="bot-dots"><span></span><span></span><span></span></div>
+</div>
+
 <!-- SCORE SECTION -->
 <div class="score-section" id="scoreSection"></div>
 
@@ -1076,7 +1518,7 @@
     </div>
     <div class="total-value" id="grandTotal">0</div>
   </div>
-  <button class="new-game-btn" onclick="confirmNewGame()">🔄 NEW GAME</button>
+  <button class="new-game-btn" onclick="confirmNewGame()" id="newGameBtn">🚪 RETURN TO LOBBY</button>
 </div>
 
 <!-- MODAL -->
@@ -1133,7 +1575,8 @@ function counts(d) {
 }
 
 function cycleDie(i) {
-  // Tap to cycle: blank→1→2→3→4→5→6→1 (wraps)
+  // In multiplayer or vs bot, tapping dice does nothing — use ROLL only
+  if(mpMode || botMode) return;
   dice[i] = dice[i] === 0 ? 1 : (dice[i] % 6) + 1;
   rolled = dice.some(v => v > 0);
   renderDice();
@@ -1141,13 +1584,21 @@ function cycleDie(i) {
 }
 
 function rollDice() {
+  if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
+  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
   if(rollsLeft <= 0) return;
   dice = dice.map((v,i) => held[i] ? v : Math.floor(Math.random()*6)+1);
   rolled = true;
   rollsLeft--;
-  renderDice();
+  renderDice(true);
   renderScores();
   document.getElementById('rollCount').textContent = `Rolls: ${3-rollsLeft} / 3`;
+  // Sync dice to Firebase for opponents to see
+  if(mpMode && roomRef) {
+    roomRef.child('players/' + playerId + '/liveDice').set({
+      dice: dice, held: held, roll: 3 - rollsLeft, ts: Date.now()
+    });
+  }
 }
 
 function clearDice() {
@@ -1161,19 +1612,33 @@ function clearDice() {
 }
 
 function toggleHold(i) {
+  if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
+  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
   if(dice[i] === 0) return;
   held[i] = !held[i];
   renderDice();
+  // Sync hold state so opponents see which dice are locked
+  if(mpMode && roomRef) {
+    roomRef.child('players/' + playerId + '/liveDice').set({
+      dice: dice, held: held, roll: 3 - rollsLeft, ts: Date.now()
+    });
+  }
 }
 
-function renderDice() {
+let lastRolledMask = 0b11111; // track which dice were just rolled (all by default)
+
+function renderDice(justRolled) {
   const row = document.getElementById('diceRow');
   dice.forEach((v,i) => {
     const el = row.querySelector(`[data-i="${i}"]`);
     const face = v > 0 ? DICE_FACES[v-1] : '–';
-    if(el.textContent !== face) {
+    // Always animate if this die was part of a roll (justRolled flag)
+    // OR if the face changed (e.g. manual cycle)
+    const wasRolled = justRolled && !held[i];
+    const faceChanged = el.textContent !== face;
+    if(wasRolled || faceChanged) {
       el.classList.remove('die-spin');
-      void el.offsetWidth;
+      void el.offsetWidth; // force reflow
       el.classList.add('die-spin');
     }
     el.textContent = face;
@@ -1256,6 +1721,7 @@ function renderScores() {
 
   sec.innerHTML = html;
   updateTotals(upperTotal, bonusEarned);
+  if(botMode) renderBotLeaderboard();
 }
 
 function updateTotals(upperTotal, bonusEarned) {
@@ -1279,24 +1745,68 @@ function openModal(id) {
   document.getElementById('modalHint').textContent = cat.hint;
   document.getElementById('deleteBtn').style.display = val !== undefined ? 'block' : 'none';
 
-  // Build quick-select buttons
   const qs = document.getElementById('quickScores');
   let btns = '';
 
-  if(rolled && dice[0]>0) {
-    const suggested = cat.calc(dice);
-    btns += `<button class="quick-btn ${val===suggested?'active':''}" onclick="selectScore(${suggested})">🎲 ${suggested} (current roll)</button>`;
+  const allSet = dice.every(v => v > 0);
+
+  if(allSet) {
+    const rolled_score = cat.calc(dice);
+    const pct = Math.round((rolled_score / cat.max) * 100);
+    const diceIcons = dice.map(v => ['⚀','⚁','⚂','⚃','⚄','⚅'][v-1]).join(' ');
+    btns += `
+      <div style="width:100%;margin-bottom:8px">
+        <button class="quick-btn ${val===rolled_score?'active':''}"
+          onclick="selectScore(${rolled_score})"
+          style="width:100%;text-align:left;padding:14px 16px;font-size:1rem;border-radius:12px;
+                 background:rgba(78,205,196,0.12);border-color:rgba(78,205,196,0.4)">
+          <div style="font-size:1.1rem;margin-bottom:4px">${diceIcons}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--green)">Score ${rolled_score} pts</span>
+            <span style="font-size:0.75rem;color:var(--muted)">${pct}% of max</span>
+          </div>
+        </button>
+      </div>`;
+    // Strike option — always available
+    const strikeLabel = rolled_score === 0
+      ? '✕ Strike (0 pts) — no matching dice'
+      : '✕ Strike (0 pts)';
+    btns += `
+      <div style="width:100%;margin-top:${rolled_score===0?'0':'0'}px">
+        <button class="quick-btn ${val===0?'active':''}"
+          onclick="selectScore(0)"
+          style="width:100%;text-align:left;padding:12px 16px;border-radius:12px;
+                 background:rgba(233,69,96,0.08);border-color:rgba(233,69,96,0.3)">
+          <span style="color:var(--accent)">${strikeLabel}</span>
+          <span style="font-size:0.72rem;color:var(--muted);display:block;margin-top:2px">
+            Scratch this category — can't use it again
+          </span>
+        </button>
+      </div>`;
+    selectedScore = val !== undefined ? val : rolled_score; // default to current roll
+  } else {
+    // Dice not fully set — only show strike option
+    btns += `
+      <div style="color:var(--muted);font-size:0.85rem;margin-bottom:12px;text-align:center">
+        🎲 Roll your dice first to see your score
+      </div>
+      <div style="width:100%">
+        <button class="quick-btn ${val===0?'active':''}"
+          onclick="selectScore(0)"
+          style="width:100%;text-align:left;padding:12px 16px;border-radius:12px;
+                 background:rgba(233,69,96,0.08);border-color:rgba(233,69,96,0.3)">
+          <span style="color:var(--accent)">✕ Strike (0 pts)</span>
+          <span style="font-size:0.72rem;color:var(--muted);display:block;margin-top:2px">
+            Scratch this category — can't use it again
+          </span>
+        </button>
+      </div>`;
+    selectedScore = val !== undefined ? val : null;
   }
 
-  const opts = new Set();
-  for(let i=0;i<=cat.max;i++) opts.add(i);
-  [...opts].forEach(v => {
-    if(rolled && dice[0]>0 && v===cat.calc(dice)) return; // already shown
-    btns += `<button class="quick-btn ${val===v?'active':''}" onclick="selectScore(${v})">${v}</button>`;
-  });
-
   qs.innerHTML = btns;
-  selectedScore = val !== undefined ? val : null;
+  // Auto-highlight currently saved value
+  if(val !== undefined) selectedScore = val;
 
   const backdrop = document.getElementById('modalBackdrop');
   backdrop.classList.add('open');
@@ -1314,6 +1824,10 @@ function confirmScore() {
   clearDice();
   closeModalEl();
   renderScores();
+  // Scroll back to top
+  setTimeout(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, 150);
 }
 
 function deleteScore() {
@@ -1332,12 +1846,19 @@ function closeModalEl() {
 }
 
 function confirmNewGame() {
-  if(Object.keys(scores).length > 0) {
-    if(!confirm('Start a new game? Your scores will be cleared.')) return;
+  if(mpMode) {
+    showConfirm('Are you sure you want to leave the game?', 'Yes, leave', leaveGame);
+    return;
   }
+  if(botMode) {
+    showConfirm('Are you sure you want to quit the game?', 'Yes, quit', quitGame);
+    return;
+  }
+  // Practice mode — go back to lobby
   scores = {};
   clearDice();
   renderScores();
+  document.getElementById('lobbyOverlay').style.display = 'flex';
 }
 
 
@@ -1516,13 +2037,18 @@ function runPrediction() {
 
 // Enable/disable predict button whenever dice change
 const _origRenderDice = renderDice;
-renderDice = function(){
-  _origRenderDice();
+renderDice = function(justRolled){
+  _origRenderDice(justRolled);
   const btn = document.getElementById('predictBtn');
   if(btn) btn.disabled = !dice.every(v=>v>0);
   if(!dice.every(v=>v>0)){
     document.getElementById('predPanel').style.display='none';
   }
+  // Hide tap label and scan button in multiplayer/bot
+  const dieLabel = document.querySelector('.die-label');
+  const scanLabel = document.querySelector('label[for="camInput"]');
+  if(dieLabel) dieLabel.style.display = (mpMode || botMode) ? 'none' : '';
+  if(scanLabel) scanLabel.style.display = (mpMode || botMode) ? 'none' : '';
 };
 
 
@@ -1787,11 +2313,24 @@ function listenRoom() {
     // Sync my scores from DB
     if(data.started && allPlayers[playerId]) {
       const dbScores = allPlayers[playerId].scores || {};
-      // Only update if different
       if(JSON.stringify(dbScores) !== JSON.stringify(scores)) {
         scores = dbScores;
         renderScores();
       }
+    }
+
+    // Show opponent's live dice when it's not our turn
+    if(data.started && currentTurnId && currentTurnId !== playerId) {
+      const oppLive = allPlayers[currentTurnId]?.liveDice;
+      if(oppLive && oppLive.dice) {
+        showOpponentDiceInRoller(oppLive, allPlayers[currentTurnId]?.name || 'Opponent');
+      } else {
+        // Opponent hasn't rolled yet — show waiting state
+        showOpponentWaiting(allPlayers[currentTurnId]?.name || 'Opponent');
+      }
+    } else if(data.started && currentTurnId === playerId) {
+      // It's our turn — restore normal dice UI
+      restoreMyDiceUI();
     }
   });
 }
@@ -1841,10 +2380,13 @@ function renderLeaderboard() {
     const filled = Object.keys(sc).length;
     const isMe = id === playerId;
     const isTurn = id === currentTurnId;
-    return `<div class="lb-row ${isMe?'me':''}">
+    const tapAction = isMe
+      ? `openReactionPicker('${id}')`
+      : `openOppViewer('${id}','${p.name.replace(/'/g,"\\'")}', JSON.parse('${JSON.stringify(p.scores||{})}'), {})`;
+    return `<div class="lb-row ${isMe?'me':''}" onclick="${tapAction}" style="cursor:pointer">
       <div class="lb-rank">${i+1}</div>
       ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
-      <div class="lb-name">${p.name}${isMe?' (you)':''}</div>
+      <div class="lb-name">${p.name}${isMe?' 👆':'<span style="font-size:0.65rem;color:var(--muted)"> 👁 view</span>'}</div>
       <div class="lb-filled">${filled}/13</div>
       <div class="lb-score">${total}</div>
     </div>`;
@@ -1861,6 +2403,8 @@ function calcTotal(sc) {
 
 function advanceTurn() {
   if(!mpMode || !roomRef) return;
+  // Clear our live dice
+  roomRef.child('players/' + playerId + '/liveDice').remove();
   const playerOrder = Object.entries(allPlayers).sort((a,b)=>a[1].joined-b[1].joined).map(e=>e[0]);
   const idx = playerOrder.indexOf(currentTurnId);
   const nextId = playerOrder[(idx+1) % playerOrder.length];
@@ -1871,6 +2415,27 @@ function advanceTurn() {
 function pushScoresToDb() {
   if(!mpMode || !roomRef) return;
   roomRef.child('players/' + playerId + '/scores').set(scores);
+  // Check if all players have filled all 13 categories
+  const allDone = Object.values(allPlayers).every(p =>
+    Object.keys(p.scores || {}).length >= categories.length
+  );
+  // Also check local player
+  if(Object.keys(scores).length >= categories.length) {
+    // Refresh allPlayers locally for this check
+    const localDone = Object.entries(allPlayers).every(([id, p]) => {
+      const sc = id === playerId ? scores : (p.scores || {});
+      return Object.keys(sc).length >= categories.length;
+    });
+    if(localDone) setTimeout(showMpGameOver, 800);
+  }
+}
+
+function showMpGameOver() {
+  const players = Object.entries(allPlayers).map(([id, p]) => {
+    const sc = id === playerId ? scores : (p.scores || {});
+    return { name: p.name, score: calcTotal(sc), isMe: id === playerId };
+  }).sort((a,b) => b.score - a.score);
+  showGameOver(players);
 }
 
 function showToast(msg) {
@@ -1882,17 +2447,824 @@ function showToast(msg) {
 // Patch confirmScore to push to Firebase and advance turn
 const _origConfirmScore = confirmScore;
 confirmScore = function() {
+  if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
   _origConfirmScore();
   if(mpMode) {
-    if(currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
     pushScoresToDb();
     advanceTurn();
     clearDice();
   }
 };
 
+
+// ─── REACTIONS ──────────────────────────────────────────────────────
+const REACTIONS = [
+  { emoji: '👍', label: 'Nice one!' },
+  { emoji: '🔥', label: 'On fire!' },
+  { emoji: '😂', label: 'Ha!' },
+  { emoji: '🎲', label: 'Roll it!' },
+  { emoji: '🏆', label: 'Champion!' },
+  { emoji: '😬', label: 'Yikes…' },
+  { emoji: '👏', label: 'Good job!' },
+  { emoji: '💀', label: 'Dead!' },
+  { emoji: '🤞', label: 'Good luck!' },
+  { emoji: '😎', label: 'Too easy' },
+  { emoji: '🎯', label: 'Bull\'s eye!' },
+  { emoji: '⏰', label: 'Hurry up!' },
+  { emoji: '🥳', label: 'Party time!' },
+  { emoji: '😤', label: 'Intense!' },
+  { emoji: '🤙', label: 'Let\'s go!' },
+  { emoji: '💪', label: 'Strong!' },
+];
+
+let reactionTargetId = null;
+
+function openReactionPicker(targetId) {
+  if(!mpMode) return;
+  reactionTargetId = targetId;
+  // Build grid
+  const grid = document.getElementById('reactionGrid');
+  grid.innerHTML = REACTIONS.map((r,i) =>
+    `<button class="reaction-btn" onclick="sendReaction(${i})">
+      <span class="r-emoji">${r.emoji}</span>
+      <span class="r-label">${r.label}</span>
+    </button>`
+  ).join('');
+  document.getElementById('reactionPicker').classList.add('open');
+}
+
+function closeReactionPicker() {
+  document.getElementById('reactionPicker').classList.remove('open');
+  reactionTargetId = null;
+}
+
+function sendReaction(idx) {
+  if(!roomRef) return;
+  const r = REACTIONS[idx];
+  const toName = allPlayers[reactionTargetId]?.name || 'everyone';
+  roomRef.child('reactions').push({
+    from: playerId,
+    fromName: playerName,
+    to: reactionTargetId,
+    toName: toName,
+    emoji: r.emoji,
+    label: r.label,
+    ts: Date.now()
+  });
+  closeReactionPicker();
+}
+
+function listenReactions() {
+  if(!roomRef) return;
+  // Only listen to reactions sent TO me or FROM me (last 30s)
+  roomRef.child('reactions').orderByChild('ts').startAt(Date.now()).on('child_added', snap => {
+    const r = snap.val();
+    if(!r) return;
+    // Show bubble if it's directed at me or from someone to anyone
+    showReactionBubble(r);
+  });
+}
+
+function showReactionBubble(r) {
+  const container = document.getElementById('reactionBubbleContainer');
+  const div = document.createElement('div');
+  div.className = 'reaction-bubble';
+
+  const isToMe = r.to === playerId;
+  const isFromMe = r.from === playerId;
+  const toText = isToMe ? 'you' : r.toName;
+  const fromText = isFromMe ? 'You' : r.fromName;
+
+  div.innerHTML = `
+    <div class="rb-emoji">${r.emoji}</div>
+    <div>
+      <div class="rb-text">${r.label}</div>
+      <div class="rb-name">${fromText} → ${toText}</div>
+    </div>`;
+
+  // Position randomly near top-center
+  div.style.top = (80 + Math.random() * 80) + 'px';
+  div.style.left = '50%';
+  div.style.transform = 'translateX(-50%)';
+
+  container.appendChild(div);
+  setTimeout(() => div.remove(), 3200);
+}
+
+// Patch listenRoom to also start reaction listener when game starts
+const _origListenRoom = listenRoom;
+listenRoom = function() {
+  _origListenRoom();
+  // We'll start reaction listener after game starts
+  const checkStarted = db.ref('rooms/' + roomCode + '/started').on('value', snap => {
+    if(snap.val() === true) listenReactions();
+  });
+};
+
+
+// ─── VS BOT ─────────────────────────────────────────────────────────
+let botMode = false;
+let botScores = {};
+let botName = '🤖 Bot';
+let playerTurn = true; // true = human, false = bot
+let botThinkTimeout = null;
+
+function startVsBot() {
+  const name = document.getElementById('playerName').value.trim();
+  if(!name) { showLobbyErr('Enter your name first!'); return; }
+  playerName = name;
+  botMode = true;
+  playerTurn = true;
+  botScores = {};
+  scores = {};
+  document.getElementById('lobbyOverlay').style.display = 'none';
+  document.getElementById('leaderboard').style.display = 'block';
+  renderBotLeaderboard();
+  renderScores();
+  showToast('🎲 Your turn first! Good luck!');
+}
+
+function renderBotLeaderboard() {
+  if(!botMode) return;
+  const pTotal = calcTotal(scores);
+  const bTotal = calcTotal(botScores);
+  const pFilled = Object.keys(scores).length;
+  const bFilled = Object.keys(botScores).length;
+  const pLeading = pTotal >= bTotal;
+
+  document.getElementById('lbRows').innerHTML = `
+    <div class="lb-row me" style="cursor:default">
+      <div class="lb-rank">${pLeading?'1':'2'}</div>
+      <div style="width:8px"></div>
+      <div class="lb-name">${playerName} ${playerTurn?'🎲':''}</div>
+      <div class="lb-filled">${pFilled}/13</div>
+      <div class="lb-score">${pTotal}</div>
+    </div>
+    <div class="lb-row" style="cursor:pointer;background:rgba(168,85,247,0.07)" onclick="openOppViewer('bot','${botName}',botScores,botScoreDice)">
+      <div class="lb-rank">${pLeading?'2':'1'}</div>
+      <div style="width:8px"></div>
+      <div class="lb-name">${botName} ${!playerTurn?'🎲':''} <span style="font-size:0.65rem;color:var(--muted)">👁 tap</span></div>
+      <div class="lb-filled">${bFilled}/13</div>
+      <div class="lb-score">${bTotal}</div>
+    </div>`;
+}
+
+// Bot brain: pick best category + hold pattern using greedy sim
+function botChooseBestMove() {
+  const unfilledCats = categories.filter(c => botScores[c.id] === undefined);
+  if(unfilledCats.length === 0) return null;
+
+  let bestCat = null, bestExp = -1, bestHeld = [0,0,0,0,0];
+
+  for(const cat of unfilledCats) {
+    for(let mask = 0; mask < 32; mask++) {
+      const initHeld = botDice.map((v,i) => ((mask>>i)&1) ? v : 0);
+      let total = 0;
+      const N = 80;
+      for(let sim = 0; sim < N; sim++) {
+        let d = initHeld.map(v => v === 0 ? randDie() : v);
+        const h2 = greedyHoldForCat(d, cat.id);
+        d = d.map((v,j) => h2[j] ? v : randDie());
+        total += cat.calc(d);
+      }
+      const exp = total / N;
+      if(exp > bestExp) { bestExp = exp; bestCat = cat; bestHeld = initHeld; }
+    }
+  }
+  return { cat: bestCat, held: bestHeld, exp: bestExp };
+}
+
+let botDice = [1,1,1,1,1];
+
+function botTakeTurn() {
+  if(!botMode || playerTurn) return;
+  const bar = document.getElementById('botThinkBar');
+  bar.style.display = 'flex';
+
+  // Show bot is in control of the dice area
+  showBotDiceOverlay(true);
+
+  // Roll 1 — roll all 5
+  setTimeout(() => {
+    botDice = [0,0,0,0,0].map(() => randDie());
+    botHeld = [false,false,false,false,false];
+    document.getElementById('botThinkMsg').textContent = '🤖 Roll 1 of 3…';
+    showBotDiceInRoller(botDice, botHeld, true);
+
+    // Decide hold after roll 1
+    setTimeout(() => {
+      const move1 = botChooseBestMove();
+      if(!move1) { finishBotTurn(null); return; }
+      // Show which dice bot is holding
+      botHeld = move1.held.map(v => v !== 0);
+      document.getElementById('botThinkMsg').textContent = '🤖 Holding ' + botHeld.filter(Boolean).length + ' dice…';
+      showBotDiceInRoller(botDice, botHeld, false);
+
+      // Roll 2
+      setTimeout(() => {
+        botDice = move1.held.map((v,i) => v === 0 ? randDie() : v);
+        const move2 = botChooseBestMove();
+        botHeld = move2 ? move2.held.map(v => v !== 0) : [true,true,true,true,true];
+        document.getElementById('botThinkMsg').textContent = '🤖 Roll 2 of 3…';
+        showBotDiceInRoller(botDice, botHeld, true);
+
+        setTimeout(() => {
+          document.getElementById('botThinkMsg').textContent = '🤖 Holding ' + botHeld.filter(Boolean).length + ' dice…';
+          showBotDiceInRoller(botDice, botHeld, false);
+
+          // Roll 3
+          setTimeout(() => {
+            if(!move2) { finishBotTurn(null); return; }
+            botDice = move2.held.map((v,i) => v === 0 ? randDie() : v);
+            botHeld = [true,true,true,true,true];
+            document.getElementById('botThinkMsg').textContent = '🤖 Roll 3 of 3…';
+            showBotDiceInRoller(botDice, botHeld, true);
+
+            setTimeout(() => {
+              const finalMove = botChooseBestMove();
+              document.getElementById('botThinkMsg').textContent = '🤖 Scoring…';
+              finishBotTurn(finalMove);
+            }, 900);
+          }, 700);
+        }, 700);
+      }, 800);
+    }, 900);
+  }, 500);
+}
+
+let botHeld = [false,false,false,false,false];
+
+function showBotDiceOverlay(active) {
+  // Add/remove a subtle tint to the dice section
+  const sec = document.querySelector('.dice-section');
+  if(!sec) return;
+  if(active) {
+    sec.style.border = '1.5px solid rgba(168,85,247,0.5)';
+    sec.style.boxShadow = '0 0 20px rgba(168,85,247,0.15)';
+  } else {
+    sec.style.border = '';
+    sec.style.boxShadow = '';
+  }
+}
+
+function showBotDiceInRoller(d, heldArr, justRolled) {
+  // Temporarily override the dice display with bot's dice
+  dice = d.slice();
+  held = heldArr.slice();
+  renderDice(justRolled);
+  // Update roll count display
+  const rollNum = justRolled ? 1 : 0;
+  document.getElementById('rollCount').textContent =
+    document.getElementById('botThinkMsg').textContent;
+}
+
+function animateBotDice() {
+  // kept for compatibility
+  const diceRow = document.getElementById('diceRow');
+  diceRow.style.opacity = '0.4';
+  setTimeout(() => { diceRow.style.opacity = '1'; }, 200);
+}
+
+function finishBotTurn(move) {
+  if(!move || !move.cat) {
+    // No move, skip
+    playerTurn = true;
+    renderBotLeaderboard();
+    showToast('🎲 Your turn!');
+    return;
+  }
+
+  // Score it
+  const scored = move.cat.calc(botDice);
+  botScores[move.cat.id] = scored;
+  botScoreDice[move.cat.id] = botDice.slice(); // remember which dice were used
+
+  // Animate score appearing in leaderboard
+  renderBotLeaderboard();
+
+  const msg = scored === move.cat.max
+    ? `🤖 Bot got PERFECT ${scored} on ${move.cat.name}! 😤`
+    : scored === 0
+      ? `🤖 Bot scored 0 on ${move.cat.name}… lucky you!`
+      : `🤖 Bot scored ${scored} on ${move.cat.name}`;
+  showToast(msg);
+
+  // Restore dice area to player control
+  showBotDiceOverlay(false);
+  document.getElementById('botThinkBar').style.display = 'none';
+
+  // Check if bot finished
+  if(Object.keys(botScores).length === categories.length) {
+    clearDice();
+    setTimeout(showBotGameOver, 800);
+    return;
+  }
+
+  playerTurn = true;
+  clearDice();
+  renderBotLeaderboard();
+  setTimeout(() => showToast('🎲 Your turn!'), 1200);
+}
+
+function showBotGameOver() {
+  const pTotal = calcTotal(scores);
+  const bTotal = calcTotal(botScores);
+  const players = [
+    { name: playerName, score: pTotal, isMe: true },
+    { name: botName,    score: bTotal, isMe: false }
+  ].sort((a,b) => b.score - a.score);
+  setTimeout(() => showGameOver(players), 600);
+}
+
+// Patch confirmScore to trigger bot turn after player scores
+const _origConfirmScoreBot = confirmScore;
+confirmScore = function() {
+  if(botMode && !playerTurn) { showToast("Wait for the bot!"); return; }
+  _origConfirmScoreBot();
+  if(botMode) {
+    playerTurn = false;
+    clearDice();
+    renderBotLeaderboard();
+    setTimeout(botTakeTurn, 600);
+  }
+};
+
+// Patch cycleDie/rollDice/toggleHold to block when bot is playing
+const _origCycleDie = cycleDie;
+cycleDie = function(i) {
+  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
+  _origCycleDie(i);
+};
+const _origRollDice = rollDice;
+rollDice = function() {
+  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
+  _origRollDice();
+};
+
+
+// ─── OPPONENT SCORECARD VIEWER ───────────────────────────────────────
+let botScoreDice = {}; // stores dice used per category for bot
+
+function openOppViewer(targetId, targetName, targetScores, targetScoreDice) {
+  const total = calcTotal(targetScores);
+  document.getElementById('oppAvatar').textContent = targetId === 'bot' ? '🤖' : '👤';
+  document.getElementById('oppHName').textContent = targetName;
+  document.getElementById('oppHScore').textContent = total + ' pts';
+
+  const upperIds = ['ones','twos','threes','fours','fives','sixes'];
+  const lowerIds = categories.filter(c=>c.section==='lower').map(c=>c.id);
+
+  function buildRows(ids) {
+    return ids.map(id => {
+      const cat = categories.find(c=>c.id===id);
+      const val = targetScores[id];
+      const filled = val !== undefined;
+      const usedDice = targetScoreDice && targetScoreDice[id];
+      const pct = filled ? Math.round((val/cat.max)*100) : null;
+      const pctColor = pct>=75?'#4ecdc4':pct>=40?'#f5a623':'#e94560';
+
+      const diceHtml = usedDice
+        ? usedDice.map(v=>`<span class="opp-die-chip">${['⚀','⚁','⚂','⚃','⚄','⚅'][v-1]}</span>`).join('')
+        : filled ? '<span style="font-size:0.7rem;opacity:0.4">dice unknown</span>' : '';
+
+      return `<div class="opp-score-row">
+        <div class="opp-row-icon">${renderIcon(cat.icon)}</div>
+        <div class="opp-row-info">
+          <div class="opp-row-name">${cat.name}</div>
+          ${filled ? `
+            <div class="opp-row-dice">${diceHtml}</div>
+            <div class="opp-pct-bar">
+              <div class="opp-pct-fill" style="width:${pct}%;background:${pctColor}"></div>
+            </div>` : '<div style="font-size:0.72rem;color:rgba(255,255,255,0.2);margin-top:2px">not scored yet</div>'}
+        </div>
+        ${filled
+          ? `<div class="opp-row-val">${val}</div>`
+          : '<div class="opp-row-empty">–</div>'}
+      </div>`;
+    }).join('');
+  }
+
+  // Upper bonus
+  const upperTotal = upperIds.reduce((s,id)=>s+(targetScores[id]||0),0);
+  const bonusEarned = upperTotal >= 63;
+
+  const html = `
+    <div class="opp-section-title">UPPER SECTION</div>
+    <div>${buildRows(upperIds)}</div>
+    <div class="opp-bonus-row">
+      <div>
+        <div style="font-weight:800;font-size:0.85rem;color:var(--green)">🎁 UPPER BONUS</div>
+        <div style="font-size:0.72rem;color:var(--muted)">${upperTotal}/63 → +35</div>
+      </div>
+      <div style="font-family:'Bebas Neue',cursive;font-size:1.4rem;color:${bonusEarned?'var(--gold)':'var(--muted)'}">
+        ${bonusEarned?'+35':'–'}
+      </div>
+    </div>
+    <div class="opp-section-title">LOWER SECTION</div>
+    <div>${buildRows(lowerIds)}</div>`;
+
+  document.getElementById('oppSheetContent').innerHTML = html;
+  const viewer = document.getElementById('oppViewer');
+  viewer.style.display = 'flex';
+  requestAnimationFrame(() => viewer.classList.add('open'));
+}
+
+function closeOppViewer(e) {
+  if(e.target === document.getElementById('oppViewer')) closeOppViewerBtn();
+}
+function closeOppViewerBtn() {
+  const viewer = document.getElementById('oppViewer');
+  viewer.classList.remove('open');
+  setTimeout(()=>{ viewer.style.display='none'; }, 350);
+}
+
+
+// ─── OPPONENT LIVE DICE (MULTIPLAYER) ───────────────────────────────
+let myDiceUI = true; // true = showing my dice, false = showing opponent
+
+function showOpponentDiceInRoller(liveDice, oppName) {
+  if(myDiceUI) {
+    // First time switching — save my dice state? No, just show opponent
+    myDiceUI = false;
+    showBotDiceOverlay(true);
+  }
+  // Show opponent's dice in roller
+  const oppDice = liveDice.dice || [0,0,0,0,0];
+  const oppHeld = liveDice.held || [false,false,false,false,false];
+  const rollNum  = liveDice.roll || 1;
+
+  // Temporarily set dice/held for rendering
+  const savedDice = dice.slice();
+  const savedHeld = held.slice();
+  dice = oppDice.slice();
+  held = oppHeld.slice();
+  renderDice(true);
+  dice = savedDice;
+  held = savedHeld;
+
+  document.getElementById('rollCount').textContent =
+    `👤 ${oppName} — Roll ${rollNum} / 3`;
+}
+
+function showOpponentWaiting(oppName) {
+  if(!myDiceUI) return; // already showing something
+  document.getElementById('rollCount').textContent =
+    `⏳ Waiting for ${oppName} to roll…`;
+}
+
+function restoreMyDiceUI() {
+  if(myDiceUI) return; // already mine
+  myDiceUI = true;
+  showBotDiceOverlay(false);
+  renderDice(false);
+  document.getElementById('rollCount').textContent =
+    `Rolls: ${3 - rollsLeft} / 3`;
+}
+
+
+// ─── GAME OVER POPUP ─────────────────────────────────────────────────
+function showGameOver(players) {
+  // players = [{name, score, isMe}] sorted by score desc
+  const winner = players[0];
+  const tied = players.length > 1 && players[0].score === players[1].score;
+
+  document.getElementById('goTrophy').textContent =
+    tied ? '🤝' : winner.isMe ? '🏆' : '😤';
+  document.getElementById('goTitle').textContent =
+    tied ? "IT'S A TIE!" : winner.isMe ? 'YOU WIN!' : 'YOU LOSE!';
+  document.getElementById('goWinner').textContent =
+    tied ? 'Dead even!' : winner.name + ' wins!';
+
+  document.getElementById('goScores').innerHTML = players.map((p,i) =>
+    `<div class="gameover-score-row">
+      <div class="gameover-score-name">${i===0&&!tied?'🥇 ':''}${p.name}${p.isMe?' (you)':''}</div>
+      <div class="gameover-score-val">${p.score}</div>
+    </div>`
+  ).join('');
+
+  // Save full scores to session
+  const playersWithScores = players.map(p => ({
+    ...p,
+    scores: p.isMe ? {...scores} : {...(botMode ? botScores : {})}
+  }));
+  saveGameToSession(playersWithScores);
+  sessionTab = 'game' + sessionGames.length; // default to latest game
+
+  document.getElementById('gameOverlay').classList.add('open');
+}
+
+function rematch() {
+  document.getElementById('gameOverlay').classList.remove('open');
+  if(botMode) {
+    // Reset bot game
+    botScores = {}; botScoreDice = {};
+    scores = {}; playerTurn = true;
+    clearDice();
+    renderScores();
+    renderBotLeaderboard();
+    showToast('🎲 New game! Your turn first!');
+  } else if(mpMode && roomRef) {
+    // Reset all scores in Firebase
+    const resetScores = {};
+    Object.keys(allPlayers).forEach(id => { resetScores[id+'/scores'] = {}; });
+    const firstPlayer = Object.entries(allPlayers).sort((a,b)=>a[1].joined-b[1].joined)[0][0];
+    roomRef.update({ currentTurn: firstPlayer, ...resetScores });
+    scores = {}; clearDice(); renderScores();
+    showToast('🔄 Rematch started!');
+  }
+}
+
+function quitGame() {
+  document.getElementById('gameOverlay').classList.remove('open');
+  if(botMode) {
+    botMode = false; botScores = {}; botScoreDice = {};
+    scores = {}; playerTurn = true;
+    document.getElementById('leaderboard').style.display = 'none';
+    clearDice(); renderScores();
+  } else if(mpMode) {
+    leaveGame();
+  }
+  document.getElementById('lobbyOverlay').style.display = 'flex';
+}
+
+
+// ─── SESSION HISTORY ─────────────────────────────────────────────────
+let sessionGames = []; // [{gameNum, players:[{name,scores,isMe}], winner}]
+let sessionTab = 'summary';
+
+function saveGameToSession(players) {
+  // players = [{name, score, scores, isMe}]
+  const winner = players.slice().sort((a,b)=>b.score-a.score)[0];
+  sessionGames.push({
+    gameNum: sessionGames.length + 1,
+    players: players,
+    winner: winner.name,
+    winnerId: winner.isMe ? 'me' : 'opp'
+  });
+  updateSessionBtn();
+}
+
+function updateSessionBtn() {
+  const btn = document.getElementById('sessionBtn');
+  btn.style.display = sessionGames.length > 0 ? 'flex' : 'none';
+  document.getElementById('sessionBadge').textContent = sessionGames.length;
+}
+
+function openSession() {
+  renderSessionContent();
+  const ov = document.getElementById('sessionOverlay');
+  ov.style.display = 'flex';
+  requestAnimationFrame(() => ov.classList.add('open'));
+}
+
+function closeSession() {
+  const ov = document.getElementById('sessionOverlay');
+  ov.classList.remove('open');
+  setTimeout(() => { ov.style.display = 'none'; }, 350);
+}
+
+function closeSessionOverlay(e) {
+  if(e.target === document.getElementById('sessionOverlay')) closeSession();
+}
+
+function renderSessionContent() {
+  // Build tabs: Summary + each game
+  const tabs = document.getElementById('sessionTabs');
+  tabs.innerHTML = `<button class="session-tab ${sessionTab==='summary'?'active':''}" onclick="setSessionTab('summary')">📊 Summary</button>`
+    + sessionGames.map((g,i) =>
+        `<button class="session-tab ${sessionTab==='game'+g.gameNum?'active':''}"
+          onclick="setSessionTab('game${g.gameNum}')">
+          Game ${g.gameNum}${g.winnerId==='me'?' 🏆':''}
+        </button>`
+      ).join('');
+
+  const cont = document.getElementById('sessionContent');
+
+  if(sessionTab === 'summary') {
+    renderSessionSummary(cont);
+  } else {
+    const gameNum = parseInt(sessionTab.replace('game',''));
+    const game = sessionGames.find(g=>g.gameNum===gameNum);
+    if(game) renderSessionGame(cont, game);
+  }
+}
+
+function setSessionTab(tab) {
+  sessionTab = tab;
+  renderSessionContent();
+}
+
+function renderSessionSummary(cont) {
+  // Tally wins and total scores per player name
+  const stats = {};
+  sessionGames.forEach(g => {
+    g.players.forEach(p => {
+      if(!stats[p.name]) stats[p.name] = { wins:0, totalScore:0, games:0, isMe:p.isMe };
+      stats[p.name].games++;
+      stats[p.name].totalScore += p.score;
+      if(p.name === g.winner) stats[p.name].wins++;
+    });
+  });
+
+  const sorted = Object.entries(stats).sort((a,b)=>b[1].wins-a[1].wins||b[1].totalScore-a[1].totalScore);
+  const medals = ['🥇','🥈','🥉'];
+
+  let html = `<div class="session-summary">
+    <div class="session-summary-title">STANDINGS · ${sessionGames.length} GAME${sessionGames.length!==1?'S':''}</div>`;
+
+  sorted.forEach(([name, s], i) => {
+    html += `<div class="session-summary-row">
+      <div class="ssrow-rank">${medals[i]||i+1}</div>
+      <div>
+        <div class="ssrow-name">${name}${s.isMe?' (you)':''}</div>
+        <div style="font-size:0.7rem;color:var(--muted)">${s.games} game${s.games!==1?'s':''} · avg ${Math.round(s.totalScore/s.games)} pts</div>
+      </div>
+      <div class="ssrow-wins">${s.wins} WIN${s.wins!==1?'S':''}</div>
+      <div class="ssrow-total">${s.totalScore}</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // Mini game results
+  html += `<div style="padding:0 12px 4px">
+    <div style="font-family:'Bebas Neue',cursive;font-size:0.9rem;letter-spacing:3px;color:var(--muted);margin-bottom:8px">RESULTS</div>`;
+  sessionGames.forEach(g => {
+    const sorted = g.players.slice().sort((a,b)=>b.score-a.score);
+    html += `<div style="background:var(--card);border-radius:10px;padding:10px 14px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.06);cursor:pointer" onclick="setSessionTab('game${g.gameNum}')">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-family:'Bebas Neue',cursive;letter-spacing:2px;color:var(--muted)">GAME ${g.gameNum}</span>
+        <span style="font-size:0.75rem;color:var(--gold);font-weight:700">🏆 ${g.winner}</span>
+      </div>
+      ${sorted.map(p=>`<div style="display:flex;justify-content:space-between;font-size:0.85rem">
+        <span style="font-weight:700">${p.name}</span>
+        <span style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:${p.name===g.winner?'var(--gold)':'var(--muted)'}">${p.score}</span>
+      </div>`).join('')}
+    </div>`;
+  });
+  html += '</div>';
+  cont.innerHTML = html;
+}
+
+function renderSessionGame(cont, game) {
+  const playerNames = game.players.map(p=>p.name);
+  const upperIds = ['ones','twos','threes','fours','fives','sixes'];
+  const lowerIds = categories.filter(c=>c.section==='lower').map(c=>c.id);
+  const allIds = [...upperIds, ...lowerIds];
+
+  // Build table: rows=categories, cols=players
+  let html = `<div class="session-game-card">
+    <div class="sgc-header">
+      <div class="sgc-title">GAME ${game.gameNum}</div>
+      <div class="sgc-winner">🏆 ${game.winner}</div>
+    </div>
+    <table class="sgc-table">
+      <thead><tr>
+        <th>Category</th>
+        ${playerNames.map(n=>`<th>${n.length>7?n.substr(0,6)+'…':n}</th>`).join('')}
+      </tr></thead>
+      <tbody>`;
+
+  // Upper section
+  html += `<tr><td colspan="${playerNames.length+1}" style="background:rgba(233,69,96,0.08);padding:5px 10px;font-family:'Bebas Neue',cursive;font-size:0.75rem;letter-spacing:2px;color:var(--accent)">UPPER</td></tr>`;
+
+  upperIds.forEach(id => {
+    const cat = categories.find(c=>c.id===id);
+    const vals = game.players.map(p=>(p.scores||{})[id]);
+    const maxVal = Math.max(...vals.filter(v=>v!==undefined));
+    html += `<tr>
+      <td><div class="sgc-cat-name">${cat.name}</div></td>
+      ${vals.map(v => v===undefined
+        ? `<td><span class="sgc-val empty">–</span></td>`
+        : `<td><span class="sgc-val ${v===maxVal&&maxVal>0?'best':''} ${v===0?'zero':''}">${v}</span></td>`
+      ).join('')}
+    </tr>`;
+  });
+
+  // Bonus row
+  const bonusVals = game.players.map(p => {
+    const ut = upperIds.reduce((s,id)=>s+((p.scores||{})[id]||0),0);
+    return ut >= 63 ? 35 : 0;
+  });
+  html += `<tr style="background:rgba(78,205,196,0.05)">
+    <td><div class="sgc-cat-name" style="color:var(--green)">+Bonus</div></td>
+    ${bonusVals.map(v=>`<td><span class="sgc-val ${v>0?'best':'zero'}">${v>0?'+35':'–'}</span></td>`).join('')}
+  </tr>`;
+
+  // Lower section
+  html += `<tr><td colspan="${playerNames.length+1}" style="background:rgba(233,69,96,0.08);padding:5px 10px;font-family:'Bebas Neue',cursive;font-size:0.75rem;letter-spacing:2px;color:var(--accent)">LOWER</td></tr>`;
+
+  lowerIds.forEach(id => {
+    const cat = categories.find(c=>c.id===id);
+    const vals = game.players.map(p=>(p.scores||{})[id]);
+    const maxVal = Math.max(...vals.filter(v=>v!==undefined));
+    html += `<tr>
+      <td><div class="sgc-cat-name">${cat.name}</div></td>
+      ${vals.map(v => v===undefined
+        ? `<td><span class="sgc-val empty">–</span></td>`
+        : `<td><span class="sgc-val ${v===maxVal&&maxVal>0?'best':''} ${v===0?'zero':''}">${v}</span></td>`
+      ).join('')}
+    </tr>`;
+  });
+
+  // Total row
+  const totals = game.players.map(p=>p.score);
+  const maxTotal = Math.max(...totals);
+  html += `<tr class="sgc-total-row">
+    <td><div style="font-family:'Bebas Neue',cursive;letter-spacing:2px;color:var(--white)">TOTAL</div></td>
+    ${totals.map(t=>`<td><span style="font-family:'Bebas Neue',cursive;font-size:1.3rem;color:${t===maxTotal?'var(--gold)':'var(--muted)'}">${t}</span></td>`).join('')}
+  </tr>`;
+
+  html += '</tbody></table></div>';
+  cont.innerHTML = html;
+}
+
+
+function showConfirm(msg, yesLabel, onYes) {
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmYes').textContent = yesLabel;
+  document.getElementById('confirmYes').onclick = function() { closeConfirm(); onYes(); };
+  document.getElementById('confirmModal').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('confirmModal').classList.remove('open');
+}
+
 // Init
 renderScores();
 </script>
+
+<!-- REACTION PICKER -->
+<div class="reaction-picker" id="reactionPicker">
+  <div class="reaction-picker-title">SEND REACTION</div>
+  <div class="reaction-grid" id="reactionGrid"></div>
+  <button class="reaction-close" onclick="closeReactionPicker()">✕ Close</button>
+</div>
+<div id="reactionBubbleContainer"></div>
+
+
+<!-- OPPONENT SCORECARD VIEWER -->
+<div id="oppViewer" onclick="closeOppViewer(event)">
+  <div class="opp-sheet" id="oppSheet">
+    <div class="opp-header">
+      <div class="opp-avatar" id="oppAvatar">🤖</div>
+      <div>
+        <div class="opp-hname" id="oppHName">Opponent</div>
+        <div class="opp-hscore" id="oppHScore">0 pts</div>
+      </div>
+      <button class="opp-close" onclick="closeOppViewerBtn()">✕</button>
+    </div>
+    <div id="oppSheetContent"></div>
+  </div>
+</div>
+
+
+<!-- GAME OVER POPUP -->
+<div id="gameOverlay">
+  <div class="gameover-box">
+    <span class="gameover-trophy" id="goTrophy">🏆</span>
+    <div class="gameover-title" id="goTitle">GAME OVER</div>
+    <div class="gameover-winner" id="goWinner">—</div>
+    <div class="gameover-scores" id="goScores"></div>
+    <div class="gameover-btns">
+      <button class="gameover-btn gameover-btn-rematch" onclick="rematch()">🔄 REMATCH</button>
+      <button class="gameover-btn" onclick="document.getElementById('gameOverlay').classList.remove('open');openSession()"
+        style="background:rgba(245,166,35,0.12);color:var(--gold);border:1px solid rgba(245,166,35,0.3)">
+        📋 VIEW SCORESHEETS
+      </button>
+      <button class="gameover-btn gameover-btn-quit" onclick="quitGame()">✕ QUIT</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- SESSION BUTTON -->
+<button id="sessionBtn" onclick="openSession()" style="display:none;position:fixed;bottom:24px;right:16px;z-index:400;background:linear-gradient(135deg,var(--panel),#1a1a5e);border:1px solid rgba(245,166,35,0.4);border-radius:50px;padding:10px 18px;color:var(--gold);font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.4);align-items:center;gap:8px">
+  📋 HISTORY <span class="session-badge" id="sessionBadge">0</span>
+</button>
+
+<!-- SESSION OVERLAY -->
+<div id="sessionOverlay" onclick="closeSessionOverlay(event)">
+  <div class="session-sheet">
+    <div class="session-header">
+      <div class="session-header-title">📋 SESSION HISTORY</div>
+      <button class="session-close" onclick="closeSession()">✕</button>
+    </div>
+    <div class="session-tabs" id="sessionTabs"></div>
+    <div id="sessionContent"></div>
+  </div>
+</div>
+
+
+<div id="confirmModal">
+  <div class="confirm-box">
+    <div class="confirm-icon">🚪</div>
+    <div class="confirm-msg" id="confirmMsg">Are you sure?</div>
+    <div class="confirm-btns">
+      <button class="confirm-yes" id="confirmYes">Yes, leave</button>
+      <button class="confirm-no" onclick="closeConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
