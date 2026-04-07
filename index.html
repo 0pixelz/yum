@@ -3726,20 +3726,23 @@ function frCheckAllRolled() {
   const winners = frResults.reduce((acc,v,i) => v===max?[...acc,i]:acc, []);
 
   if(winners.length > 1) {
-    document.getElementById('frStatus').textContent = '🤝 TIE! Roll again!';
+    // Show tie with dice values still visible
+    document.getElementById('frStatus').textContent = '🤝 TIE!';
     document.getElementById('frSub').textContent = 'Tap your die to re-roll!';
-    // Reset
-    frResults = firstRollPlayers.map(() => null);
-    frMyRolled = false;
-    if(mpMode && roomRef) roomRef.child('firstRoll').remove();
-    firstRollPlayers.forEach((p,i) => {
-      const die = document.getElementById('frDie'+i);
-      if(die) { die.classList.remove('winner','loser'); die.textContent='–'; }
-      const sc = document.getElementById('frScore'+i);
-      if(sc) sc.textContent='';
-    });
-    // Re-enable player die
+
+    // Wait 2s so players can see the tied values, then reset
     setTimeout(() => {
+      frResults = firstRollPlayers.map(() => null);
+      frMyRolled = false;
+      if(mpMode && roomRef) roomRef.child('firstRoll').remove();
+      firstRollPlayers.forEach((p,i) => {
+        const die = document.getElementById('frDie'+i);
+        if(die) { die.classList.remove('winner','loser','rolling'); die.textContent='–'; }
+        const sc = document.getElementById('frScore'+i);
+        if(sc) sc.textContent='';
+      });
+      document.getElementById('frStatus').textContent = '🎲 ROLL AGAIN!';
+      // Re-enable player die
       const myDie = document.getElementById('frDie' + frMyIdx);
       if(myDie) {
         myDie.style.cursor = 'pointer';
@@ -3759,7 +3762,7 @@ function frCheckAllRolled() {
           }, 600 + Math.random()*800);
         }
       });
-    }, 1000);
+    }, 2000);
     return;
   }
 
