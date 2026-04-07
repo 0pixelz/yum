@@ -1493,7 +1493,7 @@
     <span class="mp-code-badge" id="mpCodeBadge">----</span>
     <span class="mp-turn-badge" id="mpTurnBadge">…</span>
     <span style="flex:1"></span>
-    <button onclick="leaveGame()" style="background:none;border:none;color:var(--muted);font-size:0.8rem;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700">LEAVE</button>
+    <button onclick="confirmNewGame()" style="background:none;border:none;color:var(--muted);font-size:0.8rem;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700">LEAVE</button>
   </div>
 </div>
 
@@ -2464,7 +2464,7 @@ function renderLeaderboard() {
     const isTurn = id === currentTurnId;
     const tapAction = isMe
       ? `openReactionPicker('${id}')`
-      : `openOppViewer('${id}','${p.name.replace(/'/g,"\\'")}', JSON.parse('${JSON.stringify(p.scores||{})}'), {})`;
+      : `viewMpOpponent('${id}')`;
     return `<div class="lb-row ${isMe?'me':''}" onclick="${tapAction}" style="cursor:pointer">
       <div class="lb-rank">${i+1}</div>
       ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
@@ -3378,6 +3378,22 @@ function syncDiceUI() {
   if(dieLabel)  dieLabel.style.display  = restricted ? 'none' : '';
   if(scanLabel) scanLabel.style.display = restricted ? 'none' : '';
 }
+
+
+function viewMpOpponent(id) {
+  const p = allPlayers[id];
+  if(!p) return;
+  openOppViewer(id, p.name, p.scores || {}, {});
+}
+
+
+// Warn before page refresh/close during active game
+window.addEventListener('beforeunload', function(e) {
+  if(mpMode || botMode) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 // Init
 renderScores();
