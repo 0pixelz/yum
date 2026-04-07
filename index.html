@@ -715,6 +715,142 @@
     font-size:1.2rem; cursor:pointer; padding:4px; flex-shrink:0;
   }
 
+
+  /* LOBBY OVERLAY */
+  #lobbyOverlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .lobby-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 3rem; letter-spacing: 6px;
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(245,166,35,0.5);
+    margin-bottom: 6px;
+  }
+  .lobby-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 32px; letter-spacing:1px; }
+  .lobby-input {
+    width: 100%; max-width: 320px;
+    background: var(--card); border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 12px; padding: 14px 16px;
+    color: var(--white); font-family: 'Nunito', sans-serif;
+    font-size: 1.1rem; font-weight: 700;
+    outline: none; margin-bottom: 12px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .lobby-input:focus { border-color: var(--gold); }
+  .lobby-input::placeholder { color: var(--muted); font-weight: 400; }
+  .lobby-btn {
+    width: 100%; max-width: 320px;
+    padding: 16px; border-radius: 50px; border: none;
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    font-size: 1.05rem; letter-spacing: 1px;
+    cursor: pointer; margin-bottom: 10px;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  .lobby-btn:active { transform: scale(0.97); }
+  .lobby-btn-create { background: linear-gradient(135deg, var(--accent), #c0392b); color: white; box-shadow: 0 4px 20px rgba(233,69,96,0.4); }
+  .lobby-btn-join   { background: linear-gradient(135deg, var(--green), #2ecc71); color: #111; box-shadow: 0 4px 20px rgba(78,205,196,0.3); }
+  .lobby-btn-solo   { background: rgba(255,255,255,0.07); color: var(--muted); border: 1px solid rgba(255,255,255,0.12); }
+  .lobby-divider { color: var(--muted); font-size: 0.8rem; margin: 8px 0; letter-spacing: 2px; }
+  .lobby-err { color: var(--accent); font-size: 0.82rem; margin-top: 6px; min-height: 20px; text-align: center; }
+
+  /* WAITING ROOM */
+  #waitingOverlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: var(--bg);
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .room-code-box {
+    background: var(--card);
+    border: 2px solid var(--gold);
+    border-radius: 20px;
+    padding: 20px 36px;
+    text-align: center;
+    margin-bottom: 24px;
+    box-shadow: 0 0 30px rgba(245,166,35,0.2);
+  }
+  .room-code-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 3px; margin-bottom: 6px; }
+  .room-code { font-family: 'Bebas Neue', cursive; font-size: 3.5rem; color: var(--gold); letter-spacing: 10px; }
+  .room-players { width: 100%; max-width: 340px; margin-bottom: 24px; }
+  .room-player-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 8px;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .room-player-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); flex-shrink:0; }
+  .room-player-name { font-weight: 700; font-size: 0.95rem; flex:1; }
+  .room-player-host { font-size: 0.7rem; color: var(--gold); font-weight: 700; }
+  .wait-msg { color: var(--muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 20px; text-align:center; }
+
+  /* MULTIPLAYER BANNER */
+  #mpBanner {
+    display: none;
+    background: linear-gradient(135deg, var(--panel), #1a1a5e);
+    border-bottom: 1px solid rgba(78,205,196,0.3);
+    padding: 10px 16px;
+    position: sticky; top: 0; z-index: 99;
+  }
+  .mp-room-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .mp-code-badge {
+    font-family: 'Bebas Neue', cursive; font-size: 1.1rem;
+    background: rgba(245,166,35,0.15); border: 1px solid rgba(245,166,35,0.4);
+    color: var(--gold); padding: 3px 12px; border-radius: 20px; letter-spacing:3px;
+  }
+  .mp-turn-badge {
+    font-size: 0.75rem; font-weight: 800; padding: 4px 10px;
+    border-radius: 20px; letter-spacing: 1px;
+  }
+  .mp-turn-badge.my-turn   { background: rgba(78,205,196,0.2); color: var(--green); border: 1px solid rgba(78,205,196,0.4); }
+  .mp-turn-badge.wait-turn { background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid rgba(255,255,255,0.12); }
+
+  /* LEADERBOARD */
+  #leaderboard {
+    margin: 12px;
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid rgba(255,255,255,0.07);
+    overflow: hidden;
+    display: none;
+  }
+  .lb-title {
+    font-family: 'Bebas Neue', cursive; font-size: 1.1rem;
+    letter-spacing: 3px; color: var(--green);
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .lb-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.3s;
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row.me { background: rgba(78,205,196,0.07); }
+  .lb-rank { font-family: 'Bebas Neue', cursive; font-size: 1.4rem; color: rgba(255,255,255,0.2); width:24px; }
+  .lb-name { flex:1; font-weight: 700; font-size: 0.9rem; }
+  .lb-filled { font-size: 0.72rem; color: var(--muted); }
+  .lb-score { font-family: 'Bebas Neue', cursive; font-size: 1.5rem; color: var(--gold); }
+  .lb-turn-dot { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); }
+
+  /* TOAST */
+  #mpToast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid rgba(78,205,196,0.3);
+    color: var(--white); padding: 10px 20px; border-radius: 30px;
+    font-weight: 700; font-size: 0.85rem; z-index: 600;
+    opacity: 0; transition: opacity 0.3s; pointer-events:none;
+    white-space: nowrap;
+  }
+  #mpToast.show { opacity: 1; }
+
 </style>
 
   <!-- PWA -->
@@ -793,6 +929,24 @@
     }
   </script>
 
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBl1XezlXttwyQLBsEJJV0nkxomzL0uhZw",
+      authDomain: "yum-game.firebaseapp.com",
+      databaseURL: "https://yum-game-default-rtdb.firebaseio.com",
+      projectId: "yum-game",
+      storageBucket: "yum-game.firebasestorage.app",
+      messagingSenderId: "418931435506",
+      appId: "1:418931435506:web:1f37261a6bf89c596b2d6b"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+  </script>
+
 </head>
 <body>
 
@@ -806,6 +960,56 @@
   <button class="ib-btn" onclick="installApp()">INSTALL</button>
   <button class="ib-close" onclick="hideInstallBanner()">✕</button>
 </div>
+
+
+<!-- LOBBY -->
+<div id="lobbyOverlay">
+  <div class="lobby-title">🎲 YUM!</div>
+  <div class="lobby-sub">MULTIPLAYER SCORECARD</div>
+  <input class="lobby-input" id="playerName" placeholder="Your name" maxlength="16" autocomplete="off">
+  <div id="lobbyErr" class="lobby-err"></div>
+  <button class="lobby-btn lobby-btn-create" onclick="createGame()">🎮 CREATE GAME</button>
+  <div class="lobby-divider">— OR JOIN —</div>
+  <input class="lobby-input" id="joinCode" placeholder="Room code (e.g. ABCD)" maxlength="4"
+    style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem">
+  <button class="lobby-btn lobby-btn-join" onclick="joinGame()">👥 JOIN GAME</button>
+  <div class="lobby-divider">— OR —</div>
+  <button class="lobby-btn lobby-btn-solo" onclick="startSolo()">🎲 PLAY SOLO</button>
+</div>
+
+<!-- WAITING ROOM -->
+<div id="waitingOverlay" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+  <div style="font-family:'Bebas Neue',cursive;font-size:1.6rem;color:var(--muted);letter-spacing:3px;margin-bottom:16px">WAITING FOR PLAYERS</div>
+  <div class="room-code-box">
+    <div class="room-code-label">ROOM CODE</div>
+    <div class="room-code" id="displayCode">----</div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:6px">Share this code with friends</div>
+  </div>
+  <div class="room-players" id="waitingPlayers"></div>
+  <div class="wait-msg" id="waitMsg">Waiting for more players…</div>
+  <button class="lobby-btn lobby-btn-create" style="max-width:280px" onclick="startGame()">▶ START GAME</button>
+  <button class="lobby-btn lobby-btn-solo" style="max-width:280px;margin-top:6px" onclick="leaveGame()">✕ Cancel</button>
+</div>
+
+<!-- MP BANNER (shown during game) -->
+<div id="mpBanner">
+  <div class="mp-room-info">
+    <span style="font-size:0.75rem;color:var(--muted);font-weight:700">ROOM</span>
+    <span class="mp-code-badge" id="mpCodeBadge">----</span>
+    <span class="mp-turn-badge" id="mpTurnBadge">…</span>
+    <span style="flex:1"></span>
+    <button onclick="leaveGame()" style="background:none;border:none;color:var(--muted);font-size:0.8rem;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700">LEAVE</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="leaderboard">
+  <div class="lb-title">👥 PLAYERS</div>
+  <div id="lbRows"></div>
+</div>
+
+<!-- TOAST -->
+<div id="mpToast"></div>
 
 <header>
   <h1>🎲 YUM!</h1>
@@ -1457,6 +1661,235 @@ function renderIcon(icon) {
   }
   return '<span style="font-size:1.3rem">'+icon+'</span>';
 }
+
+
+// ─── MULTIPLAYER ────────────────────────────────────────────────────
+let mpMode = false;
+let roomCode = null;
+let playerId = 'p_' + Math.random().toString(36).substr(2,9);
+let playerName = 'Player';
+let isHost = false;
+let roomRef = null;
+let allPlayers = {};
+let currentTurnId = null;
+
+function genCode() {
+  return Math.random().toString(36).substr(2,4).toUpperCase();
+}
+
+function getLobbyName() {
+  const n = document.getElementById('playerName').value.trim();
+  if(!n) { showLobbyErr('Enter your name first!'); return null; }
+  return n;
+}
+
+function showLobbyErr(msg) {
+  document.getElementById('lobbyErr').textContent = msg;
+  setTimeout(()=>document.getElementById('lobbyErr').textContent='', 3000);
+}
+
+async function createGame() {
+  const name = getLobbyName(); if(!name) return;
+  playerName = name;
+  isHost = true;
+  roomCode = genCode();
+
+  roomRef = db.ref('rooms/' + roomCode);
+  await roomRef.set({
+    host: playerId,
+    started: false,
+    currentTurn: playerId,
+    players: {
+      [playerId]: { name: playerName, scores: {}, joined: Date.now() }
+    }
+  });
+
+  // Clean up room when host disconnects (if not started)
+  roomRef.child('players/' + playerId).onDisconnect().remove();
+
+  showWaiting();
+  listenRoom();
+}
+
+async function joinGame() {
+  const name = getLobbyName(); if(!name) return;
+  const code = document.getElementById('joinCode').value.trim().toUpperCase();
+  if(code.length !== 4) { showLobbyErr('Enter a 4-letter room code'); return; }
+
+  playerName = name;
+  roomCode = code;
+  isHost = false;
+
+  const snap = await db.ref('rooms/' + code).once('value');
+  if(!snap.exists()) { showLobbyErr('Room not found! Check the code.'); return; }
+  if(snap.val().started) { showLobbyErr('Game already started!'); return; }
+
+  roomRef = db.ref('rooms/' + code);
+  await roomRef.child('players/' + playerId).set({
+    name: playerName, scores: {}, joined: Date.now()
+  });
+  roomRef.child('players/' + playerId).onDisconnect().remove();
+
+  showWaiting();
+  listenRoom();
+}
+
+function startSolo() {
+  document.getElementById('lobbyOverlay').style.display = 'none';
+}
+
+function showWaiting() {
+  document.getElementById('lobbyOverlay').style.display = 'none';
+  const w = document.getElementById('waitingOverlay');
+  w.style.display = 'flex';
+  document.getElementById('displayCode').textContent = roomCode;
+}
+
+function listenRoom() {
+  roomRef.on('value', snap => {
+    if(!snap.exists()) { leaveGame(); return; }
+    const data = snap.val();
+    allPlayers = data.players || {};
+    currentTurnId = data.currentTurn;
+
+    // Update waiting room player list
+    const wp = document.getElementById('waitingPlayers');
+    if(wp) {
+      const sorted = Object.entries(allPlayers).sort((a,b)=>a[1].joined-b[1].joined);
+      wp.innerHTML = sorted.map(([id,p]) =>
+        `<div class="room-player-row">
+          <div class="room-player-dot"></div>
+          <div class="room-player-name">${p.name}${id===playerId?' (you)':''}</div>
+          ${id===data.host?'<div class="room-player-host">HOST</div>':''}
+        </div>`
+      ).join('');
+      const cnt = Object.keys(allPlayers).length;
+      document.getElementById('waitMsg').textContent =
+        cnt < 2 ? 'Waiting for more players…' : cnt + ' players ready!';
+    }
+
+    if(data.started && document.getElementById('waitingOverlay').style.display !== 'none') {
+      // Game started!
+      document.getElementById('waitingOverlay').style.display = 'none';
+      mpMode = true;
+      document.getElementById('mpBanner').style.display = 'block';
+      document.getElementById('leaderboard').style.display = 'block';
+      document.getElementById('mpCodeBadge').textContent = roomCode;
+      scores = {}; // reset local scores
+      renderScores();
+    }
+
+    if(data.started) {
+      updateMpUI();
+      renderLeaderboard();
+    }
+
+    // Sync my scores from DB
+    if(data.started && allPlayers[playerId]) {
+      const dbScores = allPlayers[playerId].scores || {};
+      // Only update if different
+      if(JSON.stringify(dbScores) !== JSON.stringify(scores)) {
+        scores = dbScores;
+        renderScores();
+      }
+    }
+  });
+}
+
+function startGame() {
+  if(!isHost) { showToast('Only the host can start!'); return; }
+  const cnt = Object.keys(allPlayers).length;
+  if(cnt < 1) { showToast('Need at least 1 player!'); return; }
+  const firstPlayer = Object.entries(allPlayers).sort((a,b)=>a[1].joined-b[1].joined)[0][0];
+  roomRef.update({ started: true, currentTurn: firstPlayer });
+}
+
+function leaveGame() {
+  if(roomRef) {
+    roomRef.child('players/' + playerId).remove();
+    roomRef.off();
+    roomRef = null;
+  }
+  mpMode = false; roomCode = null;
+  document.getElementById('waitingOverlay').style.display = 'none';
+  document.getElementById('mpBanner').style.display = 'none';
+  document.getElementById('leaderboard').style.display = 'none';
+  document.getElementById('lobbyOverlay').style.display = 'flex';
+  scores = {}; renderScores();
+}
+
+function updateMpUI() {
+  const isMyTurn = currentTurnId === playerId;
+  const badge = document.getElementById('mpTurnBadge');
+  if(isMyTurn) {
+    badge.textContent = '🎲 YOUR TURN';
+    badge.className = 'mp-turn-badge my-turn';
+  } else {
+    const name = allPlayers[currentTurnId]?.name || '…';
+    badge.textContent = name + "'s turn";
+    badge.className = 'mp-turn-badge wait-turn';
+  }
+}
+
+function renderLeaderboard() {
+  const sorted = Object.entries(allPlayers).sort((a,b) => {
+    return calcTotal(b[1].scores||{}) - calcTotal(a[1].scores||{});
+  });
+  const rows = sorted.map(([id, p], i) => {
+    const sc = p.scores || {};
+    const total = calcTotal(sc);
+    const filled = Object.keys(sc).length;
+    const isMe = id === playerId;
+    const isTurn = id === currentTurnId;
+    return `<div class="lb-row ${isMe?'me':''}">
+      <div class="lb-rank">${i+1}</div>
+      ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
+      <div class="lb-name">${p.name}${isMe?' (you)':''}</div>
+      <div class="lb-filled">${filled}/13</div>
+      <div class="lb-score">${total}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('lbRows').innerHTML = rows;
+}
+
+function calcTotal(sc) {
+  const upperIds = ['ones','twos','threes','fours','fives','sixes'];
+  const upperTotal = upperIds.reduce((s,id)=>s+(sc[id]||0),0);
+  const bonus = upperTotal >= 63 ? 35 : 0;
+  return Object.values(sc).reduce((a,b)=>a+b,0) + bonus;
+}
+
+function advanceTurn() {
+  if(!mpMode || !roomRef) return;
+  const playerOrder = Object.entries(allPlayers).sort((a,b)=>a[1].joined-b[1].joined).map(e=>e[0]);
+  const idx = playerOrder.indexOf(currentTurnId);
+  const nextId = playerOrder[(idx+1) % playerOrder.length];
+  roomRef.update({ currentTurn: nextId });
+  showToast('✅ Score saved! ' + (allPlayers[nextId]?.name || 'Next player') + "'s turn");
+}
+
+function pushScoresToDb() {
+  if(!mpMode || !roomRef) return;
+  roomRef.child('players/' + playerId + '/scores').set(scores);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('mpToast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+// Patch confirmScore to push to Firebase and advance turn
+const _origConfirmScore = confirmScore;
+confirmScore = function() {
+  _origConfirmScore();
+  if(mpMode) {
+    if(currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
+    pushScoresToDb();
+    advanceTurn();
+    clearDice();
+  }
+};
 
 // Init
 renderScores();
