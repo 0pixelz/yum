@@ -3655,23 +3655,22 @@ function showFirstRoll(players, onDone) {
   ov.style.display = 'flex';
   requestAnimationFrame(() => ov.classList.add('open'));
 
-  // Auto-roll bots/opponents that aren't human
-  firstRollPlayers.forEach((p, i) => {
-    if(!p.isMe) {
-      const delay = 600 + Math.random() * 800;
-      setTimeout(() => {
-        if(frResults[i] !== null) return;
-        const val = Math.floor(Math.random()*6)+1;
-        frResults[i] = val;
-        // If MP, push to Firebase
-        if(mpMode && roomRef && p.id) {
-          roomRef.child('firstRoll/' + p.id).set(val);
-        }
-        frRevealDie(i, val);
-        frCheckAllRolled();
-      }, delay);
-    }
-  });
+  // In BOT mode only: auto-roll non-human players
+  // In MULTIPLAYER: every player taps their own die — results sync via Firebase
+  if(!mpMode) {
+    firstRollPlayers.forEach((p, i) => {
+      if(!p.isMe) {
+        const delay = 800 + Math.random() * 800;
+        setTimeout(() => {
+          if(frResults[i] !== null) return;
+          const val = Math.floor(Math.random()*6)+1;
+          frResults[i] = val;
+          frRevealDie(i, val);
+          frCheckAllRolled();
+        }, delay);
+      }
+    });
+  }
 }
 
 function frPlayerRoll() {
@@ -3712,11 +3711,15 @@ function frCheckAllRolled() {
   if(frResults.some(r => r === null)) {
     // Update sub text
     const waiting = firstRollPlayers.filter((p,i) => frResults[i] === null);
+    const waitingNames = waiting.filter(p=>!p.isMe).map(p=>p.name);
     if(!frMyRolled) {
-      document.getElementById('frSub').textContent = 'Tap your die to roll!';
+      document.getElementById('frSub').textContent = mpMode
+        ? 'Tap your die to roll!'
+        : 'Tap your die to roll!';
     } else {
-      document.getElementById('frSub').textContent =
-        'Waiting for ' + waiting.map(p=>p.name).join(', ') + '…';
+      document.getElementById('frSub').textContent = waitingNames.length
+        ? 'Waiting for ' + waitingNames.join(', ') + ' to roll…'
+        : 'All rolled!';
     }
     return;
   }
@@ -3750,18 +3753,19 @@ function frCheckAllRolled() {
         myDie.classList.add('tap-me');
         myDie.onclick = () => frPlayerRoll();
       }
-      // Re-roll bots after short delay
-      firstRollPlayers.forEach((p,i) => {
-        if(!p.isMe) {
-          setTimeout(() => {
-            const val = Math.floor(Math.random()*6)+1;
-            frResults[i] = val;
-            if(mpMode && roomRef && p.id) roomRef.child('firstRoll/'+p.id).set(val);
-            frRevealDie(i, val);
-            frCheckAllRolled();
-          }, 600 + Math.random()*800);
-        }
-      });
+      // Re-roll bots after short delay (MP players roll themselves)
+      if(!mpMode) {
+        firstRollPlayers.forEach((p,i) => {
+          if(!p.isMe) {
+            setTimeout(() => {
+              const val = Math.floor(Math.random()*6)+1;
+              frResults[i] = val;
+              frRevealDie(i, val);
+              frCheckAllRolled();
+            }, 600 + Math.random()*800);
+          }
+        });
+      }
     }, 2000);
     return;
   }
