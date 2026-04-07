@@ -1420,8 +1420,13 @@
       messagingSenderId: "418931435506",
       appId: "1:418931435506:web:1f37261a6bf89c596b2d6b"
     };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    try {
+      firebase.initializeApp(firebaseConfig);
+      window.db = firebase.database();
+    } catch(e) {
+      console.warn('Firebase not available:', e);
+      window.db = null;
+    }
   </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -1796,6 +1801,9 @@ function updateTotals(upperTotal, bonusEarned) {
 }
 
 function openModal(id) {
+  // Block if not player's turn
+  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
+  if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
   activeModal = id;
   const cat = categories.find(c=>c.id===id);
   const val = scores[id];
@@ -1867,12 +1875,10 @@ function openModal(id) {
           </span>
         </button>
       </div>`;
-    selectedScore = val !== undefined ? val : null;
+    selectedScore = 0; // only option is strike, pre-select it
   }
 
   qs.innerHTML = btns;
-  // Auto-highlight currently saved value
-  if(val !== undefined) selectedScore = val;
 
   const backdrop = document.getElementById('modalBackdrop');
   backdrop.classList.add('open');
@@ -1885,7 +1891,7 @@ function selectScore(v) {
 }
 
 function confirmScore() {
-  if(selectedScore === null) { closeModalEl(); return; }
+  if(selectedScore === null || selectedScore === undefined) { closeModalEl(); return; }
   scores[activeModal] = selectedScore;
   clearDice();
   closeModalEl();
@@ -2283,6 +2289,7 @@ async function createGame() {
   isHost = true;
   roomCode = genCode();
 
+  if(!window.db) { showLobbyErr('Multiplayer not available offline'); return; }
   roomRef = db.ref('rooms/' + roomCode);
   await roomRef.set({
     host: playerId,
@@ -2856,6 +2863,18 @@ function showBotGameOver() {
 const _origConfirmScoreBot = confirmScore;
 confirmScore = function() {
   if(botMode && !playerTurn) { showToast("Wait for the bot!"); return; }
+  // Safety: if selectedScore is 0 (strike) ensure it's explicitly saved
+  if(botMode && activeModal && selectedScore === 0) {
+    scores[activeModal] = 0;
+    closeModalEl();
+    renderScores();
+    setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 150);
+    playerTurn = false;
+    clearDice();
+    renderBotLeaderboard();
+    setTimeout(botTakeTurn, 600);
+    return;
+  }
   _origConfirmScoreBot();
   if(botMode) {
     playerTurn = false;
