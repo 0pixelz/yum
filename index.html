@@ -1534,6 +1534,54 @@
   .rvb-no  { background: rgba(233,69,96,0.15); color:var(--accent);
              border: 1px solid rgba(233,69,96,0.3); }
 
+
+  /* PLAYER LEFT POPUP */
+  #playerLeftOverlay {
+    position: fixed; inset: 0; z-index: 870;
+    background: rgba(0,0,0,0.85);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #playerLeftOverlay.open { display: flex; }
+  .pl-box {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 30px 24px 26px;
+    width: 100%; max-width: 340px;
+    text-align: center;
+    border: 1px solid rgba(233,69,96,0.3);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .pl-icon { font-size: 3rem; margin-bottom: 8px; display:block; }
+  .pl-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.8rem; letter-spacing: 3px;
+    color: var(--accent); margin-bottom: 6px;
+  }
+  .pl-msg { font-size: 0.9rem; color: var(--muted); margin-bottom: 20px; }
+  .pl-countdown {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1rem; letter-spacing: 2px;
+    color: var(--muted); margin-bottom: 16px;
+  }
+  .pl-countdown span { color: var(--gold); font-size: 1.3rem; }
+  .pl-btns { display: flex; flex-direction: column; gap: 10px; }
+  .pl-btn {
+    padding: 13px; border-radius: 50px; border: none;
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    font-size: 0.95rem; cursor: pointer; transition: transform 0.1s;
+  }
+  .pl-btn:active { transform: scale(0.97); }
+  .pl-btn-scores {
+    background: rgba(245,166,35,0.12); color: var(--gold);
+    border: 1px solid rgba(245,166,35,0.3);
+  }
+  .pl-btn-lobby {
+    background: rgba(255,255,255,0.07); color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
 </style>
 
   <!-- PWA -->
@@ -2539,6 +2587,8 @@ let isHost = false;
 let roomRef = null;
 let allPlayers = {};
 let currentTurnId = null;
+let previousPlayerCount = null;
+let previousPlayers = {};
 
 function genCode() {
   return Math.random().toString(36).substr(2,4).toUpperCase();
@@ -2690,6 +2740,23 @@ function listenRoom() {
     }
 
     // Show opponent's live dice when it's not our turn
+    // Detect if a player left mid-game
+    if(data.started && previousPlayerCount !== null) {
+      const currentCount = Object.keys(data.players || {}).length;
+      if(currentCount < previousPlayerCount) {
+        // Find who left
+        const prevNames = Object.keys(previousPlayers || {});
+        const currNames = Object.keys(data.players || {});
+        const leftId = prevNames.find(id => !currNames.includes(id));
+        const leftName = (previousPlayers[leftId] || {}).name || 'A player';
+        if(leftId !== playerId) {
+          showPlayerLeftPopup(leftName);
+        }
+      }
+    }
+    previousPlayerCount = Object.keys(data.players || {}).length;
+    previousPlayers = {...(data.players || {})};
+
     if(data.started && currentTurnId && currentTurnId !== playerId) {
       const oppLive = allPlayers[currentTurnId]?.liveDice;
       if(oppLive && oppLive.dice) {
@@ -4035,6 +4102,54 @@ function doMpRematch() {
   }, 500);
 }
 
+
+// ─── PLAYER LEFT DETECTION ───────────────────────────────────────────
+let plCountdownTimer = null;
+
+function showPlayerLeftPopup(name) {
+  document.getElementById('plMsg').textContent =
+    `${name} has left the game. The match has been cancelled.`;
+  document.getElementById('plCountdown').textContent = '10';
+  const ov = document.getElementById('playerLeftOverlay');
+  ov.style.display = 'flex';
+  requestAnimationFrame(() => ov.classList.add('open'));
+
+  let secs = 10;
+  if(plCountdownTimer) clearInterval(plCountdownTimer);
+  plCountdownTimer = setInterval(() => {
+    secs--;
+    const el = document.getElementById('plCountdown');
+    if(el) el.textContent = secs;
+    if(secs <= 0) {
+      clearInterval(plCountdownTimer);
+      plGoLobby();
+    }
+  }, 1000);
+}
+
+function plGoLobby() {
+  clearInterval(plCountdownTimer);
+  const ov = document.getElementById('playerLeftOverlay');
+  ov.classList.remove('open');
+  ov.style.display = 'none';
+  leaveGame();
+}
+
+function plViewScores() {
+  clearInterval(plCountdownTimer);
+  const ov = document.getElementById('playerLeftOverlay');
+  ov.classList.remove('open');
+  ov.style.display = 'none';
+  // Build a summary from current allPlayers scores
+  const players = Object.entries(allPlayers).map(([id, p]) => {
+    const sc = id === playerId ? scores : (p.scores || {});
+    return { name: p.name, score: calcTotal(sc), isMe: id === playerId, scores: sc };
+  }).sort((a,b) => b.score - a.score);
+  saveGameToSession(players);
+  sessionTab = 'game' + sessionGames.length;
+  openSession();
+}
+
 // Init
 renderScores();
 </script>
@@ -4138,6 +4253,21 @@ renderScores();
   <div class="rvb-btns">
     <button class="rvb-btn rvb-yes" onclick="voteRematch(true)">✓ YES</button>
     <button class="rvb-btn rvb-no"  onclick="voteRematch(false)">✕ NO</button>
+  </div>
+</div>
+
+
+<!-- PLAYER LEFT POPUP -->
+<div id="playerLeftOverlay">
+  <div class="pl-box">
+    <span class="pl-icon">🚪</span>
+    <div class="pl-title">PLAYER LEFT</div>
+    <div class="pl-msg" id="plMsg">A player has left the game.</div>
+    <div class="pl-countdown">Auto-returning in <span id="plCountdown">10</span>s</div>
+    <div class="pl-btns">
+      <button class="pl-btn pl-btn-scores" onclick="plViewScores()">📋 VIEW SCORESHEETS</button>
+      <button class="pl-btn pl-btn-lobby" onclick="plGoLobby()">🚪 RETURN TO LOBBY</button>
+    </div>
   </div>
 </div>
 
