@@ -1136,7 +1136,7 @@
 
   /* SESSION OVERLAY */
   #sessionOverlay {
-    position: fixed; inset: 0; z-index: 800;
+    position: fixed; inset: 0; z-index: 950;
     background: rgba(0,0,0,0.85);
     display: none; align-items: flex-end; justify-content: center;
   }
@@ -2943,10 +2943,17 @@ function showGameOver(players) {
   ).join('');
 
   // Save full scores to session
-  const playersWithScores = players.map(p => ({
-    ...p,
-    scores: p.isMe ? {...scores} : {...(botMode ? botScores : {})}
-  }));
+  const playersWithScores = players.map(p => {
+    let sc = {};
+    if(p.isMe) sc = {...scores};
+    else if(botMode) sc = {...botScores};
+    else {
+      // Multiplayer — find opponent scores from allPlayers
+      const entry = Object.entries(allPlayers).find(([id,pl]) => pl.name === p.name);
+      if(entry) sc = {...(entry[1].scores || {})};
+    }
+    return { ...p, scores: sc };
+  });
   saveGameToSession(playersWithScores);
   sessionTab = 'game' + sessionGames.length; // default to latest game
 
@@ -3227,7 +3234,7 @@ renderScores();
     <div class="gameover-scores" id="goScores"></div>
     <div class="gameover-btns">
       <button class="gameover-btn gameover-btn-rematch" onclick="rematch()">🔄 REMATCH</button>
-      <button class="gameover-btn" onclick="document.getElementById('gameOverlay').classList.remove('open');openSession()"
+      <button class="gameover-btn" onclick="openSession()"
         style="background:rgba(245,166,35,0.12);color:var(--gold);border:1px solid rgba(245,166,35,0.3)">
         📋 VIEW SCORESHEETS
       </button>
