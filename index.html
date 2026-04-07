@@ -1496,6 +1496,44 @@
     margin-top: 5px;
   }
 
+
+  /* REMATCH VOTE */
+  #rematchVoteBar {
+    display: none;
+    position: fixed; bottom: 80px; left: 12px; right: 12px;
+    z-index: 600;
+    background: var(--panel);
+    border: 1px solid rgba(78,205,196,0.3);
+    border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .rvb-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1rem; letter-spacing: 3px;
+    color: var(--green); margin-bottom: 8px;
+  }
+  .rvb-players {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
+  }
+  .rvb-player {
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 0.8rem; font-weight: 700;
+    background: rgba(255,255,255,0.07);
+    color: var(--muted);
+  }
+  .rvb-player.voted { background: rgba(78,205,196,0.2); color: var(--green); }
+  .rvb-btns { display: flex; gap: 8px; }
+  .rvb-btn {
+    flex: 1; padding: 10px; border-radius: 50px; border: none;
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    font-size: 0.85rem; cursor: pointer;
+  }
+  .rvb-yes { background: linear-gradient(135deg,var(--green),#2ecc71); color:#111; }
+  .rvb-no  { background: rgba(233,69,96,0.15); color:var(--accent);
+             border: 1px solid rgba(233,69,96,0.3); }
+
 </style>
 
   <!-- PWA -->
@@ -3344,30 +3382,10 @@ function rematch() {
       }
     );
   } else if(mpMode && roomRef) {
-    // Reset scores for all players in Firebase
-    const updates = {};
-    Object.keys(allPlayers).forEach(id => {
-      updates['players/' + id + '/scores'] = {};
-      updates['players/' + id + '/liveDice'] = null;
-    });
-    roomRef.update(updates);
-    scores = {};
-    rollsLeft = 3; rolled = false;
-    dice = [0,0,0,0,0]; held = [false,false,false,false,false];
-    renderDice(false);
-    renderScores();
-    document.getElementById('rollCount').textContent = 'Rolls: 0 / 3';
-    // Roll to decide who goes first again
-    const sortedPlayers = Object.entries(allPlayers)
-      .sort((a,b) => a[1].joined - b[1].joined)
-      .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id }));
-    if(isHost) {
-      showFirstRoll(sortedPlayers, function(winnerId) {
-        roomRef.update({ currentTurn: winnerId });
-      });
-    } else {
-      showFirstRoll(sortedPlayers, function() {});
-    }
+    // Show vote bar for all players
+    startRematchVote();
+    // Auto-vote yes for me since I clicked rematch
+    setTimeout(() => voteRematch(true), 300);
   }
 }
 
@@ -3929,6 +3947,94 @@ window.addEventListener('DOMContentLoaded', () => {
   if(saved) document.getElementById('apiKeyInput').value = saved;
 });
 
+
+// ─── MULTIPLAYER REMATCH VOTING ──────────────────────────────────────
+let rematchVoteRef = null;
+let myRematchVote = null;
+
+function startRematchVote() {
+  // Push my vote request to Firebase
+  if(!roomRef) return;
+  myRematchVote = null;
+  rematchVoteRef = roomRef.child('rematchVotes');
+  // Clear old votes first
+  rematchVoteRef.set({});
+  // Listen for all votes
+  rematchVoteRef.on('value', snap => {
+    const votes = snap.val() || {};
+    const playerCount = Object.keys(allPlayers).length;
+    const yesVotes = Object.values(votes).filter(v=>v===true).length;
+    const noVotes  = Object.values(votes).filter(v=>v===false).length;
+
+    // Update vote bar UI
+    const bar = document.getElementById('rematchVoteBar');
+    bar.style.display = 'block';
+    const rvbPlayers = document.getElementById('rvbPlayers');
+    rvbPlayers.innerHTML = Object.entries(allPlayers).map(([id,p]) => {
+      const vote = votes[id];
+      const label = vote === true ? '✓' : vote === false ? '✕' : '…';
+      const voted = vote !== undefined;
+      return `<div class="rvb-player ${voted?'voted':''}">${p.name} ${label}</div>`;
+    }).join('');
+
+    // All voted yes → start rematch
+    if(yesVotes === playerCount) {
+      rematchVoteRef.off();
+      rematchVoteRef.set({});
+      bar.style.display = 'none';
+      doMpRematch();
+      return;
+    }
+    // Someone voted no → cancel
+    if(noVotes > 0) {
+      rematchVoteRef.off();
+      rematchVoteRef.set({});
+      bar.style.display = 'none';
+      showToast('❌ Rematch cancelled — returning to lobby');
+      setTimeout(leaveGame, 1500);
+    }
+  });
+}
+
+function voteRematch(yes) {
+  if(!rematchVoteRef || myRematchVote !== null) return;
+  myRematchVote = yes;
+  rematchVoteRef.child(playerId).set(yes);
+  if(!yes) {
+    // Immediately hide my buttons
+    document.querySelectorAll('.rvb-btn').forEach(b => b.style.display='none');
+  }
+}
+
+function doMpRematch() {
+  const updates = {};
+  Object.keys(allPlayers).forEach(id => {
+    updates['players/' + id + '/scores'] = {};
+    updates['players/' + id + '/liveDice'] = null;
+  });
+  roomRef.update(updates);
+  scores = {};
+  rollsLeft = 3; rolled = false;
+  dice = [0,0,0,0,0]; held = [false,false,false,false,false];
+  renderDice(false);
+  renderScores();
+  document.getElementById('rollCount').textContent = 'Rolls: 0 / 3';
+  showToast('🔄 Rematch! Rolling for who goes first…');
+  // First roll
+  const sortedPlayers = Object.entries(allPlayers)
+    .sort((a,b) => a[1].joined - b[1].joined)
+    .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id }));
+  setTimeout(() => {
+    if(isHost) {
+      showFirstRoll(sortedPlayers, function(winnerId) {
+        roomRef.update({ currentTurn: winnerId });
+      });
+    } else {
+      showFirstRoll(sortedPlayers, function() {});
+    }
+  }, 500);
+}
+
 // Init
 renderScores();
 </script>
@@ -4023,6 +4129,16 @@ renderScores();
   <div class="fr-status" id="frStatus"></div>
   <div class="fr-sub" id="frSub">Rolling…</div>
   <button class="fr-btn" id="frBtn" onclick="closeFirstRoll()">LET'S GO! 🎲</button>
+</div>
+
+
+<div id="rematchVoteBar">
+  <div class="rvb-title">🔄 REMATCH?</div>
+  <div class="rvb-players" id="rvbPlayers"></div>
+  <div class="rvb-btns">
+    <button class="rvb-btn rvb-yes" onclick="voteRematch(true)">✓ YES</button>
+    <button class="rvb-btn rvb-no"  onclick="voteRematch(false)">✕ NO</button>
+  </div>
 </div>
 
 </body>
