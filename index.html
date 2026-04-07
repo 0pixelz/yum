@@ -3330,16 +3330,26 @@ function rematch() {
     renderScores();
     renderBotLeaderboard();
     document.getElementById('rollCount').textContent = 'Rolls: 0 / 3';
-    showToast('🎲 New game! Your turn first!');
+    // Roll to decide who goes first again
+    showFirstRoll(
+      [{ name: playerName, isMe: true, id: 'player' }, { name: botName, isMe: false, id: 'bot' }],
+      function(winnerId) {
+        playerTurn = winnerId === 'player';
+        if(playerTurn) {
+          showYourTurnPop('YOU GO FIRST!');
+        } else {
+          showToast('🤖 Bot goes first!');
+          setTimeout(botTakeTurn, 800);
+        }
+      }
+    );
   } else if(mpMode && roomRef) {
-    // Reset scores for all players in Firebase using correct nested paths
+    // Reset scores for all players in Firebase
     const updates = {};
     Object.keys(allPlayers).forEach(id => {
       updates['players/' + id + '/scores'] = {};
       updates['players/' + id + '/liveDice'] = null;
     });
-    const firstPlayer = Object.entries(allPlayers).sort((a,b)=>a[1].joined-b[1].joined)[0][0];
-    updates['currentTurn'] = firstPlayer;
     roomRef.update(updates);
     scores = {};
     rollsLeft = 3; rolled = false;
@@ -3347,7 +3357,17 @@ function rematch() {
     renderDice(false);
     renderScores();
     document.getElementById('rollCount').textContent = 'Rolls: 0 / 3';
-    showToast('🔄 Rematch started!');
+    // Roll to decide who goes first again
+    const sortedPlayers = Object.entries(allPlayers)
+      .sort((a,b) => a[1].joined - b[1].joined)
+      .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id }));
+    if(isHost) {
+      showFirstRoll(sortedPlayers, function(winnerId) {
+        roomRef.update({ currentTurn: winnerId });
+      });
+    } else {
+      showFirstRoll(sortedPlayers, function() {});
+    }
   }
 }
 
