@@ -1278,6 +1278,50 @@
     font-size: 0.95rem; cursor: pointer;
   }
 
+
+  .qr-wrap {
+    background: white;
+    border-radius: 16px;
+    padding: 14px;
+    display: inline-block;
+    margin: 14px auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .qr-hint {
+    font-size: 0.75rem; color: var(--muted);
+    text-align: center; margin-top: 6px; letter-spacing: 0.5px;
+  }
+
+
+  .room-code-input-wrap {
+    display: flex; align-items: stretch;
+    width: 100%; max-width: 320px;
+    background: var(--card);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+    min-height: 54px;
+  }
+  .room-code-input-wrap:focus-within { border-color: var(--gold); }
+  .room-code-input-wrap input.lobby-input {
+    border: none !important; margin-bottom: 0 !important;
+    border-radius: 0 !important; background: transparent !important;
+    flex: 1; min-width: 0; padding: 14px 16px;
+  }
+  .room-code-input-wrap input.lobby-input:focus { outline: none; }
+  .scan-code-btn {
+    padding: 0 16px;
+    background: rgba(255,255,255,0.06);
+    border-left: 1px solid rgba(255,255,255,0.1) !important;
+    cursor: pointer; font-size: 1.4rem;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); transition: background 0.15s;
+    border: none; flex-shrink: 0;
+  }
+  .scan-code-btn:active { background: rgba(255,255,255,0.15); }
+
 </style>
 
   <!-- PWA -->
@@ -1374,6 +1418,7 @@
     const db = firebase.database();
   </script>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -1392,13 +1437,18 @@
 <!-- LOBBY -->
 <div id="lobbyOverlay">
   <div class="lobby-title">🎲 YUM!</div>
-  <div class="lobby-sub">MULTIPLAYER SCORECARD</div>
+
   <input class="lobby-input" id="playerName" placeholder="Your name" maxlength="16" autocomplete="off">
   <div id="lobbyErr" class="lobby-err"></div>
-  <button class="lobby-btn lobby-btn-create" onclick="createGame()">🎮 CREATE GAME</button>
+  <button class="lobby-btn lobby-btn-create" onclick="createGame()">🎮 CREATE MULTIPLAYER GAME</button>
   <div class="lobby-divider">— OR JOIN —</div>
-  <input class="lobby-input" id="joinCode" placeholder="Room code (e.g. ABCD)" maxlength="4"
-    style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem">
+  <div class="room-code-input-wrap">
+    <input class="lobby-input" id="joinCode" placeholder="Room Code" maxlength="4"
+      style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem">
+    <label class="scan-code-btn" for="qrScanInput" title="Scan QR Code">📷</label>
+    <input type="file" id="qrScanInput" accept="image/*" capture="environment"
+      style="display:none" onchange="scanQrCode(event)">
+  </div>
   <button class="lobby-btn lobby-btn-join" onclick="joinGame()">👥 JOIN GAME</button>
   <div class="lobby-divider">— OR —</div>
   <button class="lobby-btn lobby-btn-bot" onclick="startVsBot()">🤖 PLAY VS BOT</button>
@@ -1416,6 +1466,10 @@
     <div class="room-code-label">ROOM CODE</div>
     <div class="room-code" id="displayCode">----</div>
     <div style="font-size:0.72rem;color:var(--muted);margin-top:6px">Share this code with friends</div>
+  </div>
+  <div style="text-align:center">
+    <div class="qr-wrap"><div id="qrCode"></div></div>
+    <div class="qr-hint">Friends scan this to join instantly</div>
   </div>
   <div class="room-players" id="waitingPlayers"></div>
   <div class="wait-msg" id="waitMsg">Waiting for more players…</div>
@@ -2269,6 +2323,17 @@ function showWaiting() {
   const w = document.getElementById('waitingOverlay');
   w.style.display = 'flex';
   document.getElementById('displayCode').textContent = roomCode;
+
+  // Generate QR code with the room code embedded in the page URL
+  const qrEl = document.getElementById('qrCode');
+  qrEl.innerHTML = '';
+  const joinUrl = window.location.href.split('?')[0] + '?join=' + roomCode;
+  new QRCode(qrEl, {
+    text: joinUrl,
+    width: 160, height: 160,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
 }
 
 function listenRoom() {
@@ -3194,6 +3259,73 @@ function showConfirm(msg, yesLabel, onYes) {
 }
 function closeConfirm() {
   document.getElementById('confirmModal').classList.remove('open');
+}
+
+
+// Auto-fill room code if ?join=XXXX in URL
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const joinCode = params.get('join');
+  if(joinCode) {
+    // Wait for DOM then prefill
+    window.addEventListener('DOMContentLoaded', () => {
+      const el = document.getElementById('joinCode');
+      if(el) el.value = joinCode.toUpperCase();
+    });
+    // Also try immediately
+    const el = document.getElementById('joinCode');
+    if(el) el.value = joinCode.toUpperCase();
+  }
+})();
+
+
+// ─── QR CODE SCANNER (lobby) ─────────────────────────────────────────
+async function scanQrCode(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  showLobbyErr('📷 Reading QR code…');
+
+  const base64 = await new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result.split(',')[1]);
+    reader.onerror = () => rej();
+    reader.readAsDataURL(file);
+  });
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: file.type || 'image/jpeg', data: base64 } },
+            { type: 'text', text: 'This is a QR code for a YUM dice game. Extract the room code from the URL in the QR code. The room code is a 4-letter code that appears after "?join=" in the URL. Reply with ONLY the 4 letters, nothing else. If you cannot read it, reply with NULL.' }
+          ]
+        }]
+      })
+    });
+    const data = await response.json();
+    const raw = (data.content?.[0]?.text || '').trim().toUpperCase();
+
+    if(!raw || raw === 'NULL' || raw.length !== 4) {
+      showLobbyErr('❌ Could not read QR code — try again');
+    } else {
+      document.getElementById('joinCode').value = raw;
+      document.getElementById('lobbyErr').textContent = '✅ Room code scanned!';
+      document.getElementById('lobbyErr').style.color = 'var(--green)';
+      setTimeout(() => {
+        document.getElementById('lobbyErr').textContent = '';
+        document.getElementById('lobbyErr').style.color = '';
+      }, 2000);
+    }
+  } catch(e) {
+    showLobbyErr('❌ Scan failed — type the code manually');
+  }
+  event.target.value = '';
 }
 
 // Init
