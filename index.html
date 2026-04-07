@@ -1590,7 +1590,20 @@
   <div class="room-code-input-wrap">
     <input class="lobby-input" id="joinCode" placeholder="Room Code" maxlength="4"
       style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem">
-    <label class="scan-code-btn" for="qrScanInput" title="Scan QR Code">📷</label>
+    <label class="scan-code-btn" for="qrScanInput" title="Scan QR Code">
+  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter">
+    <!-- top-left corner -->
+    <polyline points="3,8 3,3 8,3"/>
+    <!-- top-right corner -->
+    <polyline points="16,3 21,3 21,8"/>
+    <!-- bottom-left corner -->
+    <polyline points="3,16 3,21 8,21"/>
+    <!-- bottom-right corner -->
+    <polyline points="16,21 21,21 21,16"/>
+    <!-- center scan line -->
+    <line x1="3" y1="12" x2="21" y2="12"/>
+  </svg>
+</label>
     <input type="file" id="qrScanInput" accept="image/*" capture="environment"
       style="display:none" onchange="scanQrCode(event)">
   </div>
