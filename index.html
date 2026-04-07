@@ -3039,20 +3039,32 @@ function showGameOver(players) {
 function rematch() {
   document.getElementById('gameOverlay').classList.remove('open');
   if(botMode) {
-    // Reset bot game
+    // Full reset
     botScores = {}; botScoreDice = {};
     scores = {}; playerTurn = true;
-    clearDice();
+    rollsLeft = 3; rolled = false;
+    dice = [0,0,0,0,0]; held = [false,false,false,false,false];
+    renderDice(false);
     renderScores();
     renderBotLeaderboard();
+    document.getElementById('rollCount').textContent = 'Rolls: 0 / 3';
     showToast('🎲 New game! Your turn first!');
   } else if(mpMode && roomRef) {
-    // Reset all scores in Firebase
-    const resetScores = {};
-    Object.keys(allPlayers).forEach(id => { resetScores[id+'/scores'] = {}; });
+    // Reset scores for all players in Firebase using correct nested paths
+    const updates = {};
+    Object.keys(allPlayers).forEach(id => {
+      updates['players/' + id + '/scores'] = {};
+      updates['players/' + id + '/liveDice'] = null;
+    });
     const firstPlayer = Object.entries(allPlayers).sort((a,b)=>a[1].joined-b[1].joined)[0][0];
-    roomRef.update({ currentTurn: firstPlayer, ...resetScores });
-    scores = {}; clearDice(); renderScores();
+    updates['currentTurn'] = firstPlayer;
+    roomRef.update(updates);
+    scores = {};
+    rollsLeft = 3; rolled = false;
+    dice = [0,0,0,0,0]; held = [false,false,false,false,false];
+    renderDice(false);
+    renderScores();
+    document.getElementById('rollCount').textContent = 'Rolls: 0 / 3';
     showToast('🔄 Rematch started!');
   }
 }
