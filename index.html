@@ -2099,10 +2099,7 @@ renderDice = function(justRolled){
     document.getElementById('predPanel').style.display='none';
   }
   // Hide tap label and scan button in multiplayer/bot
-  const dieLabel = document.querySelector('.die-label');
-  const scanLabel = document.querySelector('label[for="camInput"]');
-  if(dieLabel) dieLabel.style.display = (mpMode || botMode) ? 'none' : '';
-  if(scanLabel) scanLabel.style.display = (mpMode || botMode) ? 'none' : '';
+  syncDiceUI();
 };
 
 
@@ -2368,6 +2365,7 @@ function listenRoom() {
       document.getElementById('mpCodeBadge').textContent = roomCode;
       scores = {}; // reset local scores
       renderScores();
+      syncDiceUI();
     }
 
     if(data.started) {
@@ -2646,6 +2644,7 @@ function startVsBot() {
   document.getElementById('leaderboard').style.display = 'block';
   renderBotLeaderboard();
   renderScores();
+  syncDiceUI();
   showToast('🎲 Your turn first! Good luck!');
 }
 
@@ -3326,6 +3325,15 @@ async function scanQrCode(event) {
     showLobbyErr('❌ Scan failed — type the code manually');
   }
   event.target.value = '';
+}
+
+
+function syncDiceUI() {
+  const restricted = mpMode || botMode;
+  const dieLabel  = document.querySelector('.die-label');
+  const scanLabel = document.querySelector('label[for="camInput"]');
+  if(dieLabel)  dieLabel.style.display  = restricted ? 'none' : '';
+  if(scanLabel) scanLabel.style.display = restricted ? 'none' : '';
 }
 
 // Init
