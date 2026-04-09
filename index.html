@@ -3471,7 +3471,7 @@ function finishBotTurn(move) {
   playerTurn = true;
   clearDice();
   renderBotLeaderboard();
-  setTimeout(() => showYourTurnPop('ROLL THE DICE'), 1000);
+  setTimeout(() => showYourTurnPop('ROLL THE DICE'), 2500);
 }
 
 function showBotGameOver() {
@@ -3639,7 +3639,7 @@ function restoreMyDiceUI() {
   renderDice(false);
   document.getElementById('rollCount').textContent =
     `Rolls: ${3 - rollsLeft} / 3`;
-  setTimeout(() => showYourTurnPop('ROLL THE DICE'), 2500);
+  setTimeout(() => showYourTurnPop('ROLL THE DICE'), 4000);
 }
 
 
