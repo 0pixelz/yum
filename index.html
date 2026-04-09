@@ -3639,7 +3639,7 @@ function restoreMyDiceUI() {
   renderDice(false);
   document.getElementById('rollCount').textContent =
     `Rolls: ${3 - rollsLeft} / 3`;
-  showYourTurnPop('ROLL THE DICE');
+  setTimeout(() => showYourTurnPop('ROLL THE DICE'), 2500);
 }
 
 
