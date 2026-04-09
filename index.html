@@ -856,6 +856,53 @@
   .lb-score { font-family: 'Bebas Neue', cursive; font-size: 1.5rem; color: var(--gold); }
   .lb-turn-dot { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); }
 
+  /* OPPONENT SCORE NOTIFICATION */
+  #scoreNotif {
+    position: fixed;
+    top: 80px;
+    right: 16px;
+    z-index: 500;
+    pointer-events: none;
+  }
+  .score-notif-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 16px;
+    padding: 12px 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.34,1.2,0.64,1), opacity 0.3s;
+    pointer-events: auto;
+    cursor: pointer;
+    max-width: 270px;
+  }
+  #scoreNotif.show .score-notif-card {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  .score-notif-card.yum-flash {
+    border-color: var(--gold);
+    box-shadow: 0 8px 32px rgba(245,166,35,0.4);
+    animation: notifPulse 0.6s ease 2;
+  }
+  @keyframes notifPulse {
+    0%,100% { box-shadow: 0 8px 32px rgba(245,166,35,0.3); }
+    50%      { box-shadow: 0 8px 52px rgba(245,166,35,0.75); }
+  }
+  .sn-avatar { font-size: 1.9rem; flex-shrink: 0; }
+  .sn-body   { flex: 1; min-width: 0; }
+  .sn-name   { font-size: 0.68rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sn-cat    { font-size: 0.88rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sn-pts    { font-size: 1.25rem; font-weight: 800; color: var(--green); line-height: 1.1; }
+  .sn-pts.zero { color: var(--muted); font-size: 0.9rem; }
+  .sn-pts.yum  { color: var(--gold); }
+  .sn-dice   { display: flex; gap: 2px; flex-wrap: wrap; max-width: 72px; flex-shrink: 0; justify-content: flex-end; }
+  .sn-die    { font-size: 1.05rem; line-height: 1; }
+
   /* TOAST */
   #mpToast {
     position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
@@ -1788,6 +1835,19 @@
 
 <!-- TOAST -->
 <div id="mpToast"></div>
+
+<!-- OPPONENT SCORE NOTIFICATION -->
+<div id="scoreNotif" onclick="dismissScoreNotif()">
+  <div class="score-notif-card" id="scoreNotifCard">
+    <div class="sn-avatar" id="snAvatar">🎲</div>
+    <div class="sn-body">
+      <div class="sn-name" id="snName">Player</div>
+      <div class="sn-cat" id="snCat">Category</div>
+      <div class="sn-pts" id="snPts">+0</div>
+    </div>
+    <div class="sn-dice" id="snDice"></div>
+  </div>
+</div>
 
 <header>
   <button class="sound-toggle" id="soundToggle" onclick="toggleSound()" title="Toggle sound">🔊</button>
@@ -2821,8 +2881,26 @@ function listenRoom() {
   roomRef.on('value', snap => {
     if(!snap.exists()) { leaveGame(); return; }
     const data = snap.val();
+
+    // Snapshot before overwriting so we can diff what opponent scored
+    const _prevAllPlayers = allPlayers ? JSON.parse(JSON.stringify(allPlayers)) : {};
+    const _prevTurnId = currentTurnId;
+
     allPlayers = data.players || {};
     currentTurnId = data.currentTurn;
+
+    // Show notification when opponent finishes their turn
+    if (data.started && _prevTurnId && _prevTurnId !== playerId && _prevTurnId !== currentTurnId) {
+      const oldSc = _prevAllPlayers[_prevTurnId]?.scores || {};
+      const newSc = allPlayers[_prevTurnId]?.scores || {};
+      const newCatId = Object.keys(newSc).find(k => !(k in oldSc));
+      if (newCatId !== undefined) {
+        const pts = newSc[newCatId];
+        const savedDice = _prevAllPlayers[_prevTurnId]?.liveDice?.dice || [];
+        const oppName = allPlayers[_prevTurnId]?.name || 'Opponent';
+        showScoreNotif(oppName, newCatId, pts, savedDice);
+      }
+    }
 
     // Update waiting room player list
     const wp = document.getElementById('waitingPlayers');
@@ -3022,6 +3100,45 @@ function showToast(msg) {
   const t = document.getElementById('mpToast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+let _scoreNotifTimer = null;
+
+function showScoreNotif(playerName, catId, points, diceArr) {
+  const cat = categories.find(c => c.id === catId);
+  if (!cat) return;
+
+  const card = document.getElementById('scoreNotifCard');
+  const notif = document.getElementById('scoreNotif');
+
+  document.getElementById('snAvatar').textContent = cat.icon || '🎲';
+  document.getElementById('snName').textContent = playerName;
+  document.getElementById('snCat').textContent = cat.name;
+
+  const ptsEl = document.getElementById('snPts');
+  if (points === 0) {
+    ptsEl.textContent = 'Scratched';
+    ptsEl.className = 'sn-pts zero';
+  } else {
+    ptsEl.textContent = '+' + points + ' pts';
+    ptsEl.className = 'sn-pts' + (catId === 'yum' && points === 50 ? ' yum' : '');
+  }
+
+  card.classList.toggle('yum-flash', catId === 'yum' && points === 50);
+
+  const diceEl = document.getElementById('snDice');
+  diceEl.innerHTML = (diceArr && diceArr.length)
+    ? diceArr.map(v => `<span class="sn-die">${DICE_FACES[v - 1] || v}</span>`).join('')
+    : '';
+
+  clearTimeout(_scoreNotifTimer);
+  notif.classList.add('show');
+  _scoreNotifTimer = setTimeout(dismissScoreNotif, 3400);
+}
+
+function dismissScoreNotif() {
+  clearTimeout(_scoreNotifTimer);
+  document.getElementById('scoreNotif').classList.remove('show');
 }
 
 // Patch confirmScore to push to Firebase and advance turn
