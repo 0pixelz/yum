@@ -3452,12 +3452,7 @@ function finishBotTurn(move) {
   // Animate score appearing in leaderboard
   renderBotLeaderboard();
 
-  const msg = scored === move.cat.max
-    ? `🤖 Bot got PERFECT ${scored} on ${move.cat.name}! 😤`
-    : scored === 0
-      ? `🤖 Bot scored 0 on ${move.cat.name}… lucky you!`
-      : `🤖 Bot scored ${scored} on ${move.cat.name}`;
-  showToast(msg);
+  showScoreNotif(botName, move.cat.id, scored, botDice.slice());
 
   // Restore dice area to player control
   showBotDiceOverlay(false);
