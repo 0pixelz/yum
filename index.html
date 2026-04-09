@@ -1661,6 +1661,106 @@
     border: 1px solid rgba(255,255,255,0.1);
   }
 
+  /* ACHIEVEMENTS */
+  .ach-btn {
+    position: absolute; top: 14px; left: 14px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; color: var(--white);
+    font-size: 1.1rem; cursor: pointer;
+    padding: 4px 9px; line-height: 1;
+    transition: background 0.15s;
+  }
+  .ach-btn:hover { background: rgba(255,255,255,0.22); }
+
+  #achOverlay {
+    position: fixed; inset: 0; z-index: 950;
+    background: rgba(0,0,0,0.85);
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  #achOverlay.open { display: flex; }
+  .ach-sheet {
+    background: var(--bg); width: 100%; max-width: 480px;
+    max-height: 90vh; border-radius: 24px 24px 0 0;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.34,1.2,0.64,1);
+    padding-bottom: 40px;
+  }
+  #achOverlay.open .ach-sheet { transform: translateY(0); }
+  .ach-header {
+    position: sticky; top: 0; background: var(--panel);
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 10px; z-index: 2;
+  }
+  .ach-header-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.4rem; letter-spacing: 3px; color: var(--gold); flex: 1;
+  }
+  .ach-close {
+    background: none; border: none; color: var(--muted);
+    font-size: 1.4rem; cursor: pointer; padding: 4px 8px;
+  }
+  .ach-progress-bar {
+    background: rgba(255,255,255,0.08); border-radius: 20px;
+    height: 8px; margin: 16px 18px 4px; overflow: hidden;
+  }
+  .ach-progress-fill {
+    height: 100%; border-radius: 20px;
+    background: linear-gradient(90deg, var(--green), var(--gold));
+    transition: width 0.5s ease;
+  }
+  .ach-progress-label {
+    font-size: 0.72rem; color: var(--muted);
+    letter-spacing: 1px; padding: 0 18px; margin-bottom: 14px;
+  }
+  .ach-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; padding: 0 12px 12px;
+  }
+  .ach-card {
+    background: var(--card); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px; padding: 14px 12px;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .ach-card.locked { opacity: 0.35; filter: grayscale(0.5); }
+  .ach-card.unlocked {
+    border-color: rgba(245,166,35,0.35);
+    background: linear-gradient(135deg, rgba(245,166,35,0.07), var(--card));
+  }
+  .ach-icon { font-size: 2rem; line-height: 1; }
+  .ach-name {
+    font-family: 'Bebas Neue', cursive; font-size: 0.95rem;
+    letter-spacing: 2px; color: var(--white);
+  }
+  .ach-desc { font-size: 0.68rem; color: var(--muted); line-height: 1.3; }
+  .ach-date { font-size: 0.63rem; color: var(--green); margin-top: 2px; font-weight: 700; }
+
+  #achNotif {
+    position: fixed; bottom: -140px; left: 50%; transform: translateX(-50%);
+    z-index: 9999;
+    background: linear-gradient(135deg, var(--panel), #1a1a5e);
+    border: 1px solid rgba(245,166,35,0.5); border-radius: 18px;
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    min-width: 280px; max-width: calc(100vw - 32px);
+    transition: bottom 0.4s cubic-bezier(0.34,1.2,0.64,1);
+    pointer-events: none; white-space: nowrap;
+  }
+  #achNotif.show { bottom: 90px; }
+  .achN-icon { font-size: 2rem; flex-shrink: 0; }
+  .achN-label {
+    font-size: 0.6rem; color: var(--gold); font-weight: 800;
+    letter-spacing: 2px;
+  }
+  .achN-name {
+    font-family: 'Bebas Neue', cursive; font-size: 1.15rem;
+    letter-spacing: 2px; color: var(--white);
+  }
+  .achN-desc { font-size: 0.7rem; color: var(--muted); white-space: normal; }
+
 </style>
 
   <!-- PWA -->
@@ -1853,6 +1953,7 @@
 <div id="mpToast"></div>
 
 <header>
+  <button class="ach-btn" onclick="openAchievements()" title="Achievements">🏆</button>
   <button class="sound-toggle" id="soundToggle" onclick="toggleSound()" title="Toggle sound">🔊</button>
   <h1>🎲 YUM!</h1>
   <div class="progress-bar-wrap">
@@ -4414,6 +4515,199 @@ function plViewScores() {
 renderScores();
 </script>
 
+<script>
+// ─── ACHIEVEMENTS ────────────────────────────────────────────────────
+
+const ACHIEVEMENTS = [
+  { id: 'first_game',    icon: '🎮', name: 'First Roll',    desc: 'Complete your first game',                    check: s => s.gamesPlayed >= 1 },
+  { id: 'first_win',     icon: '🏆', name: 'First Victory', desc: 'Win a game vs bot or multiplayer',             check: s => s.gamesWon >= 1 },
+  { id: 'first_yum',     icon: '🎲', name: 'YUM!',          desc: 'Score a YUM! (5 of a kind)',                   check: s => s.yumCount >= 1 },
+  { id: 'yum_x3',        icon: '🎯', name: 'Triple YUM',    desc: 'Score YUM! 3 times',                          check: s => s.yumCount >= 3 },
+  { id: 'yum_x10',       icon: '🌟', name: 'YUM Master',    desc: 'Score YUM! 10 times',                         check: s => s.yumCount >= 10 },
+  { id: 'full_house',    icon: '🏠', name: 'Home Comforts', desc: 'Score a Full House',                          check: s => s.fullHouseCount >= 1 },
+  { id: 'lg_straight',   icon: '📐', name: 'Full Straight', desc: 'Score a Large Straight',                      check: s => s.lgStraightCount >= 1 },
+  { id: 'bonus',         icon: '⭐', name: 'Bonus Earner',  desc: 'Earn the upper section bonus (63+ pts)',       check: s => s.bonusCount >= 1 },
+  { id: 'perfect_upper', icon: '💫', name: 'Perfect Upper', desc: 'Max out all 6 upper categories in one game',  check: s => s.perfectUpperCount >= 1 },
+  { id: 'score_250',     icon: '🥇', name: 'High Roller',   desc: 'Score 250+ points in a game',                 check: s => s.highScore >= 250 },
+  { id: 'score_300',     icon: '💎', name: 'Yahtzee Pro',   desc: 'Score 300+ points in a game',                 check: s => s.highScore >= 300 },
+  { id: 'bot_slayer',    icon: '🤖', name: 'Bot Slayer',    desc: 'Beat the bot 5 times',                        check: s => s.botWins >= 5 },
+  { id: 'no_scratch',    icon: '✨', name: 'Clean Sheet',   desc: 'Finish a game without any scratches (zeros)', check: s => s.noScratchGames >= 1 },
+  { id: 'games_10',      icon: '🎖️',  name: 'Dedicated',    desc: 'Play 10 games',                               check: s => s.gamesPlayed >= 10 },
+  { id: 'games_25',      icon: '🏅', name: 'Die-Hard',      desc: 'Play 25 games',                               check: s => s.gamesPlayed >= 25 },
+];
+
+function loadAchStats() {
+  try { return JSON.parse(localStorage.getItem('yum_stats') || '{}'); } catch(e) { return {}; }
+}
+function saveAchStats(s) {
+  localStorage.setItem('yum_stats', JSON.stringify(s));
+}
+function loadUnlocked() {
+  try { return JSON.parse(localStorage.getItem('yum_achievements') || '{}'); } catch(e) { return {}; }
+}
+function saveUnlocked(u) {
+  localStorage.setItem('yum_achievements', JSON.stringify(u));
+}
+
+let _achNotifTimer = null;
+let _achNotifQueue = [];
+let _achNotifBusy = false;
+
+function _drainAchQueue() {
+  if (_achNotifBusy || _achNotifQueue.length === 0) return;
+  _achNotifBusy = true;
+  const ach = _achNotifQueue.shift();
+  document.getElementById('achNotifIcon').textContent = ach.icon;
+  document.getElementById('achNotifName').textContent = ach.name;
+  document.getElementById('achNotifDesc').textContent = ach.desc;
+  const el = document.getElementById('achNotif');
+  el.classList.add('show');
+  if (typeof SFX !== 'undefined') SFX.score();
+  if (_achNotifTimer) clearTimeout(_achNotifTimer);
+  _achNotifTimer = setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => { _achNotifBusy = false; _drainAchQueue(); }, 450);
+  }, 3800);
+}
+
+function showAchievementNotif(ach) {
+  _achNotifQueue.push(ach);
+  _drainAchQueue();
+}
+
+function checkAchievements() {
+  const stats = loadAchStats();
+  const unlocked = loadUnlocked();
+  const newlyUnlocked = [];
+  for (const ach of ACHIEVEMENTS) {
+    if (!unlocked[ach.id] && ach.check(stats)) {
+      unlocked[ach.id] = { unlockedAt: Date.now() };
+      newlyUnlocked.push(ach);
+    }
+  }
+  if (newlyUnlocked.length > 0) {
+    saveUnlocked(unlocked);
+    for (const ach of newlyUnlocked) showAchievementNotif(ach);
+  }
+}
+
+function achOnScore(catId, scored) {
+  const stats = loadAchStats();
+  if (catId === 'yum' && scored === 50)          stats.yumCount        = (stats.yumCount        || 0) + 1;
+  if (catId === 'fullHouse' && scored === 25)    stats.fullHouseCount  = (stats.fullHouseCount  || 0) + 1;
+  if (catId === 'lgStraight' && scored === 40)   stats.lgStraightCount = (stats.lgStraightCount || 0) + 1;
+  saveAchStats(stats);
+  checkAchievements();
+}
+
+function achOnGameEnd(myScores, iWon, isBotGame) {
+  const stats = loadAchStats();
+  const myTotal = calcTotal(myScores);
+
+  stats.gamesPlayed = (stats.gamesPlayed || 0) + 1;
+  stats.highScore   = Math.max(stats.highScore || 0, myTotal);
+
+  if (iWon) {
+    stats.gamesWon = (stats.gamesWon || 0) + 1;
+    if (isBotGame) stats.botWins = (stats.botWins || 0) + 1;
+  }
+
+  // Upper bonus
+  const upperIds = ['ones','twos','threes','fours','fives','sixes'];
+  const upperTotal = upperIds.reduce((s, id) => s + (myScores[id] || 0), 0);
+  if (upperTotal >= 63) stats.bonusCount = (stats.bonusCount || 0) + 1;
+
+  // Perfect upper (max all 6)
+  const maxUpper = { ones:5, twos:10, threes:15, fours:20, fives:25, sixes:30 };
+  if (upperIds.every(id => myScores[id] === maxUpper[id])) {
+    stats.perfectUpperCount = (stats.perfectUpperCount || 0) + 1;
+  }
+
+  // Clean sheet: all 13 filled and no zeros
+  const allFilled = categories.every(c => myScores.hasOwnProperty(c.id));
+  const noZeros   = Object.values(myScores).every(v => v > 0);
+  if (allFilled && noZeros) stats.noScratchGames = (stats.noScratchGames || 0) + 1;
+
+  saveAchStats(stats);
+  checkAchievements();
+}
+
+function openAchievements() {
+  renderAchievements();
+  const ov = document.getElementById('achOverlay');
+  ov.style.display = 'flex';
+  requestAnimationFrame(() => ov.classList.add('open'));
+}
+
+function closeAchievements() {
+  const ov = document.getElementById('achOverlay');
+  ov.classList.remove('open');
+  setTimeout(() => { ov.style.display = 'none'; }, 350);
+}
+
+function closeAchievementsOverlay(e) {
+  if (e.target === document.getElementById('achOverlay')) closeAchievements();
+}
+
+function renderAchievements() {
+  const unlocked  = loadUnlocked();
+  const unlockedN = Object.keys(unlocked).length;
+  const total     = ACHIEVEMENTS.length;
+
+  document.getElementById('achProgressFill').style.width =
+    `${Math.round(unlockedN / total * 100)}%`;
+  document.getElementById('achProgressLabel').textContent =
+    `${unlockedN} / ${total} unlocked`;
+
+  document.getElementById('achGrid').innerHTML = ACHIEVEMENTS.map(ach => {
+    const u = unlocked[ach.id];
+    const dateStr = u ? new Date(u.unlockedAt).toLocaleDateString() : '';
+    return `<div class="ach-card ${u ? 'unlocked' : 'locked'}">
+      <div class="ach-icon">${ach.icon}</div>
+      <div class="ach-name">${ach.name}</div>
+      <div class="ach-desc">${ach.desc}</div>
+      ${u ? `<div class="ach-date">✓ ${dateStr}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Patch confirmScore: track per-score achievements ──────────────────
+(function() {
+  const _orig = confirmScore;
+  let _soloAchFired = false;
+  confirmScore = function() {
+    const catId    = activeModal;
+    const hadScore = catId ? scores.hasOwnProperty(catId) : true;
+    _orig.apply(this, arguments);
+    if (catId && !hadScore && scores.hasOwnProperty(catId)) {
+      achOnScore(catId, scores[catId]);
+      // Solo/practice game completion detection
+      if (!mpMode && !botMode) {
+        const filled = Object.keys(scores).length;
+        if (filled === 1) _soloAchFired = false; // first score of a new game
+        if (filled === categories.length && !_soloAchFired) {
+          _soloAchFired = true;
+          setTimeout(() => achOnGameEnd({...scores}, false, false), 300);
+        }
+      }
+    }
+  };
+})();
+
+// ── Patch showGameOver: track end-of-game achievements ───────────────
+(function() {
+  const _orig = showGameOver;
+  showGameOver = function(players) {
+    _orig.apply(this, arguments);
+    const me = players.find(p => p.isMe);
+    if (me) {
+      const iWon = players[0].isMe;
+      setTimeout(() => achOnGameEnd({...scores}, iWon, botMode === true), 300);
+    }
+  };
+})();
+</script>
+
 <!-- REACTION PICKER -->
 <div class="reaction-picker" id="reactionPicker">
   <div class="reaction-picker-title">SEND REACTION</div>
@@ -4544,6 +4838,32 @@ renderScores();
       <div class="bap-score" id="bapScore">24</div>
       <div class="bap-label" id="bapLabel">SCORED</div>
     </div>
+  </div>
+</div>
+
+
+<!-- ACHIEVEMENTS OVERLAY -->
+<div id="achOverlay" onclick="closeAchievementsOverlay(event)">
+  <div class="ach-sheet">
+    <div class="ach-header">
+      <div class="ach-header-title">🏆 ACHIEVEMENTS</div>
+      <button class="ach-close" onclick="closeAchievements()">✕</button>
+    </div>
+    <div class="ach-progress-bar">
+      <div class="ach-progress-fill" id="achProgressFill" style="width:0%"></div>
+    </div>
+    <div class="ach-progress-label" id="achProgressLabel">0 / 15 unlocked</div>
+    <div class="ach-grid" id="achGrid"></div>
+  </div>
+</div>
+
+<!-- ACHIEVEMENT UNLOCK NOTIFICATION -->
+<div id="achNotif">
+  <div class="achN-icon" id="achNotifIcon">🏆</div>
+  <div>
+    <div class="achN-label">ACHIEVEMENT UNLOCKED</div>
+    <div class="achN-name" id="achNotifName">First Roll</div>
+    <div class="achN-desc" id="achNotifDesc">Complete your first game</div>
   </div>
 </div>
 
