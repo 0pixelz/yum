@@ -66,6 +66,22 @@
     margin-top: 4px;
     letter-spacing: 1px;
   }
+  .sound-toggle {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px 9px;
+    line-height: 1;
+    transition: background 0.15s;
+  }
+  .sound-toggle:hover { background: rgba(255,255,255,0.22); }
+  .sound-toggle.muted { opacity: 0.45; }
 
   /* DICE ROLLER */
   .dice-section {
@@ -1774,6 +1790,7 @@
 <div id="mpToast"></div>
 
 <header>
+  <button class="sound-toggle" id="soundToggle" onclick="toggleSound()" title="Toggle sound">🔊</button>
   <h1>🎲 YUM!</h1>
   <div class="progress-bar-wrap">
     <div class="progress-bar-fill" id="globalProgress" style="width:0%"></div>
@@ -1877,6 +1894,127 @@
 </div>
 
 <script>
+// ─── SOUND EFFECTS ──────────────────────────────────────────────────
+let soundEnabled = localStorage.getItem('yumSound') !== 'off';
+let _audioCtx = null;
+
+function _ctx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _audioCtx;
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('yumSound', soundEnabled ? 'on' : 'off');
+  const btn = document.getElementById('soundToggle');
+  btn.textContent = soundEnabled ? '🔊' : '🔇';
+  btn.classList.toggle('muted', !soundEnabled);
+}
+
+function _playTone(freq, type, startVol, endVol, startTime, duration, ctx) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  gain.gain.setValueAtTime(startVol, startTime);
+  gain.gain.exponentialRampToValueAtTime(Math.max(endVol, 0.0001), startTime + duration);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.01);
+}
+
+const SFX = {
+  roll() {
+    if (!soundEnabled) return;
+    const ctx = _ctx();
+    const now = ctx.currentTime;
+    // Multiple short noise bursts to simulate dice clattering
+    const count = Math.floor(Math.random() * 3) + 3;
+    for (let i = 0; i < count; i++) {
+      const t = now + i * 0.055;
+      const freq = 180 + Math.random() * 120;
+      _playTone(freq, 'sawtooth', 0.18, 0.001, t, 0.06, ctx);
+      _playTone(freq * 1.5, 'square', 0.08, 0.001, t, 0.05, ctx);
+    }
+  },
+
+  hold() {
+    if (!soundEnabled) return;
+    const ctx = _ctx();
+    const now = ctx.currentTime;
+    _playTone(660, 'sine', 0.12, 0.001, now, 0.07, ctx);
+    _playTone(880, 'sine', 0.06, 0.001, now + 0.04, 0.06, ctx);
+  },
+
+  unhold() {
+    if (!soundEnabled) return;
+    const ctx = _ctx();
+    const now = ctx.currentTime;
+    _playTone(880, 'sine', 0.10, 0.001, now, 0.05, ctx);
+    _playTone(660, 'sine', 0.07, 0.001, now + 0.03, 0.06, ctx);
+  },
+
+  score() {
+    if (!soundEnabled) return;
+    const ctx = _ctx();
+    const now = ctx.currentTime;
+    _playTone(523, 'sine', 0.15, 0.001, now,       0.12, ctx);
+    _playTone(659, 'sine', 0.15, 0.001, now + 0.10, 0.12, ctx);
+    _playTone(784, 'sine', 0.18, 0.001, now + 0.20, 0.18, ctx);
+  },
+
+  yum() {
+    if (!soundEnabled) return;
+    const ctx = _ctx();
+    const now = ctx.currentTime;
+    // Triumphant ascending fanfare
+    const notes = [523, 659, 784, 1047, 1047];
+    const delays = [0, 0.10, 0.20, 0.32, 0.42];
+    const durs   = [0.12, 0.12, 0.12, 0.20, 0.35];
+    notes.forEach((f, i) => {
+      _playTone(f,     'sine',     0.20, 0.001, now + delays[i], durs[i], ctx);
+      _playTone(f * 2, 'sine',     0.07, 0.001, now + delays[i], durs[i], ctx);
+      _playTone(f * 0.5, 'triangle', 0.05, 0.001, now + delays[i], durs[i], ctx);
+    });
+  },
+
+  win() {
+    if (!soundEnabled) return;
+    const ctx = _ctx();
+    const now = ctx.currentTime;
+    const notes = [523, 659, 784, 1047, 784, 1047];
+    const delays = [0, 0.12, 0.24, 0.36, 0.50, 0.62];
+    notes.forEach((f, i) => {
+      _playTone(f,     'sine',     0.18, 0.001, now + delays[i], 0.18, ctx);
+      _playTone(f * 2, 'sine',     0.06, 0.001, now + delays[i], 0.18, ctx);
+    });
+  },
+
+  lose() {
+    if (!soundEnabled) return;
+    const ctx = _ctx();
+    const now = ctx.currentTime;
+    _playTone(392, 'sine', 0.14, 0.001, now,        0.22, ctx);
+    _playTone(349, 'sine', 0.14, 0.001, now + 0.20, 0.22, ctx);
+    _playTone(294, 'sine', 0.16, 0.001, now + 0.40, 0.40, ctx);
+  },
+
+  scratch() {
+    if (!soundEnabled) return;
+    const ctx = _ctx();
+    const now = ctx.currentTime;
+    _playTone(220, 'sawtooth', 0.10, 0.001, now,        0.10, ctx);
+    _playTone(180, 'sawtooth', 0.10, 0.001, now + 0.09, 0.12, ctx);
+  }
+};
+
+// Init button state on load
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('soundToggle');
+  if (!soundEnabled) { btn.textContent = '🔇'; btn.classList.add('muted'); }
+});
+
 const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 
 const categories = [
@@ -1931,6 +2069,7 @@ function rollDice() {
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
   if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
   if(rollsLeft <= 0) return;
+  SFX.roll();
   dice = dice.map((v,i) => held[i] ? v : Math.floor(Math.random()*6)+1);
   rolled = true;
   rollsLeft--;
@@ -1960,6 +2099,7 @@ function toggleHold(i) {
   if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
   if(dice[i] === 0) return;
   held[i] = !held[i];
+  held[i] ? SFX.hold() : SFX.unhold();
   renderDice();
   // Sync hold state so opponents see which dice are locked
   if(mpMode && roomRef) {
@@ -2174,6 +2314,9 @@ function selectScore(v) {
 function confirmScore() {
   if(selectedScore === null || selectedScore === undefined) { closeModalEl(); return; }
   scores[activeModal] = selectedScore;
+  if(activeModal === 'yum' && selectedScore === 50) SFX.yum();
+  else if(selectedScore === 0) SFX.scratch();
+  else SFX.score();
   clearDice();
   closeModalEl();
   renderScores();
@@ -3391,6 +3534,8 @@ function showGameOver(players) {
   const winner = players[0];
   const tied = players.length > 1 && players[0].score === players[1].score;
 
+  if (winner.isMe) SFX.win();
+  else if (!tied) SFX.lose();
   document.getElementById('goTrophy').textContent =
     tied ? '🤝' : winner.isMe ? '🏆' : '😤';
   document.getElementById('goTitle').textContent =
