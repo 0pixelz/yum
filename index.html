@@ -1422,6 +1422,46 @@
   }
 
 
+  /* BOT SCORE POPUP */
+  #botScorePop {
+    position: fixed; inset: 0; z-index: 850;
+    display: none; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  #botScorePop.show { display: flex; }
+  .bot-score-box {
+    background: linear-gradient(135deg, #1a0a2e, #2d1b4e);
+    border: 2px solid rgba(168,85,247,0.6);
+    border-radius: 28px;
+    padding: 28px 36px;
+    text-align: center;
+    min-width: 240px;
+    box-shadow: 0 0 60px rgba(168,85,247,0.3), 0 20px 60px rgba(0,0,0,0.7);
+    animation: turnPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards,
+               turnPopOut 0.4s ease-in 2.4s forwards;
+  }
+  .bs-header {
+    font-size: 0.7rem; letter-spacing: 3px; font-weight: 800;
+    color: rgba(168,85,247,0.8); text-transform: uppercase; margin-bottom: 12px;
+  }
+  .bs-cat-icon { font-size: 3rem; display: block; margin-bottom: 6px; }
+  .bs-cat-name {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 2rem; letter-spacing: 4px; color: var(--text);
+    margin-bottom: 6px;
+  }
+  .bs-pts {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 3.2rem; letter-spacing: 3px; line-height: 1;
+    color: rgba(168,85,247,1);
+    text-shadow: 0 0 30px rgba(168,85,247,0.7);
+    margin-bottom: 14px;
+  }
+  .bs-pts.scratched { font-size: 1.4rem; color: var(--muted); text-shadow: none; letter-spacing: 4px; }
+  .bs-pts.yum       { color: var(--gold); text-shadow: 0 0 30px rgba(245,166,35,0.7); }
+  .bs-dice { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+  .bs-die  { font-size: 1.6rem; }
+
   /* FIRST ROLL OVERLAY */
   #firstRollOverlay {
     position: fixed; inset: 0; z-index: 880;
@@ -3452,7 +3492,7 @@ function finishBotTurn(move) {
   // Animate score appearing in leaderboard
   renderBotLeaderboard();
 
-  showScoreNotif(botName, move.cat.id, scored, botDice.slice());
+  showBotScorePop(move.cat.id, scored, botDice.slice());
 
   // Restore dice area to player control
   showBotDiceOverlay(false);
@@ -4021,6 +4061,35 @@ window.addEventListener('beforeunload', function(e) {
 });
 
 
+function showBotScorePop(catId, points, diceArr) {
+  const cat = categories.find(c => c.id === catId);
+  if (!cat) return;
+
+  document.getElementById('bsCatIcon').textContent = cat.icon || '🎲';
+  document.getElementById('bsCatName').textContent = cat.name;
+
+  const ptsEl = document.getElementById('bsPts');
+  if (points === 0) {
+    ptsEl.textContent = 'SCRATCHED';
+    ptsEl.className = 'bs-pts scratched';
+  } else {
+    ptsEl.textContent = '+' + points;
+    ptsEl.className = 'bs-pts' + (catId === 'yum' && points === 50 ? ' yum' : '');
+  }
+
+  document.getElementById('bsDice').innerHTML = (diceArr && diceArr.length)
+    ? diceArr.map(v => `<span class="bs-die">${DICE_FACES[v - 1] || v}</span>`).join('')
+    : '';
+
+  const pop = document.getElementById('botScorePop');
+  const box = pop.querySelector('.bot-score-box');
+  box.style.animation = 'none';
+  void box.offsetWidth;
+  box.style.animation = '';
+  pop.classList.add('show');
+  setTimeout(() => pop.classList.remove('show'), 2900);
+}
+
 function showYourTurnPop(sub) {
   const pop = document.getElementById('yourTurnPop');
   const subEl = document.getElementById('yourTurnSub');
@@ -4484,6 +4553,17 @@ renderScores();
   </div>
 </div>
 
+
+<!-- BOT SCORE POPUP -->
+<div id="botScorePop">
+  <div class="bot-score-box">
+    <div class="bs-header">🤖 Bot scored</div>
+    <span class="bs-cat-icon" id="bsCatIcon">🎲</span>
+    <div class="bs-cat-name" id="bsCatName">Category</div>
+    <div class="bs-pts" id="bsPts">+0</div>
+    <div class="bs-dice" id="bsDice"></div>
+  </div>
+</div>
 
 <div id="yourTurnPop">
   <div class="your-turn-box">
