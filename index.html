@@ -1375,6 +1375,69 @@
   }
 
 
+  /* BOT / OPPONENT ACTION POPUP */
+  #botActionPopup {
+    position: fixed; inset: 0; z-index: 820;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    opacity: 0; transition: opacity 0.25s;
+  }
+  #botActionPopup.show { opacity: 1; }
+  .bap-box {
+    background: var(--card);
+    border: 2px solid rgba(168,85,247,0.5);
+    border-radius: 20px;
+    padding: 22px 30px 18px;
+    min-width: 270px; max-width: 340px;
+    text-align: center;
+    box-shadow: 0 0 50px rgba(168,85,247,0.2), 0 20px 60px rgba(0,0,0,0.6);
+    transform: scale(0.75);
+    transition: transform 0.38s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  #botActionPopup.show .bap-box { transform: scale(1); }
+  .bap-header {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-bottom: 14px;
+  }
+  .bap-avatar { font-size: 2rem; line-height: 1; }
+  .bap-name {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.4rem; letter-spacing: 3px; color: #c084fc;
+  }
+  .bap-dice {
+    display: flex; justify-content: center; gap: 4px;
+    margin-bottom: 14px;
+  }
+  .bap-die { font-size: 2rem; line-height: 1; }
+  .bap-result {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 12px;
+  }
+  .bap-cat {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1rem; letter-spacing: 3px; color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .bap-score {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 3.2rem; line-height: 1;
+    color: var(--gold);
+  }
+  .bap-label {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 2px;
+    color: var(--muted); text-transform: uppercase; margin-top: 4px;
+  }
+  #botActionPopup.perfect .bap-box {
+    border-color: rgba(255,210,0,0.7);
+    box-shadow: 0 0 50px rgba(255,210,0,0.25), 0 20px 60px rgba(0,0,0,0.6);
+  }
+  #botActionPopup.perfect .bap-score { color: #ffd700; }
+  #botActionPopup.perfect .bap-label { color: #ffd700; }
+  #botActionPopup.zero .bap-score { color: var(--muted); font-size: 2.2rem; }
+  #botActionPopup.zero .bap-label { color: rgba(233,69,96,0.8); }
+  #botActionPopup.mp .bap-name { color: var(--cyan); }
+  #botActionPopup.mp .bap-box { border-color: rgba(78,205,196,0.5); box-shadow: 0 0 50px rgba(78,205,196,0.15), 0 20px 60px rgba(0,0,0,0.6); }
+
   /* FIRST ROLL OVERLAY */
   #firstRollOverlay {
     position: fixed; inset: 0; z-index: 880;
@@ -2732,6 +2795,7 @@ let allPlayers = {};
 let currentTurnId = null;
 let previousPlayerCount = null;
 let previousPlayers = {};
+let prevOpponentScores = {}; // track opponent score counts for change detection
 
 function genCode() {
   return Math.random().toString(36).substr(2,4).toUpperCase();
@@ -2899,6 +2963,32 @@ function listenRoom() {
     }
     previousPlayerCount = Object.keys(data.players || {}).length;
     previousPlayers = {...(data.players || {})};
+
+    // Detect when an opponent scores a new category and show action popup
+    if(data.started) {
+      Object.entries(allPlayers).forEach(([id, p]) => {
+        if(id === playerId) return; // skip self
+        const newScores = p.scores || {};
+        const prevCount = prevOpponentScores[id] || 0;
+        const newCount = Object.keys(newScores).length;
+        if(newCount > prevCount) {
+          // Find which category was just scored
+          const prevKeys = Object.keys(prevOpponentScores['_keys_' + id] || {});
+          const newKey = Object.keys(newScores).find(k => !prevKeys.includes(k));
+          if(newKey) {
+            const cat = categories.find(c => c.id === newKey);
+            const scored = newScores[newKey];
+            if(cat) {
+              const isPerfect = scored === cat.max && cat.max > 0;
+              const isZero = scored === 0;
+              showBotActionPopup(p.name, [], cat.name, scored, isPerfect, isZero, true);
+            }
+          }
+        }
+        prevOpponentScores[id] = newCount;
+        prevOpponentScores['_keys_' + id] = {...newScores};
+      });
+    }
 
     if(data.started && currentTurnId && currentTurnId !== playerId) {
       const oppLive = allPlayers[currentTurnId]?.liveDice;
@@ -3318,6 +3408,34 @@ function animateBotDice() {
   setTimeout(() => { diceRow.style.opacity = '1'; }, 200);
 }
 
+let _botActionTimer = null;
+function showBotActionPopup(name, diceArr, catName, scored, isPerfect, isZero, isMp) {
+  const pop = document.getElementById('botActionPopup');
+  document.getElementById('bapAvatar').textContent = isMp ? '👤' : '🤖';
+  document.getElementById('bapName').textContent = name.toUpperCase();
+  const diceEl = document.getElementById('bapDice');
+  if(diceArr && diceArr.length > 0) {
+    diceEl.innerHTML = diceArr
+      .map(v => `<span class="bap-die">${v > 0 ? DICE_FACES[v-1] : '⬜'}</span>`)
+      .join('');
+    diceEl.style.display = 'flex';
+  } else {
+    diceEl.innerHTML = '';
+    diceEl.style.display = 'none';
+  }
+  document.getElementById('bapCat').textContent = catName;
+  document.getElementById('bapScore').textContent = scored;
+  document.getElementById('bapLabel').textContent =
+    isPerfect ? 'PERFECT! 🏆' : isZero ? 'STRUCK OUT' : 'SCORED';
+  pop.classList.remove('perfect', 'zero', 'mp');
+  if(isPerfect) pop.classList.add('perfect');
+  else if(isZero) pop.classList.add('zero');
+  if(isMp) pop.classList.add('mp');
+  if(_botActionTimer) clearTimeout(_botActionTimer);
+  pop.classList.add('show');
+  _botActionTimer = setTimeout(() => pop.classList.remove('show'), 3000);
+}
+
 function finishBotTurn(move) {
   if(!move || !move.cat) {
     // No move, skip
@@ -3335,12 +3453,9 @@ function finishBotTurn(move) {
   // Animate score appearing in leaderboard
   renderBotLeaderboard();
 
-  const msg = scored === move.cat.max
-    ? `🤖 Bot got PERFECT ${scored} on ${move.cat.name}! 😤`
-    : scored === 0
-      ? `🤖 Bot scored 0 on ${move.cat.name}… lucky you!`
-      : `🤖 Bot scored ${scored} on ${move.cat.name}`;
-  showToast(msg);
+  const isPerfect = scored === move.cat.max && move.cat.max > 0;
+  const isZero = scored === 0;
+  showBotActionPopup(botName, botDice, move.cat.name, scored, isPerfect, isZero, false);
 
   // Restore dice area to player control
   showBotDiceOverlay(false);
@@ -4412,6 +4527,22 @@ renderScores();
     <div class="pl-btns">
       <button class="pl-btn pl-btn-scores" onclick="plViewScores()">📋 VIEW SCORESHEETS</button>
       <button class="pl-btn pl-btn-lobby" onclick="plGoLobby()">🚪 RETURN TO LOBBY</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOT / OPPONENT ACTION POPUP -->
+<div id="botActionPopup">
+  <div class="bap-box">
+    <div class="bap-header">
+      <span class="bap-avatar" id="bapAvatar">🤖</span>
+      <div class="bap-name" id="bapName">BOT</div>
+    </div>
+    <div class="bap-dice" id="bapDice"></div>
+    <div class="bap-result">
+      <div class="bap-cat" id="bapCat">Chance</div>
+      <div class="bap-score" id="bapScore">24</div>
+      <div class="bap-label" id="bapLabel">SCORED</div>
     </div>
   </div>
 </div>
