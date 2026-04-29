@@ -1,0 +1,25 @@
+{
+  "name": "YUM! Scorecard",
+  "short_name": "YUM!",
+  "description": "A mobile-friendly YUM / Yahtzee-style scorecard with solo, bot, multiplayer, predictions, and achievements.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1a2e",
+  "theme_color": "#0f3460",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
