@@ -1,8 +1,9 @@
-// ─── FIREBASE INITIALIZATION ─────────────────────────────────────────
-// Restores window.db for multiplayer after the app was split into JS files.
+// ─── FIREBASE + UI HELPERS ───────────────────────────────────────────
+// This file loads after js/app.js. It polishes score labels, keeps achievement
+// progress bars, and adds a multiplayer Firebase retry fallback.
 
 (function() {
-  const firebaseConfig = {
+  const FIREBASE_CONFIG = {
     apiKey: "AIzaSyBl1XezlXttwyQLBsEJJV0nkxomzL0uhZw",
     authDomain: "yum-game.firebaseapp.com",
     databaseURL: "https://yum-game-default-rtdb.firebaseio.com",
@@ -12,33 +13,46 @@
     appId: "1:418931435506:web:1f37261a6bf89c596b2d6b"
   };
 
-  try {
-    if (!window.firebase) {
-      console.warn('Firebase SDK not loaded. Multiplayer unavailable.');
+  function ensureFirebaseDb() {
+    try {
+      if (!window.firebase || !firebase.database) return null;
+      if (!firebase.apps || firebase.apps.length === 0) firebase.initializeApp(FIREBASE_CONFIG);
+      window.db = firebase.database();
+      try { window.eval('var db = window.db;'); } catch(e) {}
+      return window.db;
+    } catch(e) {
+      console.warn('Firebase unavailable:', e);
       window.db = null;
-      window.yumFirebaseConnected = false;
-      return;
+      return null;
     }
-
-    if (!firebase.apps || firebase.apps.length === 0) {
-      firebase.initializeApp(firebaseConfig);
-    }
-
-    window.db = firebase.database();
-    window.db.ref('.info/connected').on('value', snap => {
-      window.yumFirebaseConnected = snap.val() === true;
-    });
-  } catch(e) {
-    console.warn('Firebase not available:', e);
-    window.db = null;
-    window.yumFirebaseConnected = false;
   }
-})();
 
-// ─── SCORE LABEL POLISH ──────────────────────────────────────────────
-// Replaces suggested scoreboard labels like "12?" with "12 pts".
+  window.ensureFirebaseDb = window.ensureFirebaseDb || ensureFirebaseDb;
+  ensureFirebaseDb();
 
-(function() {
+  async function waitForDb() {
+    let database = ensureFirebaseDb();
+    if (database) return database;
+    for (let i = 0; i < 8; i++) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+      database = ensureFirebaseDb();
+      if (database) return database;
+    }
+    return null;
+  }
+
+  function patchMultiplayerFunction(name) {
+    const original = window[name];
+    if (typeof original !== 'function' || original.__firebaseRetryPatched) return;
+
+    const patched = async function(...args) {
+      await waitForDb();
+      return original.apply(this, args);
+    };
+    patched.__firebaseRetryPatched = true;
+    window[name] = patched;
+  }
+
   function polishScoreLabels() {
     document.querySelectorAll('.score-value span').forEach(span => {
       const raw = (span.textContent || '').trim();
@@ -47,76 +61,28 @@
     });
   }
 
-  function patchFunction(name) {
+  function patchRenderFunction(name, callback) {
     const original = window[name];
-    if (typeof original !== 'function') return;
-    if (original.__scoreLabelPatched) return;
-
+    if (typeof original !== 'function' || original[`__${callback.name}Patched`]) return;
     const patched = function(...args) {
       const result = original.apply(this, args);
-      setTimeout(polishScoreLabels, 0);
+      setTimeout(callback, 0);
       return result;
     };
-    patched.__scoreLabelPatched = true;
+    patched[`__${callback.name}Patched`] = true;
     window[name] = patched;
   }
-
-  function initScoreLabels() {
-    polishScoreLabels();
-    ['renderScores', 'renderDice', 'rollDice', 'cycleDie', 'toggleHold', 'clearDice', 'confirmScore', 'deleteScore'].forEach(patchFunction);
-
-    const observer = new MutationObserver(() => polishScoreLabels());
-    const scoreSection = document.getElementById('scoreSection');
-    if (scoreSection) observer.observe(scoreSection, { childList: true, subtree: true });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initScoreLabels);
-  } else {
-    initScoreLabels();
-  }
-})();
-
-// ─── ACHIEVEMENT PROGRESS BARS ───────────────────────────────────────
-// Adds a small progress/loading bar to every achievement card.
-// Progress is capped visually at 500 for long-term stats.
-
-(function() {
-  const MAX_PROGRESS_CAP = 500;
 
   function injectAchievementProgressStyles() {
     if (document.getElementById('achievementProgressStyles')) return;
     const style = document.createElement('style');
     style.id = 'achievementProgressStyles';
     style.textContent = `
-      .ach-card .ach-mini-progress {
-        width: 100%;
-        height: 6px;
-        margin-top: 9px;
-        border-radius: 999px;
-        overflow: hidden;
-        background: rgba(255,255,255,0.08);
-        border: 1px solid rgba(255,255,255,0.06);
-      }
-      .ach-card .ach-mini-fill {
-        height: 100%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, var(--green), var(--gold));
-        transition: width 0.45s ease;
-      }
-      .ach-card.locked .ach-mini-fill {
-        background: linear-gradient(90deg, var(--accent), var(--gold));
-      }
-      .ach-card .ach-mini-label {
-        margin-top: 5px;
-        font-size: 0.64rem;
-        font-weight: 800;
-        color: var(--muted);
-        letter-spacing: 0.5px;
-      }
-      .ach-card.unlocked .ach-mini-label {
-        color: var(--green);
-      }
+      .ach-card .ach-mini-progress{width:100%;height:6px;margin-top:9px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.06)}
+      .ach-card .ach-mini-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--gold));transition:width .45s ease}
+      .ach-card.locked .ach-mini-fill{background:linear-gradient(90deg,var(--accent),var(--gold))}
+      .ach-card .ach-mini-label{margin-top:5px;font-size:.64rem;font-weight:800;color:var(--muted);letter-spacing:.5px}
+      .ach-card.unlocked .ach-mini-label{color:var(--green)}
     `;
     document.head.appendChild(style);
   }
@@ -128,75 +94,47 @@
 
   function achievementProgress(ach, stats, unlocked) {
     const done = !!unlocked[ach.id];
-    let current = 0;
-    let target = 1;
-    let label = '';
-
+    let current = 0, target = 1, label = 'progress';
     switch (ach.id) {
-      case 'first_game':
-        current = safeNumber(stats.gamesPlayed); target = 1; label = 'games'; break;
-      case 'first_win':
-        current = safeNumber(stats.gamesWon); target = 1; label = 'wins'; break;
-      case 'first_yum':
-        current = safeNumber(stats.yumCount); target = 1; label = 'YUMs'; break;
-      case 'yum_x3':
-        current = safeNumber(stats.yumCount); target = 3; label = 'YUMs'; break;
-      case 'yum_x10':
-        current = safeNumber(stats.yumCount); target = 10; label = 'YUMs'; break;
-      case 'full_house':
-        current = safeNumber(stats.fullHouseCount); target = 1; label = 'full houses'; break;
-      case 'lg_straight':
-        current = safeNumber(stats.lgStraightCount); target = 1; label = 'large straights'; break;
-      case 'bonus':
-        current = safeNumber(stats.bonusCount); target = 1; label = 'bonuses'; break;
-      case 'perfect_upper':
-        current = safeNumber(stats.perfectUpperCount); target = 1; label = 'perfect uppers'; break;
-      case 'score_250':
-        current = safeNumber(stats.highScore); target = 250; label = 'best pts'; break;
-      case 'score_300':
-        current = safeNumber(stats.highScore); target = 300; label = 'best pts'; break;
-      case 'bot_slayer':
-        current = safeNumber(stats.botWins); target = 5; label = 'bot wins'; break;
-      case 'no_scratch':
-        current = safeNumber(stats.noScratchGames); target = 1; label = 'clean games'; break;
-      case 'games_10':
-        current = safeNumber(stats.gamesPlayed); target = 10; label = 'games'; break;
-      case 'games_25':
-        current = safeNumber(stats.gamesPlayed); target = 25; label = 'games'; break;
-      default:
-        current = done ? 1 : 0; target = 1; label = 'progress';
+      case 'first_game': current = safeNumber(stats.gamesPlayed); target = 1; label = 'games'; break;
+      case 'first_win': current = safeNumber(stats.gamesWon); target = 1; label = 'wins'; break;
+      case 'first_yum': current = safeNumber(stats.yumCount); target = 1; label = 'YUMs'; break;
+      case 'yum_x3': current = safeNumber(stats.yumCount); target = 3; label = 'YUMs'; break;
+      case 'yum_x10': current = safeNumber(stats.yumCount); target = 10; label = 'YUMs'; break;
+      case 'full_house': current = safeNumber(stats.fullHouseCount); target = 1; label = 'full houses'; break;
+      case 'lg_straight': current = safeNumber(stats.lgStraightCount); target = 1; label = 'large straights'; break;
+      case 'bonus': current = safeNumber(stats.bonusCount); target = 1; label = 'bonuses'; break;
+      case 'perfect_upper': current = safeNumber(stats.perfectUpperCount); target = 1; label = 'perfect uppers'; break;
+      case 'score_250': current = safeNumber(stats.highScore); target = 250; label = 'best pts'; break;
+      case 'score_300': current = safeNumber(stats.highScore); target = 300; label = 'best pts'; break;
+      case 'bot_slayer': current = safeNumber(stats.botWins); target = 5; label = 'bot wins'; break;
+      case 'no_scratch': current = safeNumber(stats.noScratchGames); target = 1; label = 'clean games'; break;
+      case 'games_10': current = safeNumber(stats.gamesPlayed); target = 10; label = 'games'; break;
+      case 'games_25': current = safeNumber(stats.gamesPlayed); target = 25; label = 'games'; break;
     }
-
-    const displayTarget = Math.min(target, MAX_PROGRESS_CAP);
-    const displayCurrent = Math.min(current, displayTarget, MAX_PROGRESS_CAP);
+    const cap = 500;
+    const displayTarget = Math.min(target, cap);
+    const displayCurrent = Math.min(current, displayTarget, cap);
     const pct = done ? 100 : Math.min(100, Math.round((displayCurrent / displayTarget) * 100));
     const text = done
-      ? `Complete · ${Math.min(current, MAX_PROGRESS_CAP)}/${displayTarget}${current > MAX_PROGRESS_CAP ? '+' : ''} ${label}`
-      : `${Math.min(current, MAX_PROGRESS_CAP)}/${displayTarget}${current > MAX_PROGRESS_CAP ? '+' : ''} ${label}`;
-
+      ? `Complete · ${Math.min(current, cap)}/${displayTarget}${current > cap ? '+' : ''} ${label}`
+      : `${Math.min(current, cap)}/${displayTarget}${current > cap ? '+' : ''} ${label}`;
     return { pct, text };
   }
 
   function renderAchievementProgressBars() {
     injectAchievementProgressStyles();
-
     if (typeof ACHIEVEMENTS === 'undefined' || typeof loadAchStats !== 'function' || typeof loadUnlocked !== 'function') return;
-
     const grid = document.getElementById('achGrid');
     if (!grid) return;
-
     const stats = loadAchStats();
     const unlocked = loadUnlocked();
-    const cards = grid.querySelectorAll('.ach-card');
-
-    cards.forEach((card, index) => {
+    grid.querySelectorAll('.ach-card').forEach((card, index) => {
       const ach = ACHIEVEMENTS[index];
       if (!ach) return;
-
       const progress = achievementProgress(ach, stats, unlocked);
       let wrap = card.querySelector('.ach-mini-progress');
       let label = card.querySelector('.ach-mini-label');
-
       if (!wrap) {
         wrap = document.createElement('div');
         wrap.className = 'ach-mini-progress';
@@ -208,36 +146,27 @@
         label.className = 'ach-mini-label';
         card.appendChild(label);
       }
-
       const fill = wrap.querySelector('.ach-mini-fill');
       if (fill) fill.style.width = `${progress.pct}%`;
       label.textContent = progress.text;
     });
   }
 
-  function patchAchievementsRender() {
-    if (typeof window.renderAchievements !== 'function') return;
-    if (window.renderAchievements.__progressPatched) return;
+  function initHelpers() {
+    patchMultiplayerFunction('createGame');
+    patchMultiplayerFunction('joinGame');
+    patchMultiplayerFunction('startGame');
 
-    const original = window.renderAchievements;
-    const patched = function(...args) {
-      const result = original.apply(this, args);
-      setTimeout(renderAchievementProgressBars, 0);
-      return result;
-    };
-    patched.__progressPatched = true;
-    window.renderAchievements = patched;
-  }
+    polishScoreLabels();
+    ['renderScores','renderDice','rollDice','cycleDie','toggleHold','clearDice','confirmScore','deleteScore'].forEach(name => patchRenderFunction(name, polishScoreLabels));
+    patchRenderFunction('renderAchievements', renderAchievementProgressBars);
 
-  function initAchievementProgress() {
-    injectAchievementProgressStyles();
-    patchAchievementsRender();
+    const scoreSection = document.getElementById('scoreSection');
+    if (scoreSection) new MutationObserver(polishScoreLabels).observe(scoreSection, { childList: true, subtree: true });
+
     setTimeout(renderAchievementProgressBars, 0);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAchievementProgress);
-  } else {
-    initAchievementProgress();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initHelpers);
+  else initHelpers();
 })();
