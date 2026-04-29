@@ -188,3 +188,169 @@ function renderAchievements() {
     }
   };
 })();
+
+// ─── DICE POSSIBILITIES PANEL ────────────────────────────────────────
+(function() {
+  function injectPossibilityStyles() {
+    if (document.getElementById('dicePossibilityStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'dicePossibilityStyles';
+    style.textContent = `
+      .dice-possibilities {
+        margin-top: 8px;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+      .dp-title {
+        text-align: center;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 1.4px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .dp-list {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+      }
+      .dp-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 7px;
+        border-radius: 999px;
+        background: rgba(78,205,196,0.09);
+        border: 1px solid rgba(78,205,196,0.22);
+        color: var(--white);
+        cursor: pointer;
+        max-width: 100%;
+      }
+      .dp-chip:active { transform: scale(0.97); }
+      .dp-icon { font-size: 0.82rem; line-height: 1; }
+      .dp-name {
+        font-weight: 800;
+        white-space: nowrap;
+        color: var(--white);
+      }
+      .dp-points {
+        color: var(--green);
+        font-weight: 900;
+        white-space: nowrap;
+      }
+      .dp-pct {
+        color: var(--muted);
+        font-size: 0.62rem;
+        font-weight: 800;
+      }
+      .dp-empty {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.68rem;
+        opacity: 0.8;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function getPossibilities() {
+    try {
+      if (!Array.isArray(dice) || !dice.every(v => v > 0)) return [];
+      if (!Array.isArray(categories)) return [];
+
+      return categories
+        .filter(cat => scores[cat.id] === undefined)
+        .map(cat => ({ cat, points: cat.calc(dice) }))
+        .filter(item => item.points > 0)
+        .sort((a, b) => b.points - a.points || b.cat.max - a.cat.max);
+    } catch(e) {
+      return [];
+    }
+  }
+
+  function ensurePossibilitiesPanel() {
+    let panel = document.getElementById('dicePossibilities');
+    if (panel) return panel;
+
+    const rollCount = document.getElementById('rollCount');
+    if (!rollCount) return null;
+
+    panel = document.createElement('div');
+    panel.id = 'dicePossibilities';
+    panel.className = 'dice-possibilities';
+    rollCount.insertAdjacentElement('afterend', panel);
+    return panel;
+  }
+
+  function categoryIcon(cat) {
+    try {
+      if (typeof renderIcon === 'function') return renderIcon(cat.icon);
+    } catch(e) {}
+    return cat.icon || '';
+  }
+
+  function renderPossibilities() {
+    const panel = ensurePossibilitiesPanel();
+    if (!panel) return;
+
+    const hasDice = Array.isArray(dice) && dice.every(v => v > 0);
+    if (!hasDice) {
+      panel.innerHTML = '<div class="dp-empty">Roll all dice to see possible scores left</div>';
+      return;
+    }
+
+    const options = getPossibilities();
+    if (!options.length) {
+      panel.innerHTML = '<div class="dp-empty">No scoring option left for this roll · strike only</div>';
+      return;
+    }
+
+    const chips = options.slice(0, 8).map(({ cat, points }) => {
+      const pct = cat.max ? Math.round((points / cat.max) * 100) : 0;
+      return `<div class="dp-chip" onclick="openModal('${cat.id}')">
+        <span class="dp-icon">${categoryIcon(cat)}</span>
+        <span class="dp-name">${cat.name}</span>
+        <span class="dp-points">${points} pts</span>
+        <span class="dp-pct">${pct}%</span>
+      </div>`;
+    }).join('');
+
+    panel.innerHTML = `
+      <div class="dp-title">Possible scores left</div>
+      <div class="dp-list">${chips}</div>
+    `;
+  }
+
+  function patchFunction(name) {
+    const original = window[name];
+    if (typeof original !== 'function') return;
+    if (original.__possibilitiesPatched) return;
+
+    const patched = function(...args) {
+      const result = original.apply(this, args);
+      setTimeout(renderPossibilities, 0);
+      return result;
+    };
+    patched.__possibilitiesPatched = true;
+    window[name] = patched;
+  }
+
+  function initPossibilities() {
+    injectPossibilityStyles();
+    ensurePossibilitiesPanel();
+    renderPossibilities();
+
+    ['renderDice', 'renderScores', 'rollDice', 'toggleHold', 'cycleDie', 'clearDice', 'confirmScore', 'deleteScore'].forEach(patchFunction);
+
+    // Extra refresh for Firebase/multiplayer and bot turn UI changes.
+    setInterval(renderPossibilities, 1200);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPossibilities);
+  } else {
+    initPossibilities();
+  }
+})();
