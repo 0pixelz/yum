@@ -1,3 +1,40 @@
+// ─── FIREBASE INITIALIZATION ─────────────────────────────────────────
+// Restores window.db for multiplayer after the app was split into JS files.
+
+(function() {
+  const firebaseConfig = {
+    apiKey: "AIzaSyBl1XezlXttwyQLBsEJJV0nkxomzL0uhZw",
+    authDomain: "yum-game.firebaseapp.com",
+    databaseURL: "https://yum-game-default-rtdb.firebaseio.com",
+    projectId: "yum-game",
+    storageBucket: "yum-game.firebasestorage.app",
+    messagingSenderId: "418931435506",
+    appId: "1:418931435506:web:1f37261a6bf89c596b2d6b"
+  };
+
+  try {
+    if (!window.firebase) {
+      console.warn('Firebase SDK not loaded. Multiplayer unavailable.');
+      window.db = null;
+      window.yumFirebaseConnected = false;
+      return;
+    }
+
+    if (!firebase.apps || firebase.apps.length === 0) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    window.db = firebase.database();
+    window.db.ref('.info/connected').on('value', snap => {
+      window.yumFirebaseConnected = snap.val() === true;
+    });
+  } catch(e) {
+    console.warn('Firebase not available:', e);
+    window.db = null;
+    window.yumFirebaseConnected = false;
+  }
+})();
+
 // ─── SCORE LABEL POLISH ──────────────────────────────────────────────
 // Replaces suggested scoreboard labels like "12?" with "12 pts".
 
@@ -130,7 +167,6 @@
         current = done ? 1 : 0; target = 1; label = 'progress';
     }
 
-    // Cap the display values at 500 so very large totals do not overwhelm the UI.
     const displayTarget = Math.min(target, MAX_PROGRESS_CAP);
     const displayCurrent = Math.min(current, displayTarget, MAX_PROGRESS_CAP);
     const pct = done ? 100 : Math.min(100, Math.round((displayCurrent / displayTarget) * 100));
