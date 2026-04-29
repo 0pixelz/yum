@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "$roomId.matches(/^[A-Z0-9]{4,8}$/)",
+        "players": {
+          "$playerId": {
+            ".validate": "newData.hasChildren(['name'])"
+          }
+        },
+        "currentTurnId": {
+          ".validate": "newData.isString()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    }
+  }
+}
