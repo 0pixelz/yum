@@ -1,6 +1,6 @@
 // ─── FIREBASE + UI HELPERS ───────────────────────────────────────────
 // This file loads after js/app.js. It polishes score labels, keeps achievement
-// progress bars, and adds a multiplayer Firebase retry fallback.
+// progress bars, adds a multiplayer Firebase retry fallback, and applies small UI fixes.
 
 (function() {
   const FIREBASE_CONFIG = {
@@ -87,6 +87,52 @@
     document.head.appendChild(style);
   }
 
+  function injectPopupPositionStyles() {
+    if (document.getElementById('popupPositionFixStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'popupPositionFixStyles';
+    style.textContent = `
+      /* Keep turn/opponent popups above the dice instead of covering the dice row. */
+      #yourTurnPop {
+        align-items: flex-start !important;
+        justify-content: center !important;
+        padding-top: calc(env(safe-area-inset-top, 0px) + 92px) !important;
+        pointer-events: none !important;
+      }
+      #yourTurnPop .your-turn-box {
+        transform: translateY(0) scale(.96) !important;
+        margin: 0 auto !important;
+        max-width: min(88vw, 360px) !important;
+      }
+      #yourTurnPop.show .your-turn-box,
+      #yourTurnPop.open .your-turn-box {
+        transform: translateY(0) scale(1) !important;
+      }
+      #botActionPopup {
+        align-items: flex-start !important;
+        justify-content: center !important;
+        padding-top: calc(env(safe-area-inset-top, 0px) + 88px) !important;
+        pointer-events: none !important;
+      }
+      #botActionPopup .bap-box {
+        margin: 0 auto !important;
+        max-width: min(90vw, 380px) !important;
+        transform: translateY(0) scale(.96) !important;
+      }
+      #botActionPopup.show .bap-box,
+      #botActionPopup.open .bap-box {
+        transform: translateY(0) scale(1) !important;
+      }
+      @media (max-height: 720px) {
+        #yourTurnPop { padding-top: calc(env(safe-area-inset-top, 0px) + 68px) !important; }
+        #botActionPopup { padding-top: calc(env(safe-area-inset-top, 0px) + 64px) !important; }
+        #yourTurnPop .your-turn-box,
+        #botActionPopup .bap-box { transform: translateY(0) scale(.9) !important; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function safeNumber(value) {
     const n = Number(value || 0);
     return Number.isFinite(n) ? n : 0;
@@ -153,6 +199,7 @@
   }
 
   function initHelpers() {
+    injectPopupPositionStyles();
     patchMultiplayerFunction('createGame');
     patchMultiplayerFunction('joinGame');
     patchMultiplayerFunction('startGame');
