@@ -6,6 +6,57 @@
   const DEVICE_PROFILE_KEY = 'yum_device_profile';
   const GOOGLE_PROFILE_KEY = 'yum_google_profile';
 
+  function injectProfileLoginStyles() {
+    if (document.getElementById('profileLoginStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'profileLoginStyles';
+    style.textContent = `
+      .gmail-login-btn {
+        border: 1px solid rgba(255,255,255,.16);
+        background: rgba(255,255,255,.08);
+        color: var(--white);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-family: Nunito, sans-serif;
+        font-weight: 900;
+        letter-spacing: .6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .gmail-logo-mini {
+        width: 22px;
+        height: 16px;
+        border-radius: 3px;
+        background: #fff;
+        position: relative;
+        display: inline-block;
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+        flex: 0 0 auto;
+      }
+      .gmail-logo-mini::before {
+        content: '';
+        position: absolute;
+        inset: 3px 3px 2px 3px;
+        border-left: 4px solid #EA4335;
+        border-right: 4px solid #4285F4;
+        border-top: 4px solid #EA4335;
+        transform: skewY(-34deg);
+      }
+      .gmail-logo-mini::after {
+        content: '';
+        position: absolute;
+        left: 3px;
+        right: 3px;
+        bottom: 2px;
+        height: 4px;
+        background: linear-gradient(90deg, #34A853 0 25%, transparent 25% 75%, #FBBC04 75% 100%);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function loadScriptOnce(src, id) {
     return new Promise((resolve, reject) => {
       if (id && document.getElementById(id)) return resolve();
@@ -55,6 +106,7 @@
   }
 
   function renderProfileBar() {
+    injectProfileLoginStyles();
     const input = document.getElementById('playerName');
     if (!input) return;
 
@@ -72,7 +124,7 @@
 
     bar.innerHTML = `
       <div style="width:100%;text-align:center;color:var(--muted);font-size:.72rem;font-weight:800;margin-bottom:2px">${label}</div>
-      <button type="button" onclick="signInWithGoogle()" style="border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:var(--white);border-radius:999px;padding:8px 12px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.6px">📧 Continue with Gmail</button>
+      <button type="button" onclick="signInWithGoogle()" class="gmail-login-btn"><span class="gmail-logo-mini" aria-hidden="true"></span><span>Continue with Gmail</span></button>
       <button type="button" onclick="useDeviceProfile()" style="border:1px solid rgba(78,205,196,.25);background:rgba(78,205,196,.1);color:var(--green);border-radius:999px;padding:8px 12px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.6px">📱 Use this device</button>
       ${google ? '<button type="button" onclick="signOutProfile()" style="border:1px solid rgba(233,69,96,.25);background:rgba(233,69,96,.08);color:var(--accent);border-radius:999px;padding:8px 12px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.6px">Sign out</button>' : ''}
     `;
@@ -159,6 +211,7 @@
   }
 
   function initProfileLogin() {
+    injectProfileLoginStyles();
     const profile = getCurrentProfile();
     applyProfileToLobby(profile);
     finishRedirectSignIn();
