@@ -47,15 +47,10 @@
       style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem">
     <label class="scan-code-btn" for="qrScanInput" title="Scan QR Code">
   <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter">
-    <!-- top-left corner -->
     <polyline points="3,8 3,3 8,3"/>
-    <!-- top-right corner -->
     <polyline points="16,3 21,3 21,8"/>
-    <!-- bottom-left corner -->
     <polyline points="3,16 3,21 8,21"/>
-    <!-- bottom-right corner -->
     <polyline points="16,21 21,21 21,16"/>
-    <!-- center scan line -->
     <line x1="3" y1="12" x2="21" y2="12"/>
   </svg>
 </label>
@@ -99,13 +94,10 @@
   </div>
 </div>
 
-<!-- LEADERBOARD -->
 <div id="leaderboard">
   <div class="lb-title">👥 PLAYERS</div>
   <div id="lbRows"></div>
 </div>
-
-<!-- TOAST -->
 <div id="mpToast"></div>
 
 <header>
@@ -118,30 +110,14 @@
   <div class="progress-label" id="progressLabel">0% Complete · 0 pts</div>
 </header>
 
-<!-- DICE ROLLER -->
 <div class="dice-section" style="margin:12px">
   <h2>🎲 DICE ROLLER</h2>
   <div class="dice-row" id="diceRow">
-    <div class="die-wrap">
-      <div class="die" data-i="0" onclick="cycleDie(0)">–</div>
-      <button class="die-hold-btn" data-hold="0" onclick="toggleHold(0)">HOLD</button>
-    </div>
-    <div class="die-wrap">
-      <div class="die" data-i="1" onclick="cycleDie(1)">–</div>
-      <button class="die-hold-btn" data-hold="1" onclick="toggleHold(1)">HOLD</button>
-    </div>
-    <div class="die-wrap">
-      <div class="die" data-i="2" onclick="cycleDie(2)">–</div>
-      <button class="die-hold-btn" data-hold="2" onclick="toggleHold(2)">HOLD</button>
-    </div>
-    <div class="die-wrap">
-      <div class="die" data-i="3" onclick="cycleDie(3)">–</div>
-      <button class="die-hold-btn" data-hold="3" onclick="toggleHold(3)">HOLD</button>
-    </div>
-    <div class="die-wrap">
-      <div class="die" data-i="4" onclick="cycleDie(4)">–</div>
-      <button class="die-hold-btn" data-hold="4" onclick="toggleHold(4)">HOLD</button>
-    </div>
+    <div class="die-wrap"><div class="die" data-i="0" onclick="cycleDie(0)">–</div><button class="die-hold-btn" data-hold="0" onclick="toggleHold(0)">HOLD</button></div>
+    <div class="die-wrap"><div class="die" data-i="1" onclick="cycleDie(1)">–</div><button class="die-hold-btn" data-hold="1" onclick="toggleHold(1)">HOLD</button></div>
+    <div class="die-wrap"><div class="die" data-i="2" onclick="cycleDie(2)">–</div><button class="die-hold-btn" data-hold="2" onclick="toggleHold(2)">HOLD</button></div>
+    <div class="die-wrap"><div class="die" data-i="3" onclick="cycleDie(3)">–</div><button class="die-hold-btn" data-hold="3" onclick="toggleHold(3)">HOLD</button></div>
+    <div class="die-wrap"><div class="die" data-i="4" onclick="cycleDie(4)">–</div><button class="die-hold-btn" data-hold="4" onclick="toggleHold(4)">HOLD</button></div>
   </div>
   <div class="die-label">👆 Tap die to set value &nbsp;·&nbsp; HOLD to lock it</div>
   <div class="dice-controls">
@@ -156,25 +132,19 @@
   <div class="api-key-wrap" id="apiKeyWrap">
     <div class="api-key-label">🔑 ANTHROPIC API KEY (needed for SCAN)</div>
     <div class="api-key-row">
-      <input class="api-key-input" id="apiKeyInput" type="password"
-        placeholder="sk-ant-api..." autocomplete="off">
+      <input class="api-key-input" id="apiKeyInput" type="password" placeholder="sk-ant-api..." autocomplete="off">
       <button class="api-key-save" onclick="saveApiKey()">SAVE</button>
     </div>
-    <div class="api-key-hint">
-      Get your key at console.anthropic.com · Stored locally on device only
-    </div>
+    <div class="api-key-hint">Get your key at console.anthropic.com · Stored locally on device only</div>
   </div>
 </div>
 
-<!-- PREDICTION PANEL -->
 <div id="predPanel">
   <div class="pred-title">🔮 NEXT MOVE PREDICTION</div>
   <div id="predContent"><div class="pred-spinner">Set all 5 dice then tap PREDICT</div></div>
   <div class="pred-note">Based on 500 Monte Carlo simulations per option · unfilled categories only</div>
 </div>
 
-
-<!-- BOT THINKING BAR -->
 <div id="botThinkBar" style="display:none;margin:0 12px 10px;background:var(--card);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:10px 14px;align-items:center;gap:10px">
   <span style="font-size:1.3rem">🤖</span>
   <div style="flex:1">
@@ -184,62 +154,24 @@
   <div class="bot-dots"><span></span><span></span><span></span></div>
 </div>
 
-<!-- SCORE SECTION -->
 <div class="score-section" id="scoreSection"></div>
 
-<!-- TOTAL -->
 <div style="margin:12px">
   <div class="total-row">
-    <div>
-      <div class="total-label">GRAND TOTAL</div>
-      <div class="total-sub" id="totalSub">0 of 13 filled</div>
-    </div>
+    <div><div class="total-label">GRAND TOTAL</div><div class="total-sub" id="totalSub">0 of 13 filled</div></div>
     <div class="total-value" id="grandTotal">0</div>
   </div>
   <button class="new-game-btn" onclick="confirmNewGame()" id="newGameBtn">🚪 RETURN TO LOBBY</button>
 </div>
 
-<!-- MODAL -->
 <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
-  <div class="modal">
-    <h3 id="modalTitle">Score</h3>
-    <div class="modal-hint" id="modalHint"></div>
-    <div class="quick-scores" id="quickScores"></div>
-    <div class="modal-actions">
-      <button class="btn btn-confirm btn" onclick="confirmScore()">✓ CONFIRM</button>
-      <button class="btn-skip" onclick="closeModalEl()">Cancel</button>
-      <button class="btn-delete" id="deleteBtn" onclick="deleteScore()">✕ Clear</button>
-    </div>
-  </div>
+  <div class="modal"><h3 id="modalTitle">Score</h3><div class="modal-hint" id="modalHint"></div><div class="quick-scores" id="quickScores"></div><div class="modal-actions"><button class="btn btn-confirm btn" onclick="confirmScore()">✓ CONFIRM</button><button class="btn-skip" onclick="closeModalEl()">Cancel</button><button class="btn-delete" id="deleteBtn" onclick="deleteScore()">✕ Clear</button></div></div>
 </div>
 
+<div class="reaction-picker" id="reactionPicker"><div class="reaction-picker-title">SEND REACTION</div><div class="reaction-grid" id="reactionGrid"></div><button class="reaction-close" onclick="closeReactionPicker()">✕ Close</button></div><div id="reactionBubbleContainer"></div>
 
-<!-- REACTION PICKER -->
-<div class="reaction-picker" id="reactionPicker">
-  <div class="reaction-picker-title">SEND REACTION</div>
-  <div class="reaction-grid" id="reactionGrid"></div>
-  <button class="reaction-close" onclick="closeReactionPicker()">✕ Close</button>
-</div>
-<div id="reactionBubbleContainer"></div>
+<div id="oppViewer" onclick="closeOppViewer(event)"><div class="opp-sheet" id="oppSheet"><div class="opp-header"><div class="opp-avatar" id="oppAvatar">🤖</div><div><div class="opp-hname" id="oppHName">Opponent</div><div class="opp-hscore" id="oppHScore">0 pts</div></div><button class="opp-close" onclick="closeOppViewerBtn()">✕</button></div><div id="oppSheetContent"></div></div></div>
 
-
-<!-- OPPONENT SCORECARD VIEWER -->
-<div id="oppViewer" onclick="closeOppViewer(event)">
-  <div class="opp-sheet" id="oppSheet">
-    <div class="opp-header">
-      <div class="opp-avatar" id="oppAvatar">🤖</div>
-      <div>
-        <div class="opp-hname" id="oppHName">Opponent</div>
-        <div class="opp-hscore" id="oppHScore">0 pts</div>
-      </div>
-      <button class="opp-close" onclick="closeOppViewerBtn()">✕</button>
-    </div>
-    <div id="oppSheetContent"></div>
-  </div>
-</div>
-
-
-<!-- GAME OVER POPUP -->
 <div id="gameOverlay">
   <div class="gameover-box">
     <span class="gameover-trophy" id="goTrophy">🏆</span>
@@ -248,130 +180,29 @@
     <div class="gameover-scores" id="goScores"></div>
     <div class="gameover-btns">
       <button class="gameover-btn gameover-btn-rematch" onclick="rematch()">🔄 REMATCH</button>
-      <button class="gameover-btn" onclick="openSession()"
-        style="background:rgba(245,166,35,0.12);color:var(--gold);border:1px solid rgba(245,166,35,0.3)">
-        📋 VIEW SCORESHEETS
-      </button>
+      <button class="gameover-btn" onclick="openSession()" style="background:rgba(245,166,35,0.12);color:var(--gold);border:1px solid rgba(245,166,35,0.3)">📋 VIEW SCORESHEETS</button>
       <button class="gameover-btn gameover-btn-quit" onclick="quitGame()">✕ QUIT</button>
     </div>
   </div>
 </div>
 
+<button id="sessionBtn" onclick="openSession()" style="display:none;position:fixed;bottom:24px;right:16px;z-index:400;background:linear-gradient(135deg,var(--panel),#1a1a5e);border:1px solid rgba(245,166,35,0.4);border-radius:50px;padding:10px 18px;color:var(--gold);font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.4);align-items:center;gap:8px">📋 HISTORY <span class="session-badge" id="sessionBadge">0</span></button>
+<div id="sessionOverlay" onclick="closeSessionOverlay(event)"><div class="session-sheet"><div class="session-header"><div class="session-header-title">📋 SESSION HISTORY</div><button class="session-close" onclick="closeSession()">✕</button></div><div class="session-tabs" id="sessionTabs"></div><div id="sessionContent"></div></div></div>
 
-<!-- SESSION BUTTON -->
-<button id="sessionBtn" onclick="openSession()" style="display:none;position:fixed;bottom:24px;right:16px;z-index:400;background:linear-gradient(135deg,var(--panel),#1a1a5e);border:1px solid rgba(245,166,35,0.4);border-radius:50px;padding:10px 18px;color:var(--gold);font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.4);align-items:center;gap:8px">
-  📋 HISTORY <span class="session-badge" id="sessionBadge">0</span>
-</button>
+<div id="confirmModal"><div class="confirm-box"><div class="confirm-icon">🚪</div><div class="confirm-msg" id="confirmMsg">Are you sure?</div><div class="confirm-btns"><button class="confirm-yes" id="confirmYes">Yes, leave</button><button class="confirm-no" onclick="closeConfirm()">Cancel</button></div></div></div>
 
-<!-- SESSION OVERLAY -->
-<div id="sessionOverlay" onclick="closeSessionOverlay(event)">
-  <div class="session-sheet">
-    <div class="session-header">
-      <div class="session-header-title">📋 SESSION HISTORY</div>
-      <button class="session-close" onclick="closeSession()">✕</button>
-    </div>
-    <div class="session-tabs" id="sessionTabs"></div>
-    <div id="sessionContent"></div>
-  </div>
-</div>
+<div id="yourTurnPop"><div class="your-turn-box"><span class="your-turn-emoji">🎲</span><div class="your-turn-text">YOUR TURN!</div><div class="your-turn-sub" id="yourTurnSub">ROLL THE DICE</div></div></div>
 
+<div id="firstRollOverlay"><div class="fr-title">🎲 WHO GOES FIRST?</div><div class="fr-players" id="frPlayers"></div><div class="fr-status" id="frStatus"></div><div class="fr-sub" id="frSub">Rolling…</div><button class="fr-btn" id="frBtn" onclick="closeFirstRoll()">LET'S GO! 🎲</button></div>
 
-<div id="confirmModal">
-  <div class="confirm-box">
-    <div class="confirm-icon">🚪</div>
-    <div class="confirm-msg" id="confirmMsg">Are you sure?</div>
-    <div class="confirm-btns">
-      <button class="confirm-yes" id="confirmYes">Yes, leave</button>
-      <button class="confirm-no" onclick="closeConfirm()">Cancel</button>
-    </div>
-  </div>
-</div>
+<div id="rematchVoteBar"><div class="rvb-title">🔄 REMATCH?</div><div class="rvb-players" id="rvbPlayers"></div><div class="rvb-btns"><button class="rvb-btn rvb-yes" onclick="voteRematch(true)">✓ YES</button><button class="rvb-btn rvb-no" onclick="voteRematch(false)">✕ NO</button></div></div>
 
+<div id="playerLeftOverlay"><div class="pl-box"><span class="pl-icon">🚪</span><div class="pl-title">PLAYER LEFT</div><div class="pl-msg" id="plMsg">A player has left the game.</div><div class="pl-countdown">Auto-returning in <span id="plCountdown">10</span>s</div><div class="pl-btns"><button class="pl-btn pl-btn-scores" onclick="plViewScores()">📋 VIEW SCORESHEETS</button><button class="pl-btn pl-btn-lobby" onclick="plGoLobby()">🚪 RETURN TO LOBBY</button></div></div></div>
+<div id="botActionPopup"><div class="bap-box"><div class="bap-header"><span class="bap-avatar" id="bapAvatar">🤖</span><div class="bap-name" id="bapName">BOT</div></div><div class="bap-dice" id="bapDice"></div><div class="bap-result"><div class="bap-cat" id="bapCat">Chance</div><div class="bap-score" id="bapScore">24</div><div class="bap-label" id="bapLabel">SCORED</div></div></div></div>
 
-<div id="yourTurnPop">
-  <div class="your-turn-box">
-    <span class="your-turn-emoji">🎲</span>
-    <div class="your-turn-text">YOUR TURN!</div>
-    <div class="your-turn-sub" id="yourTurnSub">ROLL THE DICE</div>
-  </div>
-</div>
+<div id="achOverlay" onclick="closeAchievementsOverlay(event)"><div class="ach-sheet"><div class="ach-header"><div class="ach-header-title">🏆 ACHIEVEMENTS</div><button class="ach-close" onclick="closeAchievements()">✕</button></div><div class="ach-progress-bar"><div class="ach-progress-fill" id="achProgressFill" style="width:0%"></div></div><div class="ach-progress-label" id="achProgressLabel">0 / 15 unlocked</div><div class="ach-grid" id="achGrid"></div></div></div>
+<div id="achNotif"><div class="achN-icon" id="achNotifIcon">🏆</div><div><div class="achN-label">ACHIEVEMENT UNLOCKED</div><div class="achN-name" id="achNotifName">First Roll</div><div class="achN-desc" id="achNotifDesc">Complete your first game</div></div></div>
 
-
-<!-- FIRST ROLL OVERLAY -->
-<div id="firstRollOverlay">
-  <div class="fr-title">🎲 WHO GOES FIRST?</div>
-  <div class="fr-players" id="frPlayers"></div>
-  <div class="fr-status" id="frStatus"></div>
-  <div class="fr-sub" id="frSub">Rolling…</div>
-  <button class="fr-btn" id="frBtn" onclick="closeFirstRoll()">LET'S GO! 🎲</button>
-</div>
-
-
-<div id="rematchVoteBar">
-  <div class="rvb-title">🔄 REMATCH?</div>
-  <div class="rvb-players" id="rvbPlayers"></div>
-  <div class="rvb-btns">
-    <button class="rvb-btn rvb-yes" onclick="voteRematch(true)">✓ YES</button>
-    <button class="rvb-btn rvb-no"  onclick="voteRematch(false)">✕ NO</button>
-  </div>
-</div>
-
-
-<!-- PLAYER LEFT POPUP -->
-<div id="playerLeftOverlay">
-  <div class="pl-box">
-    <span class="pl-icon">🚪</span>
-    <div class="pl-title">PLAYER LEFT</div>
-    <div class="pl-msg" id="plMsg">A player has left the game.</div>
-    <div class="pl-countdown">Auto-returning in <span id="plCountdown">10</span>s</div>
-    <div class="pl-btns">
-      <button class="pl-btn pl-btn-scores" onclick="plViewScores()">📋 VIEW SCORESHEETS</button>
-      <button class="pl-btn pl-btn-lobby" onclick="plGoLobby()">🚪 RETURN TO LOBBY</button>
-    </div>
-  </div>
-</div>
-
-<!-- BOT / OPPONENT ACTION POPUP -->
-<div id="botActionPopup">
-  <div class="bap-box">
-    <div class="bap-header">
-      <span class="bap-avatar" id="bapAvatar">🤖</span>
-      <div class="bap-name" id="bapName">BOT</div>
-    </div>
-    <div class="bap-dice" id="bapDice"></div>
-    <div class="bap-result">
-      <div class="bap-cat" id="bapCat">Chance</div>
-      <div class="bap-score" id="bapScore">24</div>
-      <div class="bap-label" id="bapLabel">SCORED</div>
-    </div>
-  </div>
-</div>
-
-
-<!-- ACHIEVEMENTS OVERLAY -->
-<div id="achOverlay" onclick="closeAchievementsOverlay(event)">
-  <div class="ach-sheet">
-    <div class="ach-header">
-      <div class="ach-header-title">🏆 ACHIEVEMENTS</div>
-      <button class="ach-close" onclick="closeAchievements()">✕</button>
-    </div>
-    <div class="ach-progress-bar">
-      <div class="ach-progress-fill" id="achProgressFill" style="width:0%"></div>
-    </div>
-    <div class="ach-progress-label" id="achProgressLabel">0 / 15 unlocked</div>
-    <div class="ach-grid" id="achGrid"></div>
-  </div>
-</div>
-
-<!-- ACHIEVEMENT UNLOCK NOTIFICATION -->
-<div id="achNotif">
-  <div class="achN-icon" id="achNotifIcon">🏆</div>
-  <div>
-    <div class="achN-label">ACHIEVEMENT UNLOCKED</div>
-    <div class="achN-name" id="achNotifName">First Roll</div>
-    <div class="achN-desc" id="achNotifDesc">Complete your first game</div>
-  </div>
-</div>
 <script src="js/firebase-init.js"></script>
 <script src="js/app.js"></script>
 <script src="js/multiplayer-rematch.js"></script>
@@ -381,5 +212,6 @@
 <script src="js/score-labels.js"></script>
 <script src="js/store.js"></script>
 <script src="js/profile-login.js"></script>
+<script src="js/rematch-final.js"></script>
 </body>
 </html>
