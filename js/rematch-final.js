@@ -68,6 +68,7 @@
   }
 
   function resetLocalBoard() {
+    try { mpGameOverShown = false; } catch(e) {}
     try {
       scores = {};
       prevOpponentScores = {};
@@ -177,7 +178,7 @@
           return;
         }
 
-        const allYes = list.every(id => votes[id] === true);
+        const allYes = hasAnyVote && list.length >= 2 && list.every(id => votes[id] === true);
         if (allYes) {
           hideBar();
           if (isHost) hostWriteResetCommand();
