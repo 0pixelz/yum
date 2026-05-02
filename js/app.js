@@ -840,6 +840,7 @@ let currentTurnId = null;
 let previousPlayerCount = null;
 let previousPlayers = {};
 let prevOpponentScores = {}; // track opponent score counts for change detection
+let mpGameOverShown = false;
 
 function genCode() {
   return Math.random().toString(36).substr(2,4).toUpperCase();
@@ -952,6 +953,7 @@ function listenRoom() {
       // Game started!
       document.getElementById('waitingOverlay').style.display = 'none';
       mpMode = true;
+      mpGameOverShown = false;
       document.getElementById('mpBanner').style.display = 'block';
       document.getElementById('leaderboard').style.display = 'block';
       document.getElementById('mpCodeBadge').textContent = roomCode;
@@ -988,6 +990,15 @@ function listenRoom() {
         scores = dbScores;
         renderScores();
       }
+    }
+
+    // Game-over detection for all clients (covers the player who finished first)
+    if (data.started && !mpGameOverShown && Object.keys(allPlayers).length >= 2) {
+      const allDone = Object.entries(allPlayers).every(([id, p]) => {
+        const sc = id === playerId ? scores : (p.scores || {});
+        return Object.keys(sc).length >= categories.length;
+      });
+      if (allDone) setTimeout(showMpGameOver, 800);
     }
 
     // Show opponent's live dice when it's not our turn
@@ -1145,6 +1156,8 @@ function pushScoresToDb() {
 }
 
 function showMpGameOver() {
+  if (mpGameOverShown) return;
+  mpGameOverShown = true;
   const players = Object.entries(allPlayers).map(([id, p]) => {
     const sc = id === playerId ? scores : (p.scores || {});
     return { name: p.name, score: calcTotal(sc), isMe: id === playerId };
