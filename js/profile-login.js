@@ -365,22 +365,6 @@
     }
   }
 
-  function addShareButtonToGameBanner() {
-    const banner = document.querySelector('#mpBanner .mp-room-info');
-    if (!banner || document.getElementById('shareLobbyBannerBtn')) return;
-    const leave = banner.querySelector('button[onclick="confirmNewGame()"]');
-    const btn = document.createElement('button');
-    btn.id = 'shareLobbyBannerBtn';
-    btn.type = 'button';
-    btn.className = 'share-lobby-btn';
-    btn.style.padding = '6px 10px';
-    btn.style.fontSize = '.72rem';
-    btn.onclick = window.shareLobby;
-    btn.innerHTML = '📤 SHARE';
-    if (leave) leave.insertAdjacentElement('beforebegin', btn);
-    else banner.appendChild(btn);
-  }
-
   function directRoomFromUrl() {
     const params = new URLSearchParams(location.search);
     return (params.get('room') || params.get('join') || params.get('code') || '').trim().toUpperCase();
@@ -422,7 +406,6 @@
         const result = original.apply(this, args);
         setTimeout(() => {
           addShareButtonToWaitingRoom();
-          addShareButtonToGameBanner();
         }, 250);
         return result;
       };
@@ -434,7 +417,6 @@
   function initShareLobby() {
     injectShareStyles();
     addShareButtonToWaitingRoom();
-    addShareButtonToGameBanner();
     prepareDirectJoin();
     patchRoomCreationToRefreshShare();
   }
@@ -444,7 +426,6 @@
 
   setInterval(() => {
     addShareButtonToWaitingRoom();
-    addShareButtonToGameBanner();
     patchRoomCreationToRefreshShare();
   }, 1200);
 })();
