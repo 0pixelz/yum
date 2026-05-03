@@ -80,10 +80,6 @@
   }
 
   function applyProfileToLobby(profile) {
-    const input = document.getElementById('playerName');
-    if (input && profile && profile.name && (!input.value || input.value.trim().length < 2)) {
-      input.value = profile.name.slice(0, 16);
-    }
     renderProfileBar();
   }
 
