@@ -241,6 +241,21 @@ function getSuggestedScore(cat) {
   return cat.calc(dice);
 }
 
+function diceBonusNeeded(id) {
+  const faceMap = { ones:1, twos:2, threes:3, fours:4, fives:5, sixes:6 };
+  const face = faceMap[id];
+  const total = UPPER_IDS.reduce((s, i) => s + (scores[i] || 0), 0);
+  if (total >= BONUS_TARGET) return null;
+  if (scores[id] !== undefined) return null;
+  const otherMax = UPPER_IDS.reduce((s, i) => {
+    if (i === id || scores[i] !== undefined) return s;
+    return s + faceMap[i] * 5;
+  }, 0);
+  const needed = BONUS_TARGET - total - otherMax;
+  if (needed <= 0) return { count: 0, face };
+  return { count: Math.min(5, Math.ceil(needed / face)), face };
+}
+
 function renderScores() {
   const sec = document.getElementById('scoreSection');
   let html = '';
@@ -255,6 +270,10 @@ function renderScores() {
     const suggested = !filled && dice.every(v=>v>0) ? cat.calc(dice) : null;
     const pct = filled ? Math.round((val/cat.max)*100) : (suggested !== null ? Math.round((suggested/cat.max)*100) : null);
     const pctColor = pct >= 75 ? '#4ecdc4' : pct >= 40 ? '#f5a623' : '#e94560';
+    const bonusInfo = diceBonusNeeded(id);
+    const bonusBadge = bonusInfo !== null && bonusInfo.count > 0
+      ? `<div class="dice-bonus-need ${bonusInfo.count >= 5 ? 'danger' : bonusInfo.count >= 4 ? 'warning' : ''}">${bonusInfo.count}×${bonusInfo.face}</div>`
+      : '';
     html += `<div class="score-row ${filled?'filled':''} ${filled&&val===0?'scratched':''} ${suggested!==null&&!filled?'suggested':''}" onclick="openModal('${id}')">
       <div class="score-icon">${renderIcon(cat.icon)}</div>
       <div class="score-info">
@@ -263,6 +282,7 @@ function renderScores() {
         ${pct!==null?`<div class="pct-bar-wrap"><div class="pct-bar" style="width:${pct}%;background:${pctColor}"></div></div>`:''}
       </div>
       ${pct!==null?`<div class="score-pct" style="color:${pctColor}">${pct}%</div>`:'<div class="score-pct">–</div>'}
+      ${bonusBadge}
       <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:var(--green);font-size:1.1rem">${suggested}?</span>`:'–')}</div>
     </div>`;
   });
