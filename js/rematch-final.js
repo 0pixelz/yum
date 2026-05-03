@@ -9,6 +9,9 @@
   let localVote = null;
   let originalRematch = null;
   let cancelling = false;
+  let voteTimer = null;
+  let countdownInterval = null;
+  let voteCountdown = 15;
 
   function hasRoom() {
     try { return !!(mpMode && roomRef && playerId); } catch(e) { return false; }
@@ -31,6 +34,29 @@
     return Object.entries(playersObj())
       .sort((a, b) => (a[1].joined || 0) - (b[1].joined || 0))
       .map(([id, p]) => ({ id, name: p.name || 'Player', isMe: id === playerId }));
+  }
+
+  function clearVoteTimer() {
+    if (voteTimer) { clearTimeout(voteTimer); voteTimer = null; }
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+  }
+
+  // Starts the 15-second acceptance window. When it expires, the local player's
+  // vote is written as false, triggering the normal cancellation flow for all clients.
+  function startVoteTimer() {
+    if (voteTimer) return;
+    voteCountdown = 15;
+    countdownInterval = setInterval(() => {
+      voteCountdown--;
+      const cdEl = document.querySelector('.rvb-countdown');
+      if (cdEl) cdEl.textContent = '⏱ ' + voteCountdown + 's remaining';
+    }, 1000);
+    voteTimer = setTimeout(() => {
+      clearVoteTimer();
+      if (!cancelling && hasRoom()) {
+        roomRef.child('rematch2/votes/' + playerId).set(false);
+      }
+    }, 15000);
   }
 
   function showBar() {
@@ -64,9 +90,12 @@
     const rows = list.map(id => {
       const vote = votes ? votes[id] : undefined;
       const label = vote === true ? '✓ YES' : vote === false ? '✕ NO' : '… waiting';
-      return `<div class="rvb-player ${vote !== undefined ? 'voted' : ''}">${playerName(id)} ${label}</div>`;
+      return '<div class="rvb-player ' + (vote !== undefined ? 'voted' : '') + '">' + playerName(id) + ' ' + label + '</div>';
     }).join('');
-    box.innerHTML = rows + (message ? `<div class="rvb-player voted" style="width:100%;margin-top:8px">${message}</div>` : '');
+    const countdownHtml = voteTimer
+      ? '<div class="rvb-player rvb-countdown" style="width:100%;margin-top:4px;color:var(--muted)">⏱ ' + voteCountdown + 's remaining</div>'
+      : '';
+    box.innerHTML = rows + countdownHtml + (message ? '<div class="rvb-player voted" style="width:100%;margin-top:8px">' + message + '</div>' : '');
   }
 
   function resetLocalBoard() {
@@ -123,9 +152,9 @@
     };
 
     ids().forEach(id => {
-      updates[`players/${id}/scores`] = {};
-      updates[`players/${id}/liveDice`] = null;
-      updates[`players/${id}/ready`] = true;
+      updates['players/' + id + '/scores'] = {};
+      updates['players/' + id + '/liveDice'] = null;
+      updates['players/' + id + '/ready'] = true;
     });
 
     roomRef.update(updates);
@@ -136,6 +165,7 @@
     handledCommandId = command.id;
     localVote = null;
     cancelling = false;
+    clearVoteTimer();
 
     resetLocalBoard();
     if (typeof showToast === 'function') showToast('🔄 Rematch started! Rolling for first turn…');
@@ -157,9 +187,10 @@
     if (cancelling) return;
     cancelling = true;
     localVote = null;
+    clearVoteTimer();
 
     const name = cancelledBy ? playerName(cancelledBy) : 'A player';
-    const votesMsg = `❌ ${name} cancelled — returning to lobby…`;
+    const votesMsg = '❌ ' + name + ' declined — returning to lobby…';
     showBar();
     renderVotes({}, votesMsg);
     document.querySelectorAll('.rvb-btn').forEach(btn => {
@@ -190,7 +221,10 @@
         if (!list.length || cancelling) return;
 
         const hasAnyVote = Object.keys(votes).length > 0;
-        if (hasAnyVote) showBar();
+        if (hasAnyVote) {
+          showBar();
+          startVoteTimer();
+        }
         renderVotes(votes, localVote !== null ? 'Waiting for other player…' : 'Choose YES or NO');
 
         const noId = list.find(id => votes[id] === false);
@@ -201,6 +235,7 @@
 
         const allYes = hasAnyVote && list.length >= 2 && list.every(id => votes[id] === true);
         if (allYes) {
+          clearVoteTimer();
           renderVotes(votes, '✅ Both players accepted — starting rematch…');
           document.querySelectorAll('.rvb-btn').forEach(btn => {
             btn.disabled = true;
@@ -223,6 +258,7 @@
     setupListener();
     localVote = true;
     showBar();
+    startVoteTimer();
     renderVotes({ [playerId]: true }, 'Waiting for other player…');
     document.querySelectorAll('.rvb-btn').forEach(btn => {
       btn.disabled = true;
