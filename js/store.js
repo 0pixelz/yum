@@ -4,6 +4,7 @@
 (function() {
   const STORE_OWNED_KEY = 'yum_store_owned_skins';
   const STORE_ACTIVE_KEY = 'yum_active_dice_skin';
+  const PER_DIE_KEY = 'yum_per_die_skins';
 
   const SKINS = [
     {
@@ -11,6 +12,7 @@
       name: 'Classic White',
       cost: 0,
       preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:#f8f8f8;color:#111',
       className: 'skin-classic'
     },
     {
@@ -18,6 +20,7 @@
       name: 'Gold Dice',
       cost: 1,
       preview: ['①','②','③','④','⑤','⑥'],
+      previewStyle: 'background:linear-gradient(135deg,#fff7cc,#f5a623);color:#251400',
       className: 'skin-gold'
     },
     {
@@ -25,6 +28,7 @@
       name: 'Neon Dice',
       cost: 1,
       preview: ['1','2','3','4','5','6'],
+      previewStyle: 'background:#101827;color:#4ecdc4;border:1px solid rgba(78,205,196,.6)',
       className: 'skin-neon'
     },
     {
@@ -32,6 +36,7 @@
       name: 'Ice Dice',
       cost: 1,
       preview: ['❄1','❄2','❄3','❄4','❄5','❄6'],
+      previewStyle: 'background:linear-gradient(135deg,#e0f7ff,#8fd8ff);color:#06283d',
       className: 'skin-ice'
     },
     {
@@ -39,6 +44,7 @@
       name: 'Fire Dice',
       cost: 2,
       preview: ['🔥1','🔥2','🔥3','🔥4','🔥5','🔥6'],
+      previewStyle: 'background:linear-gradient(135deg,#ffd166,#e94560);color:#180004',
       className: 'skin-fire'
     },
     {
@@ -46,7 +52,72 @@
       name: 'Galaxy Dice',
       cost: 3,
       preview: ['✦1','✦2','✦3','✦4','✦5','✦6'],
+      previewStyle: 'background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%);color:#f8fafc;border:1px solid rgba(168,85,247,.7)',
       className: 'skin-galaxy'
+    },
+    {
+      id: 'red',
+      name: 'Red Dice',
+      cost: 1,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:#dc2626;color:#fff',
+      className: 'skin-red'
+    },
+    {
+      id: 'blue',
+      name: 'Blue Dice',
+      cost: 1,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:#2563eb;color:#fff',
+      className: 'skin-blue'
+    },
+    {
+      id: 'green',
+      name: 'Green Dice',
+      cost: 1,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:#16a34a;color:#fff',
+      className: 'skin-green'
+    },
+    {
+      id: 'purple',
+      name: 'Purple Dice',
+      cost: 1,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:#7c3aed;color:#fff',
+      className: 'skin-purple'
+    },
+    {
+      id: 'orange',
+      name: 'Orange Dice',
+      cost: 1,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:#ea580c;color:#fff',
+      className: 'skin-orange'
+    },
+    {
+      id: 'pink',
+      name: 'Pink Dice',
+      cost: 1,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:#db2777;color:#fff',
+      className: 'skin-pink'
+    },
+    {
+      id: 'black',
+      name: 'Black Dice',
+      cost: 1,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:#1c1c1c;color:#fff;border:1px solid rgba(255,255,255,.15)',
+      className: 'skin-black'
+    },
+    {
+      id: 'teal',
+      name: 'Teal Dice',
+      cost: 1,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:#0d9488;color:#fff',
+      className: 'skin-teal'
     }
   ];
 
@@ -94,6 +165,35 @@
   function getActiveSkin() {
     return SKINS.find(s => s.id === getActiveSkinId()) || SKINS[0];
   }
+
+  // ─── PER-DIE CUSTOMIZATION ──────────────────────────────────────────
+
+  function getPerDieSkins() {
+    const saved = loadJSON(PER_DIE_KEY, [null,null,null,null,null]);
+    if (!Array.isArray(saved) || saved.length !== 5) return [null,null,null,null,null];
+    return saved.map(id => (id && SKINS.some(s => s.id === id)) ? id : null);
+  }
+
+  function setPerDieSkins(arr) {
+    saveJSON(PER_DIE_KEY, arr);
+  }
+
+  function applyDieSkinAttributes() {
+    const row = document.getElementById('diceRow');
+    if (!row) return;
+    const perDie = getPerDieSkins();
+    row.querySelectorAll('.die[data-i]').forEach(el => {
+      const i = parseInt(el.getAttribute('data-i'));
+      const skinId = perDie[i];
+      if (skinId) {
+        el.setAttribute('data-die-skin', skinId);
+      } else {
+        el.removeAttribute('data-die-skin');
+      }
+    });
+  }
+
+  // ─── STORE STYLES ───────────────────────────────────────────────────
 
   function injectStoreStyles() {
     if (document.getElementById('storeStyles')) return;
@@ -223,8 +323,6 @@
         justify-content: center;
         font-size: 0.95rem;
         font-weight: 900;
-        background: var(--white);
-        color: #111;
       }
       .skin-action {
         width: 100%;
@@ -248,14 +346,157 @@
         color: var(--muted);
         border: 1px solid rgba(255,255,255,0.1);
       }
+
+      /* ── Global skin body classes ── */
       body.skin-gold .die { background: linear-gradient(135deg, #fff7cc, #f5a623); color: #251400; }
       body.skin-neon .die { background: #101827; color: #4ecdc4; border: 1px solid rgba(78,205,196,0.6); box-shadow: 0 0 18px rgba(78,205,196,0.25); }
       body.skin-ice .die { background: linear-gradient(135deg, #e0f7ff, #8fd8ff); color: #06283d; }
       body.skin-fire .die { background: linear-gradient(135deg, #ffd166, #e94560); color: #180004; }
       body.skin-galaxy .die { background: radial-gradient(circle at 30% 20%, #a855f7, #0f172a 68%); color: #f8fafc; border: 1px solid rgba(168,85,247,0.7); box-shadow: 0 0 20px rgba(168,85,247,0.28); }
+      body.skin-red .die { background: #dc2626; color: #fff; }
+      body.skin-blue .die { background: #2563eb; color: #fff; }
+      body.skin-green .die { background: #16a34a; color: #fff; }
+      body.skin-purple .die { background: #7c3aed; color: #fff; }
+      body.skin-orange .die { background: #ea580c; color: #fff; }
+      body.skin-pink .die { background: #db2777; color: #fff; }
+      body.skin-black .die { background: #1c1c1c; color: #fff; }
+      body.skin-teal .die { background: #0d9488; color: #fff; }
+
+      /* ── Per-die overrides (data-die-skin attribute) ── */
+      .die[data-die-skin="classic"] { background: #f8f8f8 !important; color: #111 !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important; border: none !important; }
+      .die[data-die-skin="gold"] { background: linear-gradient(135deg,#fff7cc,#f5a623) !important; color: #251400 !important; border: none !important; }
+      .die[data-die-skin="neon"] { background: #101827 !important; color: #4ecdc4 !important; border: 1px solid rgba(78,205,196,0.6) !important; box-shadow: 0 0 18px rgba(78,205,196,0.25) !important; }
+      .die[data-die-skin="ice"] { background: linear-gradient(135deg,#e0f7ff,#8fd8ff) !important; color: #06283d !important; border: none !important; }
+      .die[data-die-skin="fire"] { background: linear-gradient(135deg,#ffd166,#e94560) !important; color: #180004 !important; border: none !important; }
+      .die[data-die-skin="galaxy"] { background: radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%) !important; color: #f8fafc !important; border: 1px solid rgba(168,85,247,0.7) !important; box-shadow: 0 0 20px rgba(168,85,247,0.28) !important; }
+      .die[data-die-skin="red"] { background: #dc2626 !important; color: #fff !important; border: none !important; }
+      .die[data-die-skin="blue"] { background: #2563eb !important; color: #fff !important; border: none !important; }
+      .die[data-die-skin="green"] { background: #16a34a !important; color: #fff !important; border: none !important; }
+      .die[data-die-skin="purple"] { background: #7c3aed !important; color: #fff !important; border: none !important; }
+      .die[data-die-skin="orange"] { background: #ea580c !important; color: #fff !important; border: none !important; }
+      .die[data-die-skin="pink"] { background: #db2777 !important; color: #fff !important; border: none !important; }
+      .die[data-die-skin="black"] { background: #1c1c1c !important; color: #fff !important; border: 1px solid rgba(255,255,255,0.15) !important; }
+      .die[data-die-skin="teal"] { background: #0d9488 !important; color: #fff !important; border: none !important; }
+
+      /* ── Per-die customization UI ── */
+      .per-die-section {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 16px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .per-die-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .per-die-title {
+        font-family: 'Bebas Neue', cursive;
+        letter-spacing: 2px;
+        font-size: 0.95rem;
+        color: var(--gold);
+      }
+      .per-die-reset-btn {
+        border: 1px solid rgba(255,255,255,0.15);
+        background: rgba(255,255,255,0.07);
+        color: var(--muted);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.72rem;
+        font-weight: 900;
+        cursor: pointer;
+        font-family: 'Nunito', sans-serif;
+      }
+      .per-die-dice-row {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 4px;
+      }
+      .per-die-slot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        flex: 1;
+        max-width: 58px;
+      }
+      .per-die-face {
+        width: 46px;
+        height: 46px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.55rem;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+        transition: box-shadow 0.15s, transform 0.15s;
+        border: 2px solid transparent;
+      }
+      .per-die-slot.selected .per-die-face {
+        border-color: rgba(78,205,196,0.9);
+        box-shadow: 0 0 0 3px rgba(78,205,196,0.25), 0 3px 8px rgba(0,0,0,0.35);
+        transform: translateY(-2px);
+      }
+      .per-die-label {
+        font-size: 0.6rem;
+        color: var(--muted);
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      }
+      .per-die-picker {
+        display: none;
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px 0 2px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        margin-top: 10px;
+      }
+      .per-die-picker.open { display: flex; }
+      .per-die-picker-label {
+        font-size: 0.72rem;
+        color: var(--muted);
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      }
+      .per-die-swatches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .per-die-swatch {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        border: 2px solid transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        cursor: pointer;
+        font-weight: 900;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        transition: transform 0.1s, border-color 0.1s;
+        font-family: inherit;
+      }
+      .per-die-swatch:hover { transform: scale(1.12); }
+      .per-die-swatch.selected {
+        border-color: rgba(78,205,196,0.9);
+        box-shadow: 0 0 10px rgba(78,205,196,0.4);
+      }
+      .per-die-swatch.reset-swatch {
+        background: rgba(255,255,255,0.1) !important;
+        color: var(--muted) !important;
+        font-size: 1.2rem;
+      }
     `;
     document.head.appendChild(style);
   }
+
+  // ─── STORE DOM ──────────────────────────────────────────────────────
 
   function addStoreButtonToAchievements() {
     const sheet = document.querySelector('#achOverlay .ach-sheet');
@@ -299,6 +540,7 @@
           </div>
           <div class="store-credit-value" id="storeCreditValue">0</div>
         </div>
+        <div id="perDieContainer"></div>
         <div class="store-grid" id="storeGrid"></div>
       </div>`;
     document.body.appendChild(overlay);
@@ -315,11 +557,92 @@
   function closeSkinStore() {
     const overlay = document.getElementById('skinStoreOverlay');
     if (overlay) overlay.classList.remove('open');
+    selectedPerDieIndex = null;
   }
+
+  // ─── PER-DIE UI ─────────────────────────────────────────────────────
+
+  let selectedPerDieIndex = null;
+
+  function renderPerDieSection() {
+    const perDie = getPerDieSkins();
+    const active = getActiveSkinId();
+    const owned = getOwnedSkins();
+
+    const diceHTML = [0,1,2,3,4].map(i => {
+      const skinId = perDie[i] || active;
+      const skin = SKINS.find(s => s.id === skinId) || SKINS[0];
+      const isSelected = selectedPerDieIndex === i;
+      const hasCustom = !!perDie[i];
+      return `<div class="per-die-slot${isSelected ? ' selected' : ''}" onclick="selectPerDieSlot(${i})">
+        <div class="per-die-face" style="${skin.previewStyle || ''}">${skin.preview[0]}</div>
+        <div class="per-die-label">DIE ${i+1}${hasCustom ? ' ●' : ''}</div>
+      </div>`;
+    }).join('');
+
+    let pickerHTML = '';
+    if (selectedPerDieIndex !== null) {
+      const i = selectedPerDieIndex;
+      const currentSkin = perDie[i];
+      const swatches = SKINS.filter(s => owned.includes(s.id)).map(skin => {
+        const isSelected = currentSkin === skin.id;
+        return `<button class="per-die-swatch${isSelected ? ' selected' : ''}"
+          onclick="setDieSkin(${i},'${skin.id}')"
+          title="${skin.name}"
+          style="${skin.previewStyle || 'background:#f8f8f8;color:#111'}">${skin.preview[0]}</button>`;
+      }).join('');
+
+      const resetBtn = currentSkin
+        ? `<button class="per-die-swatch reset-swatch" onclick="setDieSkin(${i},null)" title="Use global skin">↩</button>`
+        : '';
+
+      pickerHTML = `<div class="per-die-picker open">
+        <div class="per-die-picker-label">Die ${selectedPerDieIndex + 1} skin — tap to assign:</div>
+        <div class="per-die-swatches">${swatches}${resetBtn}</div>
+      </div>`;
+    }
+
+    return `<div class="per-die-section">
+      <div class="per-die-header">
+        <div class="per-die-title">CUSTOMIZE EACH DIE</div>
+        <button class="per-die-reset-btn" onclick="resetPerDieSkins()">Reset all</button>
+      </div>
+      <div class="per-die-dice-row">${diceHTML}</div>
+      ${pickerHTML}
+    </div>`;
+  }
+
+  function selectPerDieSlot(i) {
+    selectedPerDieIndex = selectedPerDieIndex === i ? null : i;
+    const container = document.getElementById('perDieContainer');
+    if (container) container.innerHTML = renderPerDieSection();
+  }
+
+  function setDieSkin(dieIndex, skinId) {
+    const perDie = getPerDieSkins();
+    perDie[dieIndex] = skinId || null;
+    setPerDieSkins(perDie);
+    applyDieSkinAttributes();
+    if (typeof renderDice === 'function') renderDice(false);
+    const container = document.getElementById('perDieContainer');
+    if (container) container.innerHTML = renderPerDieSection();
+  }
+
+  function resetPerDieSkins() {
+    setPerDieSkins([null,null,null,null,null]);
+    selectedPerDieIndex = null;
+    applyDieSkinAttributes();
+    if (typeof renderDice === 'function') renderDice(false);
+    const container = document.getElementById('perDieContainer');
+    if (container) container.innerHTML = renderPerDieSection();
+  }
+
+  // ─── SKIN STORE RENDER ──────────────────────────────────────────────
 
   function renderSkinStore() {
     const grid = document.getElementById('storeGrid');
     const creditValue = document.getElementById('storeCreditValue');
+    const perDieContainer = document.getElementById('perDieContainer');
     if (!grid || !creditValue) return;
 
     const credits = getAvailableCredits();
@@ -327,11 +650,15 @@
     const active = getActiveSkinId();
     creditValue.textContent = credits;
 
+    if (perDieContainer) perDieContainer.innerHTML = renderPerDieSection();
+
     grid.innerHTML = SKINS.map(skin => {
       const isOwned = owned.includes(skin.id);
       const isActive = active === skin.id;
       const canBuy = credits >= skin.cost;
-      const preview = skin.preview.map(face => `<span>${face}</span>`).join('');
+      const preview = skin.preview.map(face =>
+        `<span style="${skin.previewStyle || 'background:#f8f8f8;color:#111'}">${face}</span>`
+      ).join('');
       let action = '';
 
       if (isActive) {
@@ -355,6 +682,8 @@
     }).join('');
   }
 
+  // ─── APPLY SKIN ─────────────────────────────────────────────────────
+
   function applySkin() {
     const skin = getActiveSkin();
     document.body.classList.remove(...SKINS.map(s => s.className));
@@ -366,6 +695,7 @@
       skin.preview.forEach((face, i) => { DICE_FACES[i] = face; });
     }
 
+    applyDieSkinAttributes();
     if (typeof renderDice === 'function') renderDice(false);
   }
 
@@ -426,6 +756,30 @@
     }
   }
 
+  // ─── GLOBAL HOOKS FOR renderDice ────────────────────────────────────
+
+  window.getDieFace = function(dieIndex, value) {
+    if (value <= 0) return '–';
+    const perDie = getPerDieSkins();
+    const skinId = perDie[dieIndex];
+    if (skinId) {
+      const skin = SKINS.find(s => s.id === skinId);
+      if (skin) return skin.preview[value - 1];
+    }
+    if (Array.isArray(window.DICE_FACES)) return window.DICE_FACES[value - 1];
+    return ['⚀','⚁','⚂','⚃','⚄','⚅'][value - 1];
+  };
+
+  window.applyDieSkinAttr = function(el, dieIndex) {
+    const perDie = getPerDieSkins();
+    const skinId = perDie[dieIndex];
+    if (skinId) {
+      el.setAttribute('data-die-skin', skinId);
+    } else {
+      el.removeAttribute('data-die-skin');
+    }
+  };
+
   function initStore() {
     injectStoreStyles();
     ensureStoreOverlay();
@@ -439,6 +793,9 @@
   window.closeSkinStore = closeSkinStore;
   window.buySkin = buySkin;
   window.equipSkin = equipSkin;
+  window.selectPerDieSlot = selectPerDieSlot;
+  window.setDieSkin = setDieSkin;
+  window.resetPerDieSkins = resetPerDieSkins;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initStore);
