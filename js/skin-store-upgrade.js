@@ -21,12 +21,14 @@
     ['black', '#111827', '#fff']
   ];
 
+  const DOT_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+
   const PREMIUM_SKINS = [
-    { id: 'gold', name: 'Gold Dice', cost: 5, preview: ['①','②','③','④','⑤','⑥'], style: 'background:linear-gradient(135deg,#fff7cc,#f5a623);color:#251400' },
-    { id: 'neon', name: 'Neon Dice', cost: 8, preview: ['1','2','3','4','5','6'], style: 'background:#101827;color:#4ecdc4;border:1px solid rgba(78,205,196,.6)' },
-    { id: 'ice', name: 'Ice Dice', cost: 10, preview: ['❄1','❄2','❄3','❄4','❄5','❄6'], style: 'background:linear-gradient(135deg,#e0f7ff,#8fd8ff);color:#06283d' },
-    { id: 'fire', name: 'Fire Dice', cost: 15, preview: ['🔥1','🔥2','🔥3','🔥4','🔥5','🔥6'], style: 'background:linear-gradient(135deg,#ffd166,#e94560);color:#180004' },
-    { id: 'galaxy', name: 'Galaxy Dice', cost: 25, preview: ['✦1','✦2','✦3','✦4','✦5','✦6'], style: 'background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%);color:#f8fafc;border:1px solid rgba(168,85,247,.7)' }
+    { id: 'gold', name: 'Gold Dice', cost: 5, preview: DOT_FACES, style: 'background:linear-gradient(135deg,#fff7cc,#f5a623);color:#251400' },
+    { id: 'neon', name: 'Neon Dice', cost: 8, preview: DOT_FACES, style: 'background:#101827;color:#4ecdc4;border:1px solid rgba(78,205,196,.6)' },
+    { id: 'ice', name: 'Ice Dice', cost: 10, preview: DOT_FACES, style: 'background:linear-gradient(135deg,#e0f7ff,#8fd8ff);color:#06283d' },
+    { id: 'fire', name: 'Fire Dice', cost: 15, preview: DOT_FACES, style: 'background:linear-gradient(135deg,#ffd166,#e94560);color:#180004' },
+    { id: 'galaxy', name: 'Galaxy Dice', cost: 25, preview: DOT_FACES, style: 'background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%);color:#f8fafc;border:1px solid rgba(168,85,247,.7)' }
   ];
 
   function loadJSON(key, fallback) {
@@ -80,6 +82,11 @@
   function colorPair() {
     const saved = localStorage.getItem(COLOR_KEY) || '#f8f8f8';
     return PALETTE.find(p => p[1].toLowerCase() === saved.toLowerCase()) || PALETTE[0];
+  }
+
+  function keepDiceDots() {
+    if (!Array.isArray(window.DICE_FACES)) return;
+    DOT_FACES.forEach((face, i) => { window.DICE_FACES[i] = face; });
   }
 
   function injectStyles() {
@@ -139,7 +146,7 @@
       .ssu-name { font-weight:1000;color:var(--white); }
       .ssu-cost { color:var(--gold);font-size:.76rem;font-weight:1000;white-space:nowrap; }
       .ssu-preview { display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px; }
-      .ssu-preview span { width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:1000; }
+      .ssu-preview span { width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:1.25rem;font-weight:1000;line-height:1; }
       .ssu-action { width:100%;border:none;border-radius:999px;padding:9px 12px;font-family:Nunito,sans-serif;font-weight:1000;letter-spacing:.7px;cursor:pointer;background:linear-gradient(135deg,var(--green),#2ecc71);color:#111; }
       .ssu-action.locked { background:rgba(255,255,255,.08);color:var(--muted);border:1px solid rgba(255,255,255,.1); }
       .ssu-action.active { background:rgba(78,205,196,.12);color:var(--green);border:1px solid rgba(78,205,196,.35); }
@@ -158,6 +165,7 @@
   }
 
   function applySkinAndColor() {
+    keepDiceDots();
     const active = getActive();
     document.body.classList.remove('skin-classic','skin-gold','skin-neon','skin-ice','skin-fire','skin-galaxy');
     document.body.classList.add(PREMIUM_SKINS.some(s => s.id === active) ? `skin-${active}` : 'skin-classic');
