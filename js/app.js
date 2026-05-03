@@ -219,7 +219,7 @@ function renderDice(justRolled) {
   const row = document.getElementById('diceRow');
   dice.forEach((v,i) => {
     const el = row.querySelector(`[data-i="${i}"]`);
-    const face = v > 0 ? DICE_FACES[v-1] : '–';
+    const face = v > 0 ? (typeof window.getDieFace === 'function' ? window.getDieFace(i, v) : DICE_FACES[v-1]) : '–';
     // Always animate if this die was part of a roll (justRolled flag)
     // OR if the face changed (e.g. manual cycle)
     const wasRolled = justRolled && !held[i];
@@ -230,6 +230,7 @@ function renderDice(justRolled) {
       el.classList.add('die-spin');
     }
     el.textContent = face;
+    if (typeof window.applyDieSkinAttr === 'function') window.applyDieSkinAttr(el, i);
     el.classList.toggle('held', held[i]);
     const hBtn = row.querySelector(`[data-hold="${i}"]`);
     if(hBtn) hBtn.classList.toggle('held-active', held[i]);

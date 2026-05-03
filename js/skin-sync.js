@@ -11,7 +11,15 @@
     neon:    ['1','2','3','4','5','6'],
     ice:     ['❄1','❄2','❄3','❄4','❄5','❄6'],
     fire:    ['🔥1','🔥2','🔥3','🔥4','🔥5','🔥6'],
-    galaxy:  ['✦1','✦2','✦3','✦4','✦5','✦6']
+    galaxy:  ['✦1','✦2','✦3','✦4','✦5','✦6'],
+    red:     ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    blue:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    green:   ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    purple:  ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    orange:  ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    pink:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    black:   ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    teal:    ['⚀','⚁','⚂','⚃','⚄','⚅']
   };
 
   function activeSkinId() {
@@ -67,6 +75,14 @@
       .remote-skin-ice { background:linear-gradient(135deg,#e0f7ff,#8fd8ff) !important; color:#06283d !important; }
       .remote-skin-fire { background:linear-gradient(135deg,#ffd166,#e94560) !important; color:#180004 !important; }
       .remote-skin-galaxy { background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%) !important; color:#f8fafc !important; border:1px solid rgba(168,85,247,.7) !important; box-shadow:0 0 20px rgba(168,85,247,.28) !important; }
+      .remote-skin-red { background:#dc2626 !important; color:#fff !important; }
+      .remote-skin-blue { background:#2563eb !important; color:#fff !important; }
+      .remote-skin-green { background:#16a34a !important; color:#fff !important; }
+      .remote-skin-purple { background:#7c3aed !important; color:#fff !important; }
+      .remote-skin-orange { background:#ea580c !important; color:#fff !important; }
+      .remote-skin-pink { background:#db2777 !important; color:#fff !important; }
+      .remote-skin-black { background:#1c1c1c !important; color:#fff !important; border:1px solid rgba(255,255,255,.15) !important; }
+      .remote-skin-teal { background:#0d9488 !important; color:#fff !important; }
       .skin-mini-badge {
         display:inline-flex;
         align-items:center;
@@ -93,7 +109,15 @@
       neon: 'Neon',
       ice: 'Ice',
       fire: 'Fire',
-      galaxy: 'Galaxy'
+      galaxy: 'Galaxy',
+      red: 'Red',
+      blue: 'Blue',
+      green: 'Green',
+      purple: 'Purple',
+      orange: 'Orange',
+      pink: 'Pink',
+      black: 'Black',
+      teal: 'Teal'
     }[id] || 'Classic';
   }
 
