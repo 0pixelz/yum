@@ -223,3 +223,228 @@
     initProfileLogin();
   }
 })();
+
+// ─── SHARE LOBBY / DIRECT JOIN LINK ──────────────────────────────────
+// Adds a native Share Lobby button and supports opening ?room=CODE links.
+
+(function() {
+  function injectShareStyles() {
+    if (document.getElementById('shareLobbyStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'shareLobbyStyles';
+    style.textContent = `
+      .share-lobby-btn {
+        border: 1px solid rgba(245,166,35,.45);
+        background: rgba(245,166,35,.13);
+        color: var(--gold);
+        border-radius: 999px;
+        padding: 10px 16px;
+        font-family: Nunito, sans-serif;
+        font-weight: 900;
+        letter-spacing: .8px;
+        box-shadow: 0 8px 28px rgba(245,166,35,.12);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        cursor: pointer;
+      }
+      .share-lobby-btn.full {
+        width: min(280px, 88vw);
+        margin: 8px auto 2px;
+      }
+      .share-link-hint {
+        color: var(--muted);
+        font-size: .72rem;
+        font-weight: 800;
+        text-align: center;
+        margin-top: 5px;
+      }
+      .direct-join-pill {
+        width: min(420px, 90vw);
+        margin: 8px auto 12px;
+        padding: 9px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(78,205,196,.28);
+        background: rgba(78,205,196,.10);
+        color: var(--green);
+        font-size: .76rem;
+        font-weight: 900;
+        text-align: center;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function currentRoomCode() {
+    try {
+      if (typeof roomCode !== 'undefined' && roomCode) return String(roomCode).toUpperCase();
+    } catch(e) {}
+    try {
+      if (typeof currentRoomCode !== 'undefined' && currentRoomCode) return String(currentRoomCode).toUpperCase();
+    } catch(e) {}
+    const display = document.getElementById('displayCode');
+    if (display && display.textContent && !display.textContent.includes('-')) return display.textContent.trim().toUpperCase();
+    const badge = document.getElementById('mpCodeBadge');
+    if (badge && badge.textContent && !badge.textContent.includes('-')) return badge.textContent.trim().toUpperCase();
+    const join = document.getElementById('joinCode');
+    if (join && join.value) return join.value.trim().toUpperCase();
+    return '';
+  }
+
+  function shareUrlForRoom(code) {
+    const cleanCode = String(code || '').trim().toUpperCase();
+    const base = location.origin + location.pathname.replace(/index\.html$/i, '');
+    return `${base}?room=${encodeURIComponent(cleanCode)}`;
+  }
+
+  async function copyText(text) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch(e) {}
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch(e) {}
+    ta.remove();
+    return ok;
+  }
+
+  window.shareLobby = async function shareLobby() {
+    const code = currentRoomCode();
+    if (!code) {
+      if (window.showToast) showToast('Create a multiplayer room first');
+      return;
+    }
+
+    const url = shareUrlForRoom(code);
+    const text = `Join my YUM! game lobby. Room code: ${code}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Join my YUM! lobby', text, url });
+        return;
+      }
+    } catch(e) {
+      // User cancelled native share sheet; do nothing.
+      return;
+    }
+
+    const copied = await copyText(`${text}\n${url}`);
+    if (window.showToast) showToast(copied ? 'Lobby link copied 📋' : url);
+    else alert(copied ? 'Lobby link copied!' : url);
+  };
+
+  function addShareButtonToWaitingRoom() {
+    const wait = document.getElementById('waitingOverlay');
+    if (!wait || document.getElementById('shareLobbyWaitBtn')) return;
+    const startBtn = wait.querySelector('button[onclick="startGame()"]');
+    const btn = document.createElement('button');
+    btn.id = 'shareLobbyWaitBtn';
+    btn.type = 'button';
+    btn.className = 'share-lobby-btn full';
+    btn.onclick = window.shareLobby;
+    btn.innerHTML = '📤 SHARE LOBBY';
+    const hint = document.createElement('div');
+    hint.id = 'shareLobbyWaitHint';
+    hint.className = 'share-link-hint';
+    hint.textContent = 'Send by Messenger, text, email, etc.';
+    if (startBtn) {
+      startBtn.insertAdjacentElement('beforebegin', btn);
+      btn.insertAdjacentElement('afterend', hint);
+    } else {
+      wait.appendChild(btn);
+      wait.appendChild(hint);
+    }
+  }
+
+  function addShareButtonToGameBanner() {
+    const banner = document.querySelector('#mpBanner .mp-room-info');
+    if (!banner || document.getElementById('shareLobbyBannerBtn')) return;
+    const leave = banner.querySelector('button[onclick="confirmNewGame()"]');
+    const btn = document.createElement('button');
+    btn.id = 'shareLobbyBannerBtn';
+    btn.type = 'button';
+    btn.className = 'share-lobby-btn';
+    btn.style.padding = '6px 10px';
+    btn.style.fontSize = '.72rem';
+    btn.onclick = window.shareLobby;
+    btn.innerHTML = '📤 SHARE';
+    if (leave) leave.insertAdjacentElement('beforebegin', btn);
+    else banner.appendChild(btn);
+  }
+
+  function directRoomFromUrl() {
+    const params = new URLSearchParams(location.search);
+    return (params.get('room') || params.get('join') || params.get('code') || '').trim().toUpperCase();
+  }
+
+  function prepareDirectJoin() {
+    const code = directRoomFromUrl();
+    if (!code) return;
+
+    const join = document.getElementById('joinCode');
+    if (join) join.value = code;
+
+    const lobby = document.getElementById('lobbyOverlay');
+    if (lobby && !document.getElementById('directJoinPill')) {
+      const pill = document.createElement('div');
+      pill.id = 'directJoinPill';
+      pill.className = 'direct-join-pill';
+      pill.textContent = `Room ${code} ready — tap JOIN GAME`;
+      const roomWrap = document.querySelector('.room-code-input-wrap');
+      if (roomWrap) roomWrap.insertAdjacentElement('beforebegin', pill);
+      else lobby.insertAdjacentElement('afterbegin', pill);
+    }
+
+    // If the profile already filled a player name, join automatically after scripts finish.
+    setTimeout(() => {
+      const name = document.getElementById('playerName');
+      const stillInLobby = document.getElementById('lobbyOverlay')?.style.display !== 'none';
+      if (name && name.value.trim().length >= 2 && stillInLobby && typeof joinGame === 'function') {
+        try { joinGame(); } catch(e) {}
+      }
+    }, 900);
+  }
+
+  function patchRoomCreationToRefreshShare() {
+    ['createGame', 'joinGame', 'startGame'].forEach(name => {
+      const original = window[name];
+      if (typeof original !== 'function' || original.__shareLobbyPatched) return;
+      const patched = async function(...args) {
+        const result = original.apply(this, args);
+        setTimeout(() => {
+          addShareButtonToWaitingRoom();
+          addShareButtonToGameBanner();
+        }, 250);
+        return result;
+      };
+      patched.__shareLobbyPatched = true;
+      window[name] = patched;
+    });
+  }
+
+  function initShareLobby() {
+    injectShareStyles();
+    addShareButtonToWaitingRoom();
+    addShareButtonToGameBanner();
+    prepareDirectJoin();
+    patchRoomCreationToRefreshShare();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initShareLobby);
+  else initShareLobby();
+
+  setInterval(() => {
+    addShareButtonToWaitingRoom();
+    addShareButtonToGameBanner();
+    patchRoomCreationToRefreshShare();
+  }, 1200);
+})();
