@@ -287,6 +287,18 @@
     font-size: 1rem;
   }
 
+  .dice-bonus-need {
+    font-size: 0.72rem;
+    font-weight: 800;
+    min-width: 34px;
+    text-align: center;
+    color: var(--green);
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+  }
+  .dice-bonus-need.warning { color: var(--gold); }
+  .dice-bonus-need.danger  { color: var(--accent); }
+
   /* BONUS ROW */
   .bonus-row {
     background: rgba(78,205,196,0.1);
