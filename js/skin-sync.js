@@ -170,6 +170,68 @@
     patchFunction('showBotActionPopup', () => {
       setTimeout(applySkinToActionPopup, 0);
     });
+
+    patchOpponentDiceDisplay();
+    patchRestoreMyDiceUI();
+  }
+
+  function setRollerDiceCssClass(skinId) {
+    const safeSkin = SKIN_FACES[skinId] ? skinId : 'classic';
+    const row = document.getElementById('diceRow');
+    if (!row) return;
+    row.querySelectorAll('.die').forEach(el => {
+      Object.keys(SKIN_FACES).forEach(id => el.classList.remove('remote-skin-' + id));
+      if (safeSkin !== 'classic') el.classList.add('remote-skin-' + safeSkin);
+    });
+  }
+
+  function clearRollerDiceCssClass() {
+    const row = document.getElementById('diceRow');
+    if (!row) return;
+    row.querySelectorAll('.die').forEach(el => {
+      Object.keys(SKIN_FACES).forEach(id => el.classList.remove('remote-skin-' + id));
+    });
+  }
+
+  function patchOpponentDiceDisplay() {
+    const orig = window.showOpponentDiceInRoller;
+    if (typeof orig !== 'function' || orig.__skinPatched) return;
+    window.showOpponentDiceInRoller = function(liveDice, oppName) {
+      const skinId = (liveDice && liveDice.skin) ||
+        (window.currentTurnId && window.allPlayers && allPlayers[currentTurnId] && allPlayers[currentTurnId].skin) ||
+        'classic';
+      const safeSkin = SKIN_FACES[skinId] ? skinId : 'classic';
+
+      // Swap DICE_FACES to opponent's skin so renderDice (called inside orig) uses correct faces
+      const savedFaces = Array.isArray(window.DICE_FACES) ? [...window.DICE_FACES] : null;
+      if (savedFaces) {
+        SKIN_FACES[safeSkin].forEach((face, i) => { window.DICE_FACES[i] = face; });
+      }
+
+      const result = orig.apply(this, arguments);
+
+      // Restore DICE_FACES so future local renders use the local player's skin
+      if (savedFaces) {
+        savedFaces.forEach((face, i) => { window.DICE_FACES[i] = face; });
+      }
+
+      // Apply opponent skin CSS (background/colour) to the dice row
+      setRollerDiceCssClass(safeSkin);
+
+      return result;
+    };
+    window.showOpponentDiceInRoller.__skinPatched = true;
+  }
+
+  function patchRestoreMyDiceUI() {
+    const orig = window.restoreMyDiceUI;
+    if (typeof orig !== 'function' || orig.__skinPatched) return;
+    window.restoreMyDiceUI = function() {
+      // Strip opponent skin CSS before renderDice runs with local player's dice/faces
+      clearRollerDiceCssClass();
+      return orig.apply(this, arguments);
+    };
+    window.restoreMyDiceUI.__skinPatched = true;
   }
 
   function decorateRemoteLiveDice() {
