@@ -8,6 +8,7 @@
   let handledCommandId = null;
   let localVote = null;
   let originalRematch = null;
+  let cancelling = false;
 
   function hasRoom() {
     try { return !!(mpMode && roomRef && playerId); } catch(e) { return false; }
@@ -40,8 +41,8 @@
     if (bar) bar.style.display = 'block';
 
     document.querySelectorAll('.rvb-btn').forEach(btn => {
-      btn.disabled = false;
-      btn.style.opacity = '1';
+      btn.disabled = localVote !== null;
+      btn.style.opacity = localVote !== null ? '0.55' : '1';
       btn.style.display = '';
     });
   }
@@ -56,15 +57,16 @@
     });
   }
 
-  function renderVotes(votes) {
+  function renderVotes(votes, message) {
     const box = document.getElementById('rvbPlayers');
     if (!box) return;
     const list = ids();
-    box.innerHTML = list.map(id => {
+    const rows = list.map(id => {
       const vote = votes ? votes[id] : undefined;
-      const label = vote === true ? '✓' : vote === false ? '✕' : '…';
+      const label = vote === true ? '✓ YES' : vote === false ? '✕ NO' : '… waiting';
       return `<div class="rvb-player ${vote !== undefined ? 'voted' : ''}">${playerName(id)} ${label}</div>`;
     }).join('');
+    box.innerHTML = rows + (message ? `<div class="rvb-player voted" style="width:100%;margin-top:8px">${message}</div>` : '');
   }
 
   function resetLocalBoard() {
@@ -133,6 +135,7 @@
     if (!command || !command.id || handledCommandId === command.id) return;
     handledCommandId = command.id;
     localVote = null;
+    cancelling = false;
 
     resetLocalBoard();
     if (typeof showToast === 'function') showToast('🔄 Rematch started! Rolling for first turn…');
@@ -150,13 +153,30 @@
     }, 350);
   }
 
-  function cancelRematch() {
-    hideBar();
+  function cancelRematch(cancelledBy) {
+    if (cancelling) return;
+    cancelling = true;
     localVote = null;
+
+    const name = cancelledBy ? playerName(cancelledBy) : 'A player';
+    const votesMsg = `❌ ${name} cancelled — returning to lobby…`;
+    showBar();
+    renderVotes({}, votesMsg);
+    document.querySelectorAll('.rvb-btn').forEach(btn => {
+      btn.disabled = true;
+      btn.style.opacity = '0.45';
+    });
+
     try {
       if (isHost && roomRef) roomRef.child('rematch2').remove();
     } catch(e) {}
-    if (typeof showToast === 'function') showToast('❌ Rematch cancelled');
+
+    if (typeof showToast === 'function') showToast(votesMsg);
+
+    setTimeout(() => {
+      hideBar();
+      try { if (typeof leaveGame === 'function') leaveGame(); } catch(e) {}
+    }, 2200);
   }
 
   function setupListener() {
@@ -167,20 +187,26 @@
       voteRef.on('value', snap => {
         const votes = snap.val() || {};
         const list = ids();
-        if (!list.length) return;
+        if (!list.length || cancelling) return;
 
         const hasAnyVote = Object.keys(votes).length > 0;
         if (hasAnyVote) showBar();
-        renderVotes(votes);
+        renderVotes(votes, localVote !== null ? 'Waiting for other player…' : 'Choose YES or NO');
 
-        if (list.some(id => votes[id] === false)) {
-          cancelRematch();
+        const noId = list.find(id => votes[id] === false);
+        if (noId) {
+          cancelRematch(noId);
           return;
         }
 
         const allYes = hasAnyVote && list.length >= 2 && list.every(id => votes[id] === true);
         if (allYes) {
-          hideBar();
+          renderVotes(votes, '✅ Both players accepted — starting rematch…');
+          document.querySelectorAll('.rvb-btn').forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.55';
+          });
+          setTimeout(() => hideBar(), 600);
           if (isHost) hostWriteResetCommand();
         }
       });
@@ -197,7 +223,11 @@
     setupListener();
     localVote = true;
     showBar();
-    renderVotes({ [playerId]: true });
+    renderVotes({ [playerId]: true }, 'Waiting for other player…');
+    document.querySelectorAll('.rvb-btn').forEach(btn => {
+      btn.disabled = true;
+      btn.style.opacity = '0.55';
+    });
     roomRef.child('rematch2/votes/' + playerId).set(true);
   }
 
@@ -209,6 +239,7 @@
     if (!hasRoom()) return;
     setupListener();
     localVote = !!yes;
+    showBar();
     document.querySelectorAll('.rvb-btn').forEach(btn => {
       btn.disabled = true;
       btn.style.opacity = '0.55';
