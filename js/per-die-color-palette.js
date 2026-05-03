@@ -18,6 +18,8 @@
     ['Black', '#111827', '#fff']
   ];
 
+  const DOT_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+
   let selectedDieIndex = null;
 
   function loadJSON(key, fallback) {
@@ -46,6 +48,11 @@
   function isClassicActive() {
     const active = localStorage.getItem(ACTIVE_KEY) || 'classic';
     return active === 'classic';
+  }
+
+  function keepDiceDots() {
+    if (!Array.isArray(window.DICE_FACES)) return;
+    DOT_FACES.forEach((face, i) => { window.DICE_FACES[i] = face; });
   }
 
   function injectStyles() {
@@ -87,7 +94,8 @@
         align-items: center;
         justify-content: center;
         font-weight: 1000;
-        font-size: 1.35rem;
+        font-size: 1.45rem;
+        line-height: 1;
         border: 2px solid transparent;
         box-shadow: 0 4px 10px rgba(0,0,0,.28);
       }
@@ -141,6 +149,7 @@
 
   function applyPerDieColors() {
     if (!isClassicActive()) return;
+    keepDiceDots();
     const colors = getColors();
     document.querySelectorAll('.dice-section .die[data-i]').forEach(el => {
       const i = Number(el.getAttribute('data-i'));
@@ -161,17 +170,17 @@
   }
 
   function applyColors() {
+    keepDiceDots();
     clearInlinePerDieColorsForPremium();
     applyPerDieColors();
   }
 
   function renderSection() {
     const colors = getColors();
-    const diceFaces = ['⚀','⚁','⚂','⚃','⚄'];
     const slots = colors.map((color, i) => {
       const pair = pairForColor(color);
       return `<div class="per-die-color-slot ${selectedDieIndex === i ? 'active' : ''}" onclick="selectDieColorSlot(${i})">
-        <div class="per-die-color-face" style="background:${pair[1]};color:${pair[2]}">${diceFaces[i]}</div>
+        <div class="per-die-color-face" style="background:${pair[1]};color:${pair[2]}">${DOT_FACES[i]}</div>
         <div class="per-die-color-label">DIE ${i + 1}</div>
       </div>`;
     }).join('');
