@@ -1,7 +1,6 @@
 // ─── LOGIN FEATURE FINALIZER ────────────────────────────────────────
-// Final compatibility layer loaded after older store/reward files.
-// Ensures Skin Store, Daily Bonus, and Daily Challenge are only available
-// to Google / Apple signed-in users and all purchases use the credit wallet.
+// Final compatibility layer. Owns the logged-in menu buttons and restores
+// the upgraded multiplayer lobby actions without loading the old reward UI.
 
 (function() {
   const PROFILE_KEY = 'yum_google_profile';
@@ -56,7 +55,20 @@
     const s = document.createElement('style');
     s.id = 'loginFeatureFinalizerStyles';
     s.textContent = `
-      #skinStoreUpgradeOverlay.final-store{z-index:995}.ssu-wallet-note{color:var(--muted);font-size:.72rem;font-weight:900;margin-top:2px}.ssu-login-lock{padding:16px;text-align:center;color:var(--muted);font-weight:900}.ssu-preview span{font-family:Arial, sans-serif}.yum-hidden-when-logged-out{display:none!important}
+      #skinStoreUpgradeOverlay.final-store{z-index:995}
+      .ssu-wallet-note{color:var(--muted);font-size:.72rem;font-weight:900;margin-top:2px}
+      .ssu-login-lock{padding:16px;text-align:center;color:var(--muted);font-weight:900}
+      .ssu-preview span{font-family:Arial, sans-serif}
+      .yum-hidden-when-logged-out{display:none!important}
+      .waiting-upgrade-card{width:min(420px,92vw);border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);border-radius:18px;padding:12px;margin:12px 0 8px}
+      .waiting-upgrade-title{color:var(--gold);font-family:'Bebas Neue',cursive;letter-spacing:2px;font-size:1.1rem;margin-bottom:8px;text-align:left}
+      .wup-player{display:flex;align-items:center;gap:9px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:9px 10px;margin-top:7px}
+      .wup-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--gold));color:#111;font-weight:1000}
+      .wup-info{flex:1;min-width:0;text-align:left}.wup-name{color:var(--white);font-weight:1000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wup-meta{color:var(--muted);font-size:.64rem;font-weight:900;margin-top:1px}
+      .wup-badge{border-radius:999px;padding:4px 8px;font-size:.6rem;font-weight:1000;letter-spacing:.6px;border:1px solid rgba(245,166,35,.36);color:var(--gold);background:rgba(245,166,35,.10)}
+      .wup-badge.ready{border-color:rgba(78,205,196,.4);color:var(--green);background:rgba(78,205,196,.10)}
+      .wup-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}.wup-btn{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.08);color:var(--white);border-radius:999px;padding:8px 11px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.5px;cursor:pointer}
+      .wup-btn.ready{border-color:rgba(78,205,196,.34);color:var(--green);background:rgba(78,205,196,.10)}.wup-btn.share{border-color:rgba(245,166,35,.4);color:var(--gold);background:rgba(245,166,35,.11)}
     `;
     document.head.appendChild(s);
   }
@@ -70,10 +82,7 @@
     try { if (typeof renderDice === 'function') renderDice(false); } catch(e) {}
   }
 
-  window.setClassicDiceColor = function(bg) {
-    applyClassicColor(bg);
-    renderFinalSkinStore();
-  };
+  window.setClassicDiceColor = function(bg) { applyClassicColor(bg); renderFinalSkinStore(); };
 
   window.equipSkin = function(id) {
     if (id !== 'classic' && !owned().includes(id)) return;
@@ -134,18 +143,11 @@
       else action = `<button class="ssu-action locked" disabled>LOCKED · NEED ${skin.cost} CREDITS</button>`;
       return `<div class="ssu-card ${isActive ? 'active' : ''}"><div class="ssu-card-top"><div class="ssu-name">${skin.name}</div><div class="ssu-cost">${skin.cost} credits</div></div><div class="ssu-preview">${preview}</div>${action}</div>`;
     }).join('');
-
     overlay.innerHTML = `<div class="ssu-sheet"><div class="ssu-head"><div class="ssu-title">🎨 SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()">✕</button></div><div class="ssu-credit"><div><div class="ssu-small">Your credit wallet</div><div class="ssu-wallet-note">Earn credits from Daily Bonus and Daily Challenge</div></div><div class="ssu-credit-num" id="ssuCredits">${c}</div></div><div id="ssuContent"><div class="ssu-section"><div class="ssu-section-title">FREE ORIGINAL DICE COLOR</div><div class="ssu-small">Choose a color from the palette. This stays free.</div><div class="ssu-palette">${palette}</div><button class="ssu-action ${active === 'classic' ? 'active' : ''}" style="margin-top:10px" onclick="equipSkin('classic')">${active === 'classic' ? '✓ USING ORIGINAL DICE' : 'USE ORIGINAL DICE'}</button></div><div class="ssu-section"><div class="ssu-section-title">PREMIUM CREDIT SKINS</div><div class="ssu-skins">${skins}</div></div></div></div>`;
   }
 
-  window.openSkinStore = function() {
-    renderFinalSkinStore();
-    ensureStoreOverlay().classList.add('open');
-  };
-  window.closeSkinStore = function() {
-    const overlay = document.getElementById('skinStoreUpgradeOverlay');
-    if (overlay) overlay.classList.remove('open');
-  };
+  window.openSkinStore = function() { renderFinalSkinStore(); ensureStoreOverlay().classList.add('open'); };
+  window.closeSkinStore = function() { const overlay = document.getElementById('skinStoreUpgradeOverlay'); if (overlay) overlay.classList.remove('open'); };
 
   const finalClaimDaily = function() {
     if (!isLoggedIn()) return toast('Sign in with Google or Apple to claim daily bonus');
@@ -212,14 +214,94 @@
     challenge.onclick = window.openDailyChallenge;
   }
 
+  function getPlayers() { try { return allPlayers || {}; } catch(e) { return {}; } }
+  function myId() { try { return playerId || ''; } catch(e) { return ''; } }
+  function hostId() {
+    const players = getPlayers();
+    const entries = Object.entries(players).sort((a, b) => (a[1].joined || 0) - (b[1].joined || 0));
+    return entries[0] ? entries[0][0] : '';
+  }
+  function currentReady() {
+    try { const id = myId(); return !!(id && getPlayers()[id] && getPlayers()[id].ready); }
+    catch(e) { return false; }
+  }
+
+  window.toggleLobbyReady = function() {
+    try { if (!roomRef || !myId()) return; roomRef.child('players/' + myId() + '/ready').set(!currentReady()); }
+    catch(e) {}
+  };
+
+  window.copyRoomCodeUpgrade = async function() {
+    let code = '';
+    const display = document.getElementById('displayCode');
+    if (display) code = display.textContent.trim();
+    if (!code || code.includes('-')) return;
+    try { await navigator.clipboard.writeText(code); toast('Room code copied 📋'); }
+    catch(e) { toast(code); }
+  };
+
+  function renderWaitingUpgrade() {
+    const wait = document.getElementById('waitingOverlay');
+    if (!wait || wait.style.display === 'none') return;
+    let card = document.getElementById('waitingUpgradeCard');
+    if (!card) {
+      card = document.createElement('div');
+      card.id = 'waitingUpgradeCard';
+      card.className = 'waiting-upgrade-card';
+      const playersEl = document.getElementById('waitingPlayers');
+      if (playersEl) playersEl.insertAdjacentElement('afterend', card);
+      else wait.appendChild(card);
+    }
+    const players = getPlayers();
+    const hId = hostId();
+    const rows = Object.entries(players).sort((a, b) => (a[1].joined || 0) - (b[1].joined || 0)).map(([id, p]) => {
+      const initial = String(p.name || '?').charAt(0).toUpperCase();
+      const isHost = id === hId;
+      const isMe = id === myId();
+      const ready = !!p.ready;
+      return `<div class="wup-player"><div class="wup-avatar">${initial}</div><div class="wup-info"><div class="wup-name">${p.name || 'Player'}${isMe ? ' · You' : ''}</div><div class="wup-meta">${isHost ? 'Host' : 'Guest'} · ${ready ? 'Ready' : 'Not ready'}</div></div><div class="wup-badge ${ready ? 'ready' : ''}">${isHost ? 'HOST' : ready ? 'READY' : 'WAIT'}</div></div>`;
+    }).join('') || '<div class="ssu-small">Waiting for players…</div>';
+    card.innerHTML = `<div class="waiting-upgrade-title">LOBBY PLAYERS</div>${rows}<div class="wup-actions"><button class="wup-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '✓ Ready' : 'Mark Ready'}</button><button class="wup-btn" onclick="copyRoomCodeUpgrade()">📋 Copy Code</button><button class="wup-btn share" onclick="shareLobby()">📤 Share Lobby</button></div>`;
+  }
+
+  function patchWaitingRender() {
+    ['createGame', 'joinGame', 'startGame'].forEach(name => {
+      const original = window[name];
+      if (typeof original !== 'function' || original.__finalLobbyPatched) return;
+      const patched = function(...args) {
+        const result = original.apply(this, args);
+        setTimeout(renderWaitingUpgrade, 300);
+        return result;
+      };
+      patched.__finalLobbyPatched = true;
+      window[name] = patched;
+    });
+  }
+
+  function listenLobbyPlayers() {
+    try {
+      if (!roomRef || window.__finalLobbyListening) return;
+      window.__finalLobbyListening = true;
+      roomRef.child('players').on('value', () => setTimeout(renderWaitingUpgrade, 0));
+    } catch(e) {}
+  }
+
   function init() {
     injectStyles();
     window.claimDailyReward = finalClaimDaily;
     window.openDailyReward = finalClaimDaily;
     refreshButtons();
+    patchWaitingRender();
+    renderWaitingUpgrade();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
-  setInterval(refreshButtons, 700);
+
+  setInterval(() => {
+    refreshButtons();
+    patchWaitingRender();
+    renderWaitingUpgrade();
+    listenLobbyPlayers();
+  }, 700);
 })();
