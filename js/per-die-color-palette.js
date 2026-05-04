@@ -187,7 +187,7 @@
       const pair = pairForColor(color);
       return `<div class="per-die-color-slot ${selectedDieIndex === i ? 'active' : ''}" onclick="selectDieColorSlot(${i})">
         <div class="per-die-color-face" style="background:${pair[1]};color:${pair[2]}">${DOT_FACES[i]}</div>
-        <div class="per-die-color-label">DIE ${i + 1}</div>
+        <div class="per-die-color-label">DICE ${i + 1}</div>
       </div>`;
     }).join('');
 
@@ -206,16 +206,18 @@
 
   function insertIntoStore() {
     const content = document.getElementById('ssuContent');
-    if (!content) return;
-
-    let section = document.getElementById('perDieColorSection');
-    const html = renderSection();
-    if (section) {
-      section.outerHTML = html;
+    if (content) {
+      let section = document.getElementById('perDieColorSection');
+      const html = renderSection();
+      if (section) { section.outerHTML = html; return; }
+      content.insertAdjacentHTML('afterbegin', html);
       return;
     }
 
-    content.insertAdjacentHTML('afterbegin', html);
+    const colorContainer = document.getElementById('perDieColorContainer');
+    if (colorContainer) {
+      colorContainer.innerHTML = renderSection();
+    }
   }
 
   window.selectDieColorSlot = function selectDieColorSlot(i) {
@@ -270,11 +272,23 @@
     window.renderDice = patched;
   }
 
+  function watchSkinStoreOverlay() {
+    const overlay = document.getElementById('skinStoreOverlay');
+    if (!overlay || overlay.__colorPaletteWatched) return;
+    overlay.__colorPaletteWatched = true;
+    new MutationObserver(() => {
+      if (overlay.classList.contains('open')) {
+        setTimeout(() => { injectStyles(); insertIntoStore(); applyColors(); }, 30);
+      }
+    }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+  }
+
   function init() {
     injectStyles();
     patchOpenStore();
     patchRenderDice();
     applyColors();
+    watchSkinStoreOverlay();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
@@ -284,6 +298,9 @@
     patchOpenStore();
     patchRenderDice();
     applyColors();
-    if (document.getElementById('skinStoreUpgradeOverlay')?.classList.contains('open')) insertIntoStore();
+    watchSkinStoreOverlay();
+    const upgradeOpen = document.getElementById('skinStoreUpgradeOverlay')?.classList.contains('open');
+    const storeOpen = document.getElementById('skinStoreOverlay')?.classList.contains('open');
+    if (upgradeOpen || storeOpen) insertIntoStore();
   }, 1200);
 })();

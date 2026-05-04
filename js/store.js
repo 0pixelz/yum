@@ -531,7 +531,7 @@
       <div class="store-sheet">
         <div class="store-head">
           <div class="store-title">🎨 DICE SKIN STORE</div>
-          <button class="store-close" onclick="closeSkinStore()">✕</button>
+          <button class="store-close">✕</button>
         </div>
         <div class="store-credit-box">
           <div>
@@ -540,10 +540,12 @@
           </div>
           <div class="store-credit-value" id="storeCreditValue">0</div>
         </div>
+        <div id="perDieColorContainer"></div>
         <div id="perDieContainer"></div>
         <div class="store-grid" id="storeGrid"></div>
       </div>`;
     document.body.appendChild(overlay);
+    overlay.querySelector('.store-close').onclick = closeSkinStore;
     return overlay;
   }
 
@@ -576,7 +578,7 @@
       const hasCustom = !!perDie[i];
       return `<div class="per-die-slot${isSelected ? ' selected' : ''}" onclick="selectPerDieSlot(${i})">
         <div class="per-die-face" style="${skin.previewStyle || ''}">${skin.preview[0]}</div>
-        <div class="per-die-label">DIE ${i+1}${hasCustom ? ' ●' : ''}</div>
+        <div class="per-die-label">DICE ${i+1}${hasCustom ? ' ●' : ''}</div>
       </div>`;
     }).join('');
 
