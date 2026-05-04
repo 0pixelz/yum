@@ -6,13 +6,13 @@ const POWERUPS = [
     desc:'Get one bonus reroll this turn',
     color:'#4ecdc4', gradient:'linear-gradient(135deg,#4ecdc4,#2ecc71)' },
   { id:'freezeDie',   name:'Freeze Die',    icon:'❄️',
-    desc:'Lock one die — carries to your next turn',
+    desc:'Lock one dice — carries to your next turn',
     color:'#64b5f6', gradient:'linear-gradient(135deg,#64b5f6,#1e88e5)' },
   { id:'doublePoints',name:'Double Points', icon:'✨',
     desc:'Double the score for your next category',
     color:'#f5a623', gradient:'linear-gradient(135deg,#f5a623,#f39c12)' },
   { id:'luckyDice',   name:'Lucky Dice',    icon:'🍀',
-    desc:'Reroll one die — higher chance of 5 or 6',
+    desc:'Reroll one dice — higher chance of 5 or 6',
     color:'#66bb6a', gradient:'linear-gradient(135deg,#66bb6a,#43a047)' },
   { id:'undoMove',    name:'Undo Move',     icon:'↩️',
     desc:'Take back your last score choice',
@@ -126,8 +126,8 @@ function renderPowerupBar() {
 
   // Pending action hint
   const hintMap = {
-    freezeDie: '❄️ Click a die to freeze it',
-    luckyDice: '🍀 Click a die to reroll with luck',
+    freezeDie: '❄️ Click a dice to freeze it',
+    luckyDice: '🍀 Click a dice to reroll with luck',
   };
   const hint = pendingPowerup && hintMap[pendingPowerup]
     ? `<div class="pup-hint">${hintMap[pendingPowerup]}</div>`
