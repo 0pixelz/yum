@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yum-pwa-v2';
+const CACHE_NAME = 'yum-pwa-v3';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -15,10 +15,12 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
   const isNavigation = event.request.mode === 'navigate';
+  const isCodeAsset = /\.(js|css)$/i.test(url.pathname);
 
-  if (isNavigation) {
-    // Network-first for HTML: always get the latest, fall back to cache offline
+  if (isNavigation || isCodeAsset) {
+    // Network-first for HTML/JS/CSS so fixes appear immediately in the PWA.
     event.respondWith(
       fetch(event.request).then(response => {
         const copy = response.clone();
@@ -29,8 +31,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Stale-while-revalidate for JS/CSS/assets: respond instantly from cache,
-  // then update the cache in the background so the next load is fresh
+  // Cache-first for images/fonts/assets.
   event.respondWith(
     caches.open(CACHE_NAME).then(cache =>
       cache.match(event.request).then(cached => {
