@@ -182,8 +182,9 @@ function rollDice() {
   document.getElementById('rollCount').textContent = `Rolls: ${3-rollsLeft} / 3`;
   // Sync dice to Firebase for opponents to see
   if(mpMode && roomRef) {
+    const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
     roomRef.child('players/' + playerId + '/liveDice').set({
-      dice: dice, held: held, roll: 3 - rollsLeft, ts: Date.now()
+      dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, ts: Date.now()
     });
   }
 }
@@ -207,8 +208,9 @@ function toggleHold(i) {
   renderDice();
   // Sync hold state so opponents see which dice are locked
   if(mpMode && roomRef) {
+    const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
     roomRef.child('players/' + playerId + '/liveDice').set({
-      dice: dice, held: held, roll: 3 - rollsLeft, ts: Date.now()
+      dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, ts: Date.now()
     });
   }
 }
