@@ -1,12 +1,11 @@
-// ─── SKIN STORE UPGRADE ──────────────────────────────────────────────
-// Adds a main-menu skin store button for logged-in users, keeps original dice
-// color customization free with a palette, and makes premium skins harder to unlock.
+// ─── SKIN STORE VISUALS ──────────────────────────────────────────────
+// Applies dice skin visuals and keeps dice faces as dots.
+// Menu buttons and store purchases are owned by login-feature-finalizer.js
+// to avoid multiple scripts redrawing the same UI and causing flashing.
 
 (function() {
   const ACTIVE_KEY = 'yum_active_dice_skin';
-  const OWNED_KEY = 'yum_store_owned_skins';
   const COLOR_KEY = 'yum_custom_dice_color';
-  const PROFILE_KEY = 'yum_google_profile';
 
   const PALETTE = [
     ['white', '#f8f8f8', '#111'],
@@ -22,58 +21,7 @@
   ];
 
   const DOT_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-
-  const PREMIUM_SKINS = [
-    { id: 'gold', name: 'Gold Dice', cost: 5, preview: DOT_FACES, style: 'background:linear-gradient(135deg,#fff7cc,#f5a623);color:#251400' },
-    { id: 'neon', name: 'Neon Dice', cost: 8, preview: DOT_FACES, style: 'background:#101827;color:#4ecdc4;border:1px solid rgba(78,205,196,.6)' },
-    { id: 'ice', name: 'Ice Dice', cost: 10, preview: DOT_FACES, style: 'background:linear-gradient(135deg,#e0f7ff,#8fd8ff);color:#06283d' },
-    { id: 'fire', name: 'Fire Dice', cost: 15, preview: DOT_FACES, style: 'background:linear-gradient(135deg,#ffd166,#e94560);color:#180004' },
-    { id: 'galaxy', name: 'Galaxy Dice', cost: 25, preview: DOT_FACES, style: 'background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%);color:#f8fafc;border:1px solid rgba(168,85,247,.7)' }
-  ];
-
-  function loadJSON(key, fallback) {
-    try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
-    catch(e) { return fallback; }
-  }
-
-  function saveJSON(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
-  }
-
-  function getProfile() {
-    return loadJSON(PROFILE_KEY, null);
-  }
-
-  function isLoggedInUser() {
-    const p = getProfile();
-    return !!(p && (p.type === 'google' || p.type === 'apple') && (p.uid || p.email));
-  }
-
-  function getUnlockedAchievementCount() {
-    try {
-      if (typeof loadUnlocked === 'function') return Object.keys(loadUnlocked()).length;
-    } catch(e) {}
-    return Object.keys(loadJSON('yum_achievements', {})).length;
-  }
-
-  function getOwned() {
-    const owned = loadJSON(OWNED_KEY, ['classic']);
-    if (!owned.includes('classic')) owned.push('classic');
-    return [...new Set(owned)];
-  }
-
-  function setOwned(owned) {
-    saveJSON(OWNED_KEY, [...new Set(['classic', ...owned])]);
-  }
-
-  function spentCredits() {
-    const owned = getOwned();
-    return PREMIUM_SKINS.reduce((sum, skin) => sum + (owned.includes(skin.id) ? skin.cost : 0), 0);
-  }
-
-  function availableCredits() {
-    return Math.max(0, getUnlockedAchievementCount() - spentCredits());
-  }
+  const PREMIUM_SKIN_IDS = ['gold','neon','ice','fire','galaxy'];
 
   function getActive() {
     return localStorage.getItem(ACTIVE_KEY) || 'classic';
@@ -180,133 +128,19 @@
     keepDiceDots();
     const active = getActive();
     document.body.classList.remove('skin-classic','skin-gold','skin-neon','skin-ice','skin-fire','skin-galaxy');
-    document.body.classList.add(PREMIUM_SKINS.some(s => s.id === active) ? `skin-${active}` : 'skin-classic');
+    document.body.classList.add(PREMIUM_SKIN_IDS.includes(active) ? `skin-${active}` : 'skin-classic');
     const pair = colorPair();
     document.documentElement.style.setProperty('--yum-custom-die-bg', pair[1]);
     document.documentElement.style.setProperty('--yum-custom-die-fg', pair[2]);
   }
 
-  function ensureOverlay() {
-    let overlay = document.getElementById('skinStoreUpgradeOverlay');
-    if (overlay) return overlay;
-    overlay = document.createElement('div');
-    overlay.id = 'skinStoreUpgradeOverlay';
-    overlay.onclick = e => { if (e.target === overlay) closeSkinStore(); };
-    overlay.innerHTML = `<div class="ssu-sheet">
-      <div class="ssu-head"><div class="ssu-title">🎨 SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()">✕</button></div>
-      <div class="ssu-credit"><div><div class="ssu-small">Completed achievements give credits</div><div class="ssu-small">Premium skins now cost more credits</div></div><div class="ssu-credit-num" id="ssuCredits">0</div></div>
-      <div id="ssuContent"></div>
-    </div>`;
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-
-  function renderStore() {
-    ensureOverlay();
-    const content = document.getElementById('ssuContent');
-    const creditEl = document.getElementById('ssuCredits');
-    if (!content || !creditEl) return;
-    creditEl.textContent = availableCredits();
-    const owned = getOwned();
-    const active = getActive();
-    const currentColor = colorPair()[1].toLowerCase();
-
-    const paletteHtml = PALETTE.map(([name, bg]) => `<button class="ssu-swatch ${currentColor === bg.toLowerCase() ? 'active' : ''}" title="${name}" style="background:${bg}" onclick="setClassicDiceColor('${bg}')"></button>`).join('');
-
-    const skinsHtml = PREMIUM_SKINS.map(skin => {
-      const isOwned = owned.includes(skin.id);
-      const isActive = active === skin.id;
-      const canBuy = availableCredits() >= skin.cost;
-      const preview = skin.preview.map(face => `<span style="${skin.style}">${face}</span>`).join('');
-      let action = '';
-      if (isActive) action = `<button class="ssu-action active" disabled>✓ EQUIPPED</button>`;
-      else if (isOwned) action = `<button class="ssu-action" onclick="equipSkin('${skin.id}')">EQUIP</button>`;
-      else if (canBuy) action = `<button class="ssu-action" onclick="buySkin('${skin.id}')">UNLOCK · ${skin.cost} CREDITS</button>`;
-      else action = `<button class="ssu-action locked" disabled>LOCKED · NEED ${skin.cost} CREDITS</button>`;
-      return `<div class="ssu-card ${isActive ? 'active' : ''}"><div class="ssu-card-top"><div class="ssu-name">${skin.name}</div><div class="ssu-cost">${skin.cost} credits</div></div><div class="ssu-preview">${preview}</div>${action}</div>`;
-    }).join('');
-
-    content.innerHTML = `<div class="ssu-section"><div class="ssu-section-title">FREE ORIGINAL DICE COLOR</div><div class="ssu-small">Choose a color from the palette. This stays free.</div><div class="ssu-palette">${paletteHtml}</div><button class="ssu-action ${active === 'classic' ? 'active' : ''}" style="margin-top:10px" onclick="equipSkin('classic')">${active === 'classic' ? '✓ USING ORIGINAL DICE' : 'USE ORIGINAL DICE'}</button></div><div class="ssu-section"><div class="ssu-section-title">PREMIUM ACHIEVEMENT SKINS</div><div class="ssu-skins">${skinsHtml}</div></div>`;
-  }
-
-  window.openSkinStore = function openSkinStoreUpgrade() {
-    injectStyles();
-    ensureOverlay();
-    renderStore();
-    document.getElementById('skinStoreUpgradeOverlay').classList.add('open');
-  };
-
-  window.closeSkinStore = function closeSkinStoreUpgrade() {
-    const overlay = document.getElementById('skinStoreUpgradeOverlay');
-    if (overlay) overlay.classList.remove('open');
-  };
-
-  window.setClassicDiceColor = function setClassicDiceColor(bg) {
-    const pair = PALETTE.find(p => p[1].toLowerCase() === String(bg).toLowerCase()) || PALETTE[0];
-    localStorage.setItem(COLOR_KEY, pair[1]);
-    localStorage.setItem(ACTIVE_KEY, 'classic');
-    applySkinAndColor();
-    renderStore();
-    if (typeof renderDice === 'function') renderDice(false);
-  };
-
-  window.equipSkin = function equipSkinUpgrade(id) {
-    if (id !== 'classic' && !getOwned().includes(id)) return;
-    localStorage.setItem(ACTIVE_KEY, id);
-    applySkinAndColor();
-    renderStore();
-    if (typeof renderDice === 'function') renderDice(false);
-    if (window.showToast) showToast(id === 'classic' ? 'Original dice equipped' : 'Skin equipped');
-  };
-
-  window.buySkin = function buySkinUpgrade(id) {
-    const skin = PREMIUM_SKINS.find(s => s.id === id);
-    if (!skin) return;
-    const owned = getOwned();
-    if (owned.includes(id)) return equipSkin(id);
-    if (availableCredits() < skin.cost) {
-      if (window.showToast) showToast(`Need ${skin.cost} credits`);
-      return;
-    }
-    owned.push(id);
-    setOwned(owned);
-    equipSkin(id);
-    if (window.showToast) showToast(`${skin.name} unlocked!`);
-  };
-
-  function addMainMenuStoreButton() {
-    const lobby = document.getElementById('lobbyOverlay');
-    const profileBar = document.getElementById('profileLoginBar');
-    if (!lobby || !profileBar) return;
-
-    let btn = document.getElementById('mainSkinStoreBtn');
-    if (!isLoggedInUser()) {
-      if (btn) btn.remove();
-      return;
-    }
-
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.id = 'mainSkinStoreBtn';
-      btn.type = 'button';
-      btn.className = 'main-skin-store-btn';
-      btn.onclick = window.openSkinStore;
-      profileBar.insertAdjacentElement('afterend', btn);
-    }
-    btn.textContent = `🎨 Skin Store · ${availableCredits()} credits`;
-  }
-
   function init() {
     injectStyles();
     applySkinAndColor();
-    addMainMenuStoreButton();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  setInterval(() => {
-    applySkinAndColor();
-    addMainMenuStoreButton();
-  }, 1200);
+  setInterval(applySkinAndColor, 1200);
 })();
