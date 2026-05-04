@@ -160,6 +160,18 @@
         background: var(--yum-custom-die-bg, #f8f8f8) !important;
         color: var(--yum-custom-die-fg, #111) !important;
       }
+      body.skin-classic .dice-section .die.held,
+      body.skin-gold .dice-section .die.held,
+      body.skin-neon .dice-section .die.held,
+      body.skin-ice .dice-section .die.held,
+      body.skin-fire .dice-section .die.held,
+      body.skin-galaxy .dice-section .die.held,
+      body:not(.skin-gold):not(.skin-neon):not(.skin-ice):not(.skin-fire):not(.skin-galaxy) .dice-section .die.held {
+        background: var(--gold) !important;
+        color: #111 !important;
+        border: none !important;
+        box-shadow: 0 0 14px rgba(245,166,35,0.6) !important;
+      }
     `;
     document.head.appendChild(style);
   }
