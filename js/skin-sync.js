@@ -95,6 +95,31 @@
       .remote-skin-lava { background:linear-gradient(135deg,#0f0000,#7f1d1d) !important; color:#fbbf24 !important; border:1px solid rgba(251,191,36,.4) !important; box-shadow:0 0 18px rgba(239,68,68,.35) !important; }
       .remote-skin-rosegold { background:linear-gradient(135deg,#fce7f3,#f9a8d4,#fda4af) !important; color:#831843 !important; }
       .remote-skin-diamond { background:linear-gradient(135deg,#dbeafe,#e0e7ff,#f3e8ff) !important; color:#312e81 !important; border:1px solid rgba(167,139,250,.7) !important; box-shadow:0 0 20px rgba(167,139,250,.3) !important; }
+      /* High-specificity overrides for the main dice roller.
+         skin-store-upgrade.js uses body.skin-* .dice-section .die rules (~0,3-7,1)
+         that beat plain .remote-skin-* (0,1,0). Using the #diceRow ID bumps
+         specificity to (1,2+,0) so the opponent's skin always wins.
+         :not(.held) keeps the standard held-die highlight intact. */
+      #diceRow .die.remote-skin-classic:not(.held) { background: var(--white) !important; color:#111 !important; }
+      #diceRow .die.remote-skin-gold:not(.held) { background:linear-gradient(135deg,#fff7cc,#f5a623) !important; color:#251400 !important; }
+      #diceRow .die.remote-skin-neon:not(.held) { background:#101827 !important; color:#4ecdc4 !important; border:1px solid rgba(78,205,196,.6) !important; box-shadow:0 0 18px rgba(78,205,196,.25) !important; }
+      #diceRow .die.remote-skin-ice:not(.held) { background:linear-gradient(135deg,#e0f7ff,#8fd8ff) !important; color:#06283d !important; }
+      #diceRow .die.remote-skin-fire:not(.held) { background:linear-gradient(135deg,#ffd166,#e94560) !important; color:#180004 !important; }
+      #diceRow .die.remote-skin-galaxy:not(.held) { background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%) !important; color:#f8fafc !important; border:1px solid rgba(168,85,247,.7) !important; box-shadow:0 0 20px rgba(168,85,247,.28) !important; }
+      #diceRow .die.remote-skin-red:not(.held) { background:#dc2626 !important; color:#fff !important; }
+      #diceRow .die.remote-skin-blue:not(.held) { background:#2563eb !important; color:#fff !important; }
+      #diceRow .die.remote-skin-green:not(.held) { background:#16a34a !important; color:#fff !important; }
+      #diceRow .die.remote-skin-purple:not(.held) { background:#7c3aed !important; color:#fff !important; }
+      #diceRow .die.remote-skin-orange:not(.held) { background:#ea580c !important; color:#fff !important; }
+      #diceRow .die.remote-skin-pink:not(.held) { background:#db2777 !important; color:#fff !important; }
+      #diceRow .die.remote-skin-black:not(.held) { background:#1c1c1c !important; color:#fff !important; border:1px solid rgba(255,255,255,.15) !important; }
+      #diceRow .die.remote-skin-teal:not(.held) { background:#0d9488 !important; color:#fff !important; }
+      #diceRow .die.remote-skin-candy:not(.held) { background:linear-gradient(135deg,#fdf2f8,#fbcfe8,#f9a8d4) !important; color:#be185d !important; }
+      #diceRow .die.remote-skin-ocean:not(.held) { background:linear-gradient(135deg,#0c4a6e,#0369a1) !important; color:#bae6fd !important; }
+      #diceRow .die.remote-skin-midnight:not(.held) { background:linear-gradient(135deg,#020617,#1e293b) !important; color:#94a3b8 !important; border:1px solid rgba(148,163,184,.2) !important; }
+      #diceRow .die.remote-skin-lava:not(.held) { background:linear-gradient(135deg,#0f0000,#7f1d1d) !important; color:#fbbf24 !important; border:1px solid rgba(251,191,36,.4) !important; box-shadow:0 0 18px rgba(239,68,68,.35) !important; }
+      #diceRow .die.remote-skin-rosegold:not(.held) { background:linear-gradient(135deg,#fce7f3,#f9a8d4,#fda4af) !important; color:#831843 !important; }
+      #diceRow .die.remote-skin-diamond:not(.held) { background:linear-gradient(135deg,#dbeafe,#e0e7ff,#f3e8ff) !important; color:#312e81 !important; border:1px solid rgba(167,139,250,.7) !important; box-shadow:0 0 20px rgba(167,139,250,.3) !important; }
       .skin-mini-badge {
         display:inline-flex;
         align-items:center;
@@ -243,19 +268,21 @@
         (window.currentTurnId && window.allPlayers && allPlayers[currentTurnId] && allPlayers[currentTurnId].skin) ||
         'classic';
       const safeSkin = SKIN_FACES[skinId] ? skinId : 'classic';
+      const oppFaces = SKIN_FACES[safeSkin];
 
-      // Swap DICE_FACES to opponent's skin so renderDice (called inside orig) uses correct faces
-      const savedFaces = Array.isArray(window.DICE_FACES) ? [...window.DICE_FACES] : null;
-      if (savedFaces) {
-        SKIN_FACES[safeSkin].forEach((face, i) => { window.DICE_FACES[i] = face; });
-      }
+      // Temporarily override getDieFace so renderDice uses the opponent's skin faces.
+      // We can't rely on window.DICE_FACES because app.js declares it as `const`
+      // (not a window property), so that swap path silently does nothing.
+      const origGetDieFace = window.getDieFace;
+      window.getDieFace = function(dieIndex, value) {
+        if (value <= 0) return '–';
+        return oppFaces[value - 1];
+      };
 
       const result = orig.apply(this, arguments);
 
-      // Restore DICE_FACES so future local renders use the local player's skin
-      if (savedFaces) {
-        savedFaces.forEach((face, i) => { window.DICE_FACES[i] = face; });
-      }
+      // Restore getDieFace so the local player's own dice render correctly afterward
+      window.getDieFace = origGetDieFace;
 
       // Apply opponent skin CSS (background/colour) to the dice row
       setRollerDiceCssClass(safeSkin);
@@ -334,8 +361,10 @@
     listenForRoomSkinChanges();
 
     // Room/player globals are created after lobby actions, so retry lightly.
+    // Also retry patching in case showOpponentDiceInRoller wasn't defined yet on first run.
     setInterval(() => {
       patchSkinChangingFunctions();
+      patchDiceSyncFunctions();
       publishMySkin();
       listenForRoomSkinChanges();
       updateOpponentSkinBadges();
