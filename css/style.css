@@ -784,8 +784,9 @@
     position: fixed; inset: 0; z-index: 500;
     background: var(--bg);
     display: none; flex-direction: column;
-    align-items: center; justify-content: center;
+    align-items: center; justify-content: flex-start;
     padding: 24px;
+    overflow-y: auto;
   }
   .room-code-box {
     background: var(--card);
@@ -798,7 +799,7 @@
   }
   .room-code-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 3px; margin-bottom: 6px; }
   .room-code { font-family: 'Bebas Neue', cursive; font-size: 3.5rem; color: var(--gold); letter-spacing: 10px; }
-  .room-players { width: 100%; max-width: 340px; margin-bottom: 24px; }
+  .room-players { display: none; }
   .room-player-row {
     display: flex; align-items: center; gap: 12px;
     background: var(--card); border-radius: 12px;
