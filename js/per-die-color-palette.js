@@ -153,9 +153,9 @@
     const colors = getColors();
     document.querySelectorAll('.dice-section .die[data-i]').forEach(el => {
       if (el.classList.contains('held')) {
-        el.style.removeProperty('background');
-        el.style.removeProperty('color');
-        el.style.removeProperty('border');
+        el.style.setProperty('background', 'var(--gold)', 'important');
+        el.style.setProperty('color', '#111', 'important');
+        el.style.setProperty('border', 'none', 'important');
         return;
       }
       const i = Number(el.getAttribute('data-i'));
