@@ -5,7 +5,7 @@ const POWERUPS = [
   { id:'extraRoll',    name:'Extra Roll',    icon:'🎲',
     desc:'Get one bonus reroll this turn',
     color:'#4ecdc4', gradient:'linear-gradient(135deg,#4ecdc4,#2ecc71)' },
-  { id:'freezeDie',   name:'Freeze Die',    icon:'❄️',
+  { id:'freezeDie',   name:'Freeze Dice',   icon:'❄️',
     desc:'Lock one dice — carries to your next turn',
     color:'#64b5f6', gradient:'linear-gradient(135deg,#64b5f6,#1e88e5)' },
   { id:'doublePoints',name:'Double Points', icon:'✨',
@@ -245,7 +245,7 @@ function tryPowerupDieClick(i) {
     renderDice(false);
     refreshDieFreezeVisual();
     renderPowerupBar();
-    showToast(`❄️ Die frozen (${['⚀','⚁','⚂','⚃','⚄','⚅'][dice[i]-1]}) — carries to next turn!`);
+    showToast(`❄️ Dice frozen (${['⚀','⚁','⚂','⚃','⚄','⚅'][dice[i]-1]}) — carries to next turn!`);
     syncPowerupsToDb();
     return true;
   }
@@ -357,7 +357,7 @@ clearDice = function() {
     refreshDieFreezeVisual();
     freezeDieIndex = -1;
     frozenDieValue = 0;
-    showToast(`❄️ Frozen die (${['⚀','⚁','⚂','⚃','⚄','⚅'][savedVal-1]}) carried to new turn!`);
+    showToast(`❄️ Frozen dice (${['⚀','⚁','⚂','⚃','⚄','⚅'][savedVal-1]}) carried to new turn!`);
   }, 150);
 };
 
