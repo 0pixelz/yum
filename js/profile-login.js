@@ -143,6 +143,7 @@
       };
       saveJSON(GOOGLE_PROFILE_KEY, profile);
       applyProfileToLobby(profile);
+      if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
       if (window.showToast) showToast('Signed in with Google ✅');
     } catch(e) {
       console.warn('Google sign-in failed:', e);
@@ -177,6 +178,7 @@
       };
       saveJSON(GOOGLE_PROFILE_KEY, profile);
       applyProfileToLobby(profile);
+      if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
       if (window.showToast) showToast('Signed in with Apple ✅');
     } catch(e) {
       console.warn('Apple sign-in failed:', e);
@@ -197,6 +199,7 @@
     } catch(e) {}
     localStorage.removeItem(GOOGLE_PROFILE_KEY);
     applyProfileToLobby(getDeviceProfile());
+    if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
     if (window.showToast) showToast('Signed out');
   };
 
