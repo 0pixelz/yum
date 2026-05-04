@@ -58,6 +58,10 @@
         skin: skinId,
         ts: Date.now()
       };
+      try {
+        const saved = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null');
+        if (Array.isArray(saved) && saved.length === 5) payload.perDieColors = saved;
+      } catch(e) {}
       roomRef.child('players/' + playerId + '/liveDice').set(payload);
       roomRef.child('players/' + playerId + '/skin').set(skinId);
     } catch(e) {}
@@ -257,6 +261,39 @@
     if (!row) return;
     row.querySelectorAll('.die').forEach(el => {
       Object.keys(SKIN_FACES).forEach(id => el.classList.remove('remote-skin-' + id));
+      el.style.removeProperty('background');
+      el.style.removeProperty('color');
+    });
+  }
+
+  const PER_DIE_PALETTE = [
+    ['#f8f8f8', '#111'],
+    ['#ef4444', '#fff'],
+    ['#f97316', '#fff'],
+    ['#f5a623', '#251400'],
+    ['#22c55e', '#07130a'],
+    ['#14b8a6', '#031817'],
+    ['#3b82f6', '#fff'],
+    ['#8b5cf6', '#fff'],
+    ['#ec4899', '#fff'],
+    ['#111827', '#fff']
+  ];
+
+  function applyOpponentPerDieColors(liveDice, row) {
+    if (!row) return;
+    const diceEls = row.querySelectorAll('.die');
+    const perDieColors = liveDice && liveDice.perDieColors;
+    diceEls.forEach(el => {
+      el.style.removeProperty('background');
+      el.style.removeProperty('color');
+    });
+    if (!perDieColors || !Array.isArray(perDieColors) || perDieColors.length !== 5) return;
+    diceEls.forEach((el, idx) => {
+      const i = el.hasAttribute('data-i') ? Number(el.getAttribute('data-i')) : idx;
+      if (i < 0 || i >= 5 || el.classList.contains('held')) return;
+      const pair = PER_DIE_PALETTE.find(p => p[0].toLowerCase() === String(perDieColors[i]).toLowerCase()) || PER_DIE_PALETTE[0];
+      el.style.setProperty('background', pair[0], 'important');
+      el.style.setProperty('color', pair[1], 'important');
     });
   }
 
@@ -286,6 +323,9 @@
 
       // Apply opponent skin CSS (background/colour) to the dice row
       setRollerDiceCssClass(safeSkin);
+
+      // Apply per-die colours if the opponent used the free colour palette
+      applyOpponentPerDieColors(liveDice, document.getElementById('diceRow'));
 
       return result;
     };
