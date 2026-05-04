@@ -32,7 +32,7 @@ function showFirstRoll(players, onDone) {
   });
 
   document.getElementById('frStatus').textContent = '';
-  document.getElementById('frSub').textContent = 'Tap your die to roll!';
+  document.getElementById('frSub').textContent = 'Tap your dice to roll!';
   document.getElementById('frBtn').style.display = 'none';
 
   // Make player's die tappable
@@ -121,8 +121,8 @@ function frCheckAllRolled() {
     const waitingNames = waiting.filter(p=>!p.isMe).map(p=>p.name);
     if(!frMyRolled) {
       document.getElementById('frSub').textContent = mpMode
-        ? 'Tap your die to roll!'
-        : 'Tap your die to roll!';
+        ? 'Tap your dice to roll!'
+        : 'Tap your dice to roll!';
     } else {
       document.getElementById('frSub').textContent = waitingNames.length
         ? 'Waiting for ' + waitingNames.join(', ') + ' to roll…'
@@ -138,7 +138,7 @@ function frCheckAllRolled() {
   if(winners.length > 1) {
     // Show tie with dice values still visible
     document.getElementById('frStatus').textContent = '🤝 TIE!';
-    document.getElementById('frSub').textContent = 'Tap your die to re-roll!';
+    document.getElementById('frSub').textContent = 'Tap your dice to re-roll!';
 
     // Wait 2s so players can see the tied values, then reset
     setTimeout(() => {

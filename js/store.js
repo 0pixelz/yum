@@ -606,7 +606,7 @@
 
     return `<div class="per-die-section">
       <div class="per-die-header">
-        <div class="per-die-title">CUSTOMIZE EACH DIE</div>
+        <div class="per-die-title">CUSTOMIZE EACH DICE</div>
         <button class="per-die-reset-btn" onclick="resetPerDieSkins()">Reset all</button>
       </div>
       <div class="per-die-dice-row">${diceHTML}</div>

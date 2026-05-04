@@ -196,10 +196,10 @@
     </div>`;
 
     return `<div class="per-die-color-section" id="perDieColorSection">
-      <div class="per-die-color-title">FREE COLOR PALETTE FOR EACH DIE</div>
-      <div class="ssu-small">Tap a die, then choose its color. This is free for the original dice.</div>
+      <div class="per-die-color-title">FREE COLOR PALETTE FOR EACH DICE</div>
+      <div class="ssu-small">Tap a dice, then choose its color. This is free for the original dice.</div>
       <div class="per-die-color-preview">${slots}</div>
-      ${palette || '<div class="ssu-small" style="text-align:center;margin-top:6px">Tap one die above to customize it.</div>'}
+      ${palette || '<div class="ssu-small" style="text-align:center;margin-top:6px">Tap one dice above to customize it.</div>'}
       <button class="per-die-color-reset" onclick="resetDieColors()">Reset all dice to white</button>
     </div>`;
   }
