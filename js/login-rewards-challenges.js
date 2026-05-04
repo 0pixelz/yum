@@ -1,6 +1,7 @@
 // ─── LOGIN-GATED CREDITS + DAILY CHALLENGES ─────────────────────────
 // Owns credit storage, daily challenge state, challenge overlay, and game hooks.
-// It does NOT redraw main-menu buttons; login-feature-finalizer.js owns the UI.
+// It does NOT recreate main-menu buttons; login-feature-finalizer.js owns layout.
+// This file only fills/updates the Daily Challenge button label.
 
 (function() {
   const PROFILE_KEY = 'yum_google_profile';
@@ -64,6 +65,7 @@
     st.updatedAt = Date.now();
     saveCreditState(st);
     window.dispatchEvent(new CustomEvent('yumCreditsChanged', { detail: st }));
+    refreshChallengeButtonText();
     return st.credits;
   };
 
@@ -78,6 +80,7 @@
     st.updatedAt = Date.now();
     saveCreditState(st);
     window.dispatchEvent(new CustomEvent('yumCreditsChanged', { detail: st }));
+    refreshChallengeButtonText();
     return true;
   };
 
@@ -97,6 +100,7 @@
   function saveChallengeState(st) {
     saveJSON(DAILY_CHALLENGE_KEY, st);
     window.dispatchEvent(new CustomEvent('yumChallengeChanged', { detail: window.getYumDailyChallengeStatus() }));
+    refreshChallengeButtonText();
   }
 
   function currentChallenge() {
@@ -118,6 +122,28 @@
       complete: progress >= ch.target
     };
   };
+
+  function refreshChallengeButtonText() {
+    const btn = document.getElementById('dailyChallengeMenuBtn');
+    if (!btn) return;
+
+    if (!isLoggedIn()) {
+      btn.remove();
+      return;
+    }
+
+    const status = window.getYumDailyChallengeStatus();
+    btn.className = 'yum-login-feature-btn challenge';
+    btn.style.minHeight = '44px';
+    btn.style.color = 'var(--gold)';
+    btn.style.borderColor = 'rgba(245,166,35,.42)';
+    btn.style.background = 'rgba(245,166,35,.12)';
+    btn.onclick = window.openDailyChallenge;
+
+    btn.textContent = status.claimed
+      ? `🎯 Daily Challenge Claimed · +${status.reward} credits`
+      : `🎯 Daily Challenge · ${status.progress}/${status.target} · +${status.reward} credits`;
+  }
 
   function addChallengeProgress(stat, amount) {
     if (!isLoggedIn()) return;
@@ -149,6 +175,7 @@
     saveChallengeState(st);
     window.addYumCredits(ch.reward, 'daily_challenge');
     renderDailyChallengeOverlay();
+    refreshChallengeButtonText();
     if (window.showToast) showToast(`🏁 Challenge reward claimed: +${ch.reward} credits`);
   };
 
@@ -159,7 +186,7 @@
     style.textContent = `
       .yum-login-feature-btn{width:min(520px,100%);border-radius:999px;padding:10px 14px;font-family:Nunito,sans-serif;font-weight:1000;letter-spacing:1px;cursor:pointer;margin-top:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:var(--white)}
       .yum-login-feature-btn.bonus{border-color:rgba(78,205,196,.36);background:rgba(78,205,196,.1);color:var(--green)}
-      .yum-login-feature-btn.challenge{border-color:rgba(245,166,35,.42);background:rgba(245,166,35,.12);color:var(--gold)}
+      .yum-login-feature-btn.challenge{border-color:rgba(245,166,35,.42);background:rgba(245,166,35,.12);color:var(--gold);min-height:44px}
       #dailyChallengeOverlay{position:fixed;inset:0;z-index:991;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.74);padding:18px}
       #dailyChallengeOverlay.open{display:flex}
       .dc-card{width:min(440px,94vw);border-radius:26px;border:1px solid rgba(245,166,35,.36);background:linear-gradient(145deg,rgba(15,52,96,.98),rgba(22,22,62,.98));box-shadow:0 24px 70px rgba(0,0,0,.58);padding:18px;text-align:center}
@@ -196,6 +223,7 @@
 
   window.openDailyChallenge = function openDailyChallenge() {
     injectStyles();
+    refreshChallengeButtonText();
     renderDailyChallengeOverlay();
     ensureChallengeOverlay().classList.add('open');
   };
@@ -257,10 +285,17 @@
     injectStyles();
     ensureChallengeOverlay();
     patchGameHooks();
+    refreshChallengeButtonText();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  setInterval(patchGameHooks, 1000);
+  window.addEventListener('yumCreditsChanged', refreshChallengeButtonText);
+  window.addEventListener('yumChallengeChanged', refreshChallengeButtonText);
+
+  setInterval(() => {
+    patchGameHooks();
+    refreshChallengeButtonText();
+  }, 800);
 })();
