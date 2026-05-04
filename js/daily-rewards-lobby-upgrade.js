@@ -1,54 +1,18 @@
 // ─── DAILY REWARDS + MULTIPLAYER LOBBY UPGRADE ───────────────────────
-// Adds a daily login reward modal and improves the waiting room lobby UI.
+// Keeps the upgraded waiting lobby, but daily rewards are strictly gated:
+// no Google / Apple login = no reward button, no modal, no flashing.
 
 (function() {
-  const REWARD_KEY = 'yum_daily_reward_state';
-  const STORE_OWNED_KEY = 'yum_store_owned_skins';
-  const DAILY_SKIN_ID = 'daily-rainbow';
-
-  const REWARDS = [
-    { day: 1, credits: 1, label: '+1 credit' },
-    { day: 2, credits: 1, label: '+1 credit' },
-    { day: 3, credits: 2, label: '+2 credits' },
-    { day: 4, credits: 2, label: '+2 credits' },
-    { day: 5, credits: 3, label: '+3 credits' },
-    { day: 6, credits: 3, label: '+3 credits' },
-    { day: 7, credits: 5, skin: DAILY_SKIN_ID, label: '+5 credits + rare skin' }
-  ];
-
-  function todayKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
+  const PROFILE_KEY = 'yum_google_profile';
 
   function loadJSON(key, fallback) {
     try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
     catch(e) { return fallback; }
   }
 
-  function saveJSON(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
-  }
-
-  function getRewardState() {
-    return loadJSON(REWARD_KEY, { lastClaimDate: '', streak: 0, credits: 0, claimedTotal: 0 });
-  }
-
-  function setRewardState(state) {
-    saveJSON(REWARD_KEY, state);
-  }
-
-  function dateDiffDays(a, b) {
-    const da = new Date(a + 'T00:00:00');
-    const db = new Date(b + 'T00:00:00');
-    return Math.round((db - da) / 86400000);
-  }
-
-  function addOwnedSkin(id) {
-    if (!id) return;
-    const owned = loadJSON(STORE_OWNED_KEY, ['classic']);
-    if (!owned.includes(id)) owned.push(id);
-    saveJSON(STORE_OWNED_KEY, owned);
+  function isLoggedInUser() {
+    const p = loadJSON(PROFILE_KEY, null);
+    return !!(p && (p.type === 'google' || p.type === 'apple') && (p.uid || p.email));
   }
 
   function injectStyles() {
@@ -67,60 +31,6 @@
         padding: 18px;
       }
       #dailyRewardOverlay.open { display: flex; }
-      .dr-card {
-        width: min(440px, 94vw);
-        border-radius: 26px;
-        border: 1px solid rgba(245,166,35,.36);
-        background: linear-gradient(145deg, rgba(15,52,96,.98), rgba(22,22,62,.98));
-        box-shadow: 0 24px 70px rgba(0,0,0,.58), 0 0 45px rgba(245,166,35,.14);
-        padding: 18px;
-        text-align: center;
-      }
-      .dr-title {
-        font-family: 'Bebas Neue', cursive;
-        font-size: 2rem;
-        letter-spacing: 4px;
-        color: var(--gold);
-        line-height: 1;
-      }
-      .dr-sub { color: var(--muted); font-weight: 800; font-size: .78rem; margin: 6px 0 14px; }
-      .dr-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 12px 0 14px; }
-      .dr-day {
-        border-radius: 13px;
-        background: rgba(255,255,255,.07);
-        border: 1px solid rgba(255,255,255,.10);
-        padding: 8px 4px;
-        min-height: 62px;
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        gap:3px;
-      }
-      .dr-day.claimed { border-color: rgba(78,205,196,.45); background: rgba(78,205,196,.12); }
-      .dr-day.today { border-color: rgba(245,166,35,.65); background: rgba(245,166,35,.15); transform: translateY(-2px); }
-      .dr-num { font-family:'Bebas Neue',cursive; color:var(--white); letter-spacing:1px; font-size:1rem; }
-      .dr-label { color:var(--muted); font-size:.54rem; font-weight:900; line-height:1.05; }
-      .dr-day.today .dr-label { color:var(--gold); }
-      .dr-claim {
-        width: 100%;
-        border: none;
-        border-radius: 999px;
-        padding: 12px 16px;
-        font-family: Nunito, sans-serif;
-        font-weight: 1000;
-        letter-spacing: 1px;
-        background: linear-gradient(135deg, var(--gold), #ffd166);
-        color: #251400;
-        cursor: pointer;
-      }
-      .dr-close {
-        margin-top: 9px;
-        border: none;
-        background: transparent;
-        color: var(--muted);
-        font-weight: 900;
-        padding: 8px 12px;
-      }
       .daily-reward-menu-btn {
         width: min(520px, 100%);
         border: 1px solid rgba(78,205,196,.34);
@@ -201,103 +111,42 @@
     document.head.appendChild(style);
   }
 
-  function ensureRewardOverlay() {
-    let overlay = document.getElementById('dailyRewardOverlay');
-    if (overlay) return overlay;
-    overlay = document.createElement('div');
-    overlay.id = 'dailyRewardOverlay';
-    overlay.onclick = e => { if (e.target === overlay) closeDailyReward(); };
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-
-  function rewardDayIndex(state) {
-    return Math.min(7, Math.max(1, ((state.streak || 0) % 7) + 1));
-  }
-
-  function renderRewardOverlay(canClaim) {
-    const state = getRewardState();
-    const dayIndex = canClaim ? rewardDayIndex(state) : Math.min(7, Math.max(1, state.streak || 1));
-    const overlay = ensureRewardOverlay();
-    const grid = REWARDS.map(r => {
-      const claimed = !canClaim && r.day <= dayIndex;
-      const today = canClaim && r.day === dayIndex;
-      return `<div class="dr-day ${claimed ? 'claimed' : ''} ${today ? 'today' : ''}"><div class="dr-num">DAY ${r.day}</div><div class="dr-label">${r.label}</div></div>`;
-    }).join('');
-    overlay.innerHTML = `<div class="dr-card">
-      <div class="dr-title">🎁 DAILY REWARD</div>
-      <div class="dr-sub">Keep your streak to unlock more credits and a rare skin on day 7.</div>
-      <div class="dr-grid">${grid}</div>
-      <button class="dr-claim" onclick="claimDailyReward()">${canClaim ? 'CLAIM TODAY REWARD' : 'ALREADY CLAIMED TODAY'}</button>
-      <button class="dr-close" onclick="closeDailyReward()">Close</button>
-    </div>`;
-    const claimBtn = overlay.querySelector('.dr-claim');
-    if (claimBtn && !canClaim) {
-      claimBtn.disabled = true;
-      claimBtn.style.opacity = '.55';
-    }
-  }
-
-  function canClaimToday() {
-    return getRewardState().lastClaimDate !== todayKey();
-  }
-
-  window.openDailyReward = function openDailyReward() {
-    injectStyles();
-    renderRewardOverlay(canClaimToday());
-    ensureRewardOverlay().classList.add('open');
-  };
-
-  window.closeDailyReward = function closeDailyReward() {
+  function closeLegacyRewardOverlay() {
     const overlay = document.getElementById('dailyRewardOverlay');
     if (overlay) overlay.classList.remove('open');
-  };
-
-  window.claimDailyReward = function claimDailyReward() {
-    const state = getRewardState();
-    const today = todayKey();
-    if (state.lastClaimDate === today) return;
-
-    const diff = state.lastClaimDate ? dateDiffDays(state.lastClaimDate, today) : 1;
-    const newStreak = diff === 1 ? (state.streak || 0) + 1 : 1;
-    const day = Math.min(7, ((newStreak - 1) % 7) + 1);
-    const reward = REWARDS.find(r => r.day === day) || REWARDS[0];
-
-    state.lastClaimDate = today;
-    state.streak = newStreak;
-    state.credits = (Number(state.credits) || 0) + reward.credits;
-    state.claimedTotal = (Number(state.claimedTotal) || 0) + 1;
-    setRewardState(state);
-    if (reward.skin) addOwnedSkin(reward.skin);
-
-    renderRewardOverlay(false);
-    addDailyRewardMenuButton();
-    if (window.showToast) showToast(`🎁 Claimed ${reward.label}!`);
-  };
-
-  function addDailyRewardMenuButton() {
-    const lobby = document.getElementById('lobbyOverlay');
-    if (!lobby) return;
-    let btn = document.getElementById('dailyRewardMenuBtn');
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.id = 'dailyRewardMenuBtn';
-      btn.type = 'button';
-      btn.className = 'daily-reward-menu-btn';
-      btn.onclick = window.openDailyReward;
-      const skinBtn = document.getElementById('mainSkinStoreBtn');
-      if (skinBtn) skinBtn.insertAdjacentElement('afterend', btn);
-      else {
-        const profileBar = document.getElementById('profileLoginBar');
-        if (profileBar) profileBar.insertAdjacentElement('afterend', btn);
-        else lobby.insertAdjacentElement('afterbegin', btn);
-      }
-    }
-    const state = getRewardState();
-    btn.textContent = canClaimToday()
-      ? '🎁 Daily Reward Available'
-      : `🎁 Daily Reward · Streak ${state.streak || 1}`;
   }
+
+  function removeLegacyRewardButtonIfSignedOut() {
+    if (isLoggedInUser()) return;
+    const btn = document.getElementById('dailyRewardMenuBtn');
+    if (btn) btn.remove();
+    closeLegacyRewardOverlay();
+  }
+
+  // This file used to own daily rewards. The newer login-feature-finalizer.js
+  // owns rewards now. These wrappers prevent old auto-open behavior.
+  const oldOpenDailyReward = window.openDailyReward;
+  window.openDailyReward = function() {
+    if (!isLoggedInUser()) {
+      closeLegacyRewardOverlay();
+      return;
+    }
+    if (typeof oldOpenDailyReward === 'function' && oldOpenDailyReward !== window.openDailyReward) {
+      return oldOpenDailyReward.apply(this, arguments);
+    }
+  };
+
+  const oldClaimDailyReward = window.claimDailyReward;
+  window.claimDailyReward = function() {
+    if (!isLoggedInUser()) {
+      closeLegacyRewardOverlay();
+      if (window.showToast) showToast('Sign in with Google or Apple to claim daily bonus');
+      return;
+    }
+    if (typeof oldClaimDailyReward === 'function' && oldClaimDailyReward !== window.claimDailyReward) {
+      return oldClaimDailyReward.apply(this, arguments);
+    }
+  };
 
   function getPlayers() {
     try { return allPlayers || {}; } catch(e) { return {}; }
@@ -403,19 +252,17 @@
 
   function init() {
     injectStyles();
-    ensureRewardOverlay();
-    addDailyRewardMenuButton();
+    removeLegacyRewardButtonIfSignedOut();
     patchWaitingRender();
-    setTimeout(() => { if (canClaimToday()) window.openDailyReward(); }, 900);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
   setInterval(() => {
-    addDailyRewardMenuButton();
+    removeLegacyRewardButtonIfSignedOut();
     patchWaitingRender();
     renderWaitingUpgrade();
     listenLobbyPlayers();
-  }, 1200);
+  }, 800);
 })();
