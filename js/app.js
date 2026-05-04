@@ -1037,6 +1037,19 @@ function listenRoom() {
     if(data.started) {
       updateMpUI();
       renderLeaderboard();
+
+      // Re-activate power-up mode if Firebase says so but local state was lost
+      // (e.g. page reload mid-game — the waiting-overlay transition won't fire again)
+      if((data.gameMode || 'normal') === 'powerup' && !powerupMode) {
+        powerupMode = true;
+        playerPowerups = [];
+        pendingPowerup = null;
+        doublePointsActive = false;
+        undoPowerupState = null;
+        freezeDieIndex = -1;
+        frozenDieValue = 0;
+        renderPowerupBar();
+      }
     }
 
     // Sync my scores from DB
