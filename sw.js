@@ -1,33 +1,7 @@
-const CACHE_NAME = 'yum-pwa-v1';
-const APP_SHELL = [
-  './',
-  './index.html',
-  './manifest.json',
-  './css/style.css',
-  './js/firebase-init.js',
-  './js/app.js',
-  './js/multiplayer-rematch.js',
-  './js/first-roll.js',
-  './js/rematch-fix.js',
-  './js/rematch-final.js',
-  './js/achievements.js',
-  './js/score-labels.js',
-  './js/store.js',
-  './js/profile-login.js',
-  './js/scoring-rules.js',
-  './js/dice-size-fix.js',
-  './js/yum-roll-celebration.js',
-  './js/skin-store-upgrade.js',
-  './js/per-die-color-palette.js',
-  './js/daily-rewards-lobby-upgrade.js',
-  './icon.svg'
-];
+const CACHE_NAME = 'yum-pwa-v2';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL).catch(() => null))
-  );
 });
 
 self.addEventListener('activate', event => {
@@ -41,14 +15,31 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
+  const isNavigation = event.request.mode === 'navigate';
+
+  if (isNavigation) {
+    // Network-first for HTML: always get the latest, fall back to cache offline
+    event.respondWith(
+      fetch(event.request).then(response => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)).catch(() => null);
         return response;
-      }).catch(() => caches.match('./index.html'));
-    })
+      }).catch(() => caches.match(event.request).then(cached => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Stale-while-revalidate for JS/CSS/assets: respond instantly from cache,
+  // then update the cache in the background so the next load is fresh
+  event.respondWith(
+    caches.open(CACHE_NAME).then(cache =>
+      cache.match(event.request).then(cached => {
+        const networkFetch = fetch(event.request).then(response => {
+          cache.put(event.request, response.clone()).catch(() => null);
+          return response;
+        }).catch(() => null);
+        return cached || networkFetch;
+      })
+    )
   );
 });
