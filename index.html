@@ -54,6 +54,8 @@
   <button class="lobby-btn lobby-btn-bot" onclick="startVsBot()">🤖 PLAY VS BOT</button>
   <div class="lobby-divider">— OR —</div>
   <button class="lobby-btn lobby-btn-solo" onclick="startSolo()">🎲 PRACTICE MODE</button>
+  <div class="lobby-divider">— OR —</div>
+  <button class="lobby-btn lobby-btn-powerup" onclick="startPowerupMode()">⚡ POWER-UP MODE</button>
 
 </div>
 
@@ -97,6 +99,7 @@
 </div>
 
 <div id="predPanel"><div class="pred-title">🔮 NEXT MOVE PREDICTION</div><div id="predContent"><div class="pred-spinner">Set all 5 dice then tap PREDICT</div></div><div class="pred-note">Based on 500 Monte Carlo simulations per option · unfilled categories only</div></div>
+<div id="powerupBar" style="display:none"></div>
 <div id="botThinkBar" style="display:none;margin:0 12px 10px;background:var(--card);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:10px 14px;align-items:center;gap:10px"><span style="font-size:1.3rem">🤖</span><div style="flex:1"><div style="font-weight:800;font-size:0.85rem;color:#c084fc" id="botThinkMsg">Bot is thinking…</div><div style="font-size:0.72rem;color:var(--muted);margin-top:2px">Calculating best move</div></div><div class="bot-dots"><span></span><span></span><span></span></div></div>
 <div class="score-section" id="scoreSection"></div>
 
@@ -119,6 +122,15 @@
 <div id="achOverlay" onclick="closeAchievementsOverlay(event)"><div class="ach-sheet"><div class="ach-header"><div class="ach-header-title">🏆 ACHIEVEMENTS</div><button class="ach-close" onclick="closeAchievements()">✕</button></div><div class="ach-progress-bar"><div class="ach-progress-fill" id="achProgressFill" style="width:0%"></div></div><div class="ach-progress-label" id="achProgressLabel">0 / 15 unlocked</div><div class="ach-grid" id="achGrid"></div></div></div>
 <div id="achNotif"><div class="achN-icon" id="achNotifIcon">🏆</div><div><div class="achN-label">ACHIEVEMENT UNLOCKED</div><div class="achN-name" id="achNotifName">First Roll</div><div class="achN-desc" id="achNotifDesc">Complete your first game</div></div></div>
 
+<!-- POWER-UP PICKER MODAL -->
+<div id="powerupPickerModal">
+  <div class="pup-picker-sheet">
+    <div class="pup-picker-title" id="powerupPickerTitle">⚡ CHOOSE YOUR POWER-UP!</div>
+    <div class="pup-picker-sub" id="powerupPickerSub">Pick one power-up to start your game with</div>
+    <div class="pup-picker-grid" id="powerupPickerGrid"></div>
+  </div>
+</div>
+
 <script src="js/firebase-init.js"></script>
 <script src="js/app.js"></script>
 <script src="js/multiplayer-rematch.js"></script>
@@ -136,5 +148,6 @@
 <script src="js/skin-sync.js"></script>
 <script src="js/per-die-color-palette.js"></script>
 <script src="js/daily-rewards-lobby-upgrade.js"></script>
+<script src="js/powerup-mode.js"></script>
 </body>
 </html>
