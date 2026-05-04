@@ -81,6 +81,7 @@ function selectPowerup(id, context) {
   const p = POWERUPS.find(x => x.id === id);
   showToast(`${p.icon} ${p.name} added!`);
   renderPowerupBar();
+  syncPowerupsToDb();
 
   if (context === 'start') {
     setTimeout(() => showYourTurnPop('USE YOUR POWER-UPS!'), 300);
@@ -151,6 +152,7 @@ function activatePowerup(id) {
     pendingPowerup = null;
     renderPowerupBar();
     refreshDieFreezeVisual();
+    syncPowerupsToDb();
     return;
   }
 
@@ -163,6 +165,7 @@ function activatePowerup(id) {
       document.getElementById('rollCount').textContent = `Rolls: ${3 - rollsLeft} / 3  ⚡+1`;
       showToast('🎲 Extra Roll granted — you have one more roll!');
       renderPowerupBar();
+      syncPowerupsToDb();
       break;
     }
 
@@ -171,6 +174,7 @@ function activatePowerup(id) {
       pendingPowerup = 'freezeDie';
       renderPowerupBar();
       refreshDieFreezeVisual();
+      syncPowerupsToDb();
       break;
     }
 
@@ -179,6 +183,7 @@ function activatePowerup(id) {
       doublePointsActive = true;
       renderPowerupBar();
       showToast('✨ Double Points active! Score any category to double it.');
+      syncPowerupsToDb();
       break;
     }
 
@@ -187,6 +192,7 @@ function activatePowerup(id) {
       pendingPowerup = 'luckyDice';
       renderPowerupBar();
       refreshDieFreezeVisual();
+      syncPowerupsToDb();
       break;
     }
 
@@ -202,6 +208,7 @@ function activatePowerup(id) {
       renderScores();
       renderPowerupBar();
       showToast(`↩️ ${cat ? cat.name : catId} score undone — slot is open again!`);
+      syncPowerupsToDb();
       break;
     }
   }
@@ -210,6 +217,16 @@ function activatePowerup(id) {
 function consumePowerup(id) {
   const idx = playerPowerups.indexOf(id);
   if (idx >= 0) playerPowerups.splice(idx, 1);
+}
+
+function syncPowerupsToDb() {
+  if (!mpMode || !powerupMode || !roomRef) return;
+  roomRef.child('players/' + playerId + '/livePowerups').set({
+    inventory: playerPowerups.slice(),
+    pending: pendingPowerup || null,
+    doubleActive: doublePointsActive,
+    ts: Date.now()
+  });
 }
 
 // ─── DIE CLICK INTERCEPTION ──────────────────────────────────────────────────
@@ -229,6 +246,7 @@ function tryPowerupDieClick(i) {
     refreshDieFreezeVisual();
     renderPowerupBar();
     showToast(`❄️ Die frozen (${['⚀','⚁','⚂','⚃','⚄','⚅'][dice[i]-1]}) — carries to next turn!`);
+    syncPowerupsToDb();
     return true;
   }
 
@@ -247,6 +265,7 @@ function tryPowerupDieClick(i) {
     refreshDieFreezeVisual();
     renderPowerupBar();
     showToast(`🍀 Lucky reroll → ${['⚀','⚁','⚂','⚃','⚄','⚅'][dice[i]-1]}`);
+    syncPowerupsToDb();
     return true;
   }
 
@@ -463,6 +482,7 @@ doMpRematch = function() {
     frozenDieValue     = 0;
     _pupGameOverPending = false;
     renderPowerupBar();
+    if (roomRef) roomRef.child('players/' + playerId + '/livePowerups').remove();
   }
   _pupOrigDoMpRematch();
 };

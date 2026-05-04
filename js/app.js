@@ -863,6 +863,8 @@ let currentTurnId = null;
 let previousPlayerCount = null;
 let previousPlayers = {};
 let prevOpponentScores = {}; // track opponent score counts for change detection
+let prevOpponentPowerups = {}; // track opponent powerup state for change detection
+const POWERUP_ICONS = { extraRoll:'🎲', freezeDie:'❄️', doublePoints:'✨', luckyDice:'🍀', undoMove:'↩️' };
 let mpGameOverShown = false;
 
 function genCode() {
@@ -1114,6 +1116,48 @@ function listenRoom() {
       });
     }
 
+    // Detect when opponent uses or activates a power-up
+    if (data.started && typeof powerupMode !== 'undefined' && powerupMode) {
+      Object.entries(allPlayers).forEach(([id, p]) => {
+        if (id === playerId) return;
+        const cur = p.livePowerups || {};
+        const prev = prevOpponentPowerups[id];
+
+        if (!prev) {
+          // First snapshot — just record, no toast
+          prevOpponentPowerups[id] = { inventory: (cur.inventory || []).slice(), pending: cur.pending || null };
+          return;
+        }
+
+        const curInv = cur.inventory || [];
+        const prevInv = prev.inventory || [];
+
+        // Count how many of each power-up were consumed
+        const prevCount = {};
+        prevInv.forEach(x => prevCount[x] = (prevCount[x] || 0) + 1);
+        const curCount = {};
+        curInv.forEach(x => curCount[x] = (curCount[x] || 0) + 1);
+        Object.keys(prevCount).forEach(pid => {
+          const removed = (prevCount[pid] || 0) - (curCount[pid] || 0);
+          for (let i = 0; i < removed; i++) {
+            const icon = POWERUP_ICONS[pid] || '⚡';
+            const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === pid) || {}).name : null) || pid;
+            showToast(`${icon} ${p.name} used ${pName}!`);
+          }
+        });
+
+        // Opponent just entered pending (die-selection) state
+        if (!prev.pending && cur.pending) {
+          const icon = POWERUP_ICONS[cur.pending] || '⚡';
+          const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === cur.pending) || {}).name : null) || cur.pending;
+          showToast(`${icon} ${p.name} is activating ${pName}…`);
+        }
+
+        prevOpponentPowerups[id] = { inventory: curInv.slice(), pending: cur.pending || null };
+      });
+      renderLeaderboard();
+    }
+
     if(data.started && currentTurnId && currentTurnId !== playerId) {
       const oppLive = allPlayers[currentTurnId]?.liveDice;
       if(oppLive && oppLive.dice) {
@@ -1177,10 +1221,33 @@ function renderLeaderboard() {
     const tapAction = isMe
       ? `openReactionPicker('${id}')`
       : `viewMpOpponent('${id}')`;
+
+    // Power-up inventory icons (only in powerup mode)
+    let pupHtml = '';
+    if (typeof powerupMode !== 'undefined' && powerupMode) {
+      const inv = isMe
+        ? (typeof playerPowerups !== 'undefined' ? playerPowerups : [])
+        : (p.livePowerups?.inventory || []);
+      const lp = isMe ? null : p.livePowerups;
+      if (inv.length > 0) {
+        const countMap = {};
+        inv.forEach(x => countMap[x] = (countMap[x] || 0) + 1);
+        const icons = Object.entries(countMap).map(([pid, cnt]) => {
+          const icon = POWERUP_ICONS[pid] || '⚡';
+          const isActive = lp?.pending === pid;
+          return `<span class="lb-pup-icon${isActive ? ' lb-pup-active' : ''}" title="${pid}">${icon}${cnt > 1 ? `<sup>${cnt}</sup>` : ''}</span>`;
+        }).join('');
+        pupHtml = `<div class="lb-pups">${icons}</div>`;
+      }
+    }
+
     return `<div class="lb-row ${isMe?'me':''}" onclick="${tapAction}" style="cursor:pointer">
       <div class="lb-rank">${i+1}</div>
       ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
-      <div class="lb-name">${p.name}${isMe?' 👆':'<span style="font-size:0.65rem;color:var(--muted)"> 👁 view</span>'}</div>
+      <div class="lb-name-col">
+        <div class="lb-name">${p.name}${isMe?' 👆':'<span style="font-size:0.65rem;color:var(--muted)"> 👁 view</span>'}</div>
+        ${pupHtml}
+      </div>
       <div class="lb-filled">${filled}/13</div>
       <div class="lb-score">${total}</div>
     </div>`;
@@ -1748,8 +1815,18 @@ function showOpponentDiceInRoller(liveDice, oppName) {
   dice = savedDice;
   held = savedHeld;
 
-  document.getElementById('rollCount').textContent =
-    `👤 ${oppName} — Roll ${rollNum} / 3`;
+  let rollText = `👤 ${oppName} — Roll ${rollNum} / 3`;
+  if (typeof powerupMode !== 'undefined' && powerupMode) {
+    const oppPup = allPlayers[currentTurnId]?.livePowerups;
+    if (oppPup?.pending) {
+      const icon = POWERUP_ICONS[oppPup.pending] || '⚡';
+      const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === oppPup.pending) || {}).name : null) || oppPup.pending;
+      rollText += `  ${icon} Using ${pName}…`;
+    } else if (oppPup?.doubleActive) {
+      rollText += '  ✨ Double Points!';
+    }
+  }
+  document.getElementById('rollCount').textContent = rollText;
 }
 
 function showOpponentWaiting(oppName) {
