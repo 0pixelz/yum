@@ -152,6 +152,12 @@
     keepDiceDots();
     const colors = getColors();
     document.querySelectorAll('.dice-section .die[data-i]').forEach(el => {
+      if (el.classList.contains('held')) {
+        el.style.removeProperty('background');
+        el.style.removeProperty('color');
+        el.style.removeProperty('border');
+        return;
+      }
       const i = Number(el.getAttribute('data-i'));
       const pair = pairForColor(colors[i]);
       el.style.setProperty('background', pair[1], 'important');
