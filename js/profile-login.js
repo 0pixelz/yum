@@ -354,29 +354,6 @@
     else alert(copied ? 'Lobby link copied!' : url);
   };
 
-  function addShareButtonToWaitingRoom() {
-    const wait = document.getElementById('waitingOverlay');
-    if (!wait || document.getElementById('shareLobbyWaitBtn')) return;
-    const startBtn = wait.querySelector('button[onclick="startGame()"]');
-    const btn = document.createElement('button');
-    btn.id = 'shareLobbyWaitBtn';
-    btn.type = 'button';
-    btn.className = 'share-lobby-btn full';
-    btn.onclick = window.shareLobby;
-    btn.innerHTML = '📤 SHARE LOBBY';
-    const hint = document.createElement('div');
-    hint.id = 'shareLobbyWaitHint';
-    hint.className = 'share-link-hint';
-    hint.textContent = 'Send by Messenger, text, email, etc.';
-    if (startBtn) {
-      startBtn.insertAdjacentElement('beforebegin', btn);
-      btn.insertAdjacentElement('afterend', hint);
-    } else {
-      wait.appendChild(btn);
-      wait.appendChild(hint);
-    }
-  }
-
   function directRoomFromUrl() {
     const params = new URLSearchParams(location.search);
     return (params.get('room') || params.get('join') || params.get('code') || '').trim().toUpperCase();
@@ -415,11 +392,7 @@
       const original = window[name];
       if (typeof original !== 'function' || original.__shareLobbyPatched) return;
       const patched = async function(...args) {
-        const result = original.apply(this, args);
-        setTimeout(() => {
-          addShareButtonToWaitingRoom();
-        }, 250);
-        return result;
+        return original.apply(this, args);
       };
       patched.__shareLobbyPatched = true;
       window[name] = patched;
@@ -428,7 +401,6 @@
 
   function initShareLobby() {
     injectShareStyles();
-    addShareButtonToWaitingRoom();
     prepareDirectJoin();
     patchRoomCreationToRefreshShare();
   }
@@ -437,7 +409,6 @@
   else initShareLobby();
 
   setInterval(() => {
-    addShareButtonToWaitingRoom();
     patchRoomCreationToRefreshShare();
   }, 1200);
 })();
