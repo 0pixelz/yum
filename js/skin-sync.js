@@ -6,20 +6,26 @@
   const ACTIVE_SKIN_KEY = 'yum_active_dice_skin';
 
   const SKIN_FACES = {
-    classic: ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    gold:    ['①','②','③','④','⑤','⑥'],
-    neon:    ['1','2','3','4','5','6'],
-    ice:     ['❄1','❄2','❄3','❄4','❄5','❄6'],
-    fire:    ['🔥1','🔥2','🔥3','🔥4','🔥5','🔥6'],
-    galaxy:  ['✦1','✦2','✦3','✦4','✦5','✦6'],
-    red:     ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    blue:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    green:   ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    purple:  ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    orange:  ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    pink:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    black:   ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    teal:    ['⚀','⚁','⚂','⚃','⚄','⚅']
+    classic:  ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    gold:     ['①','②','③','④','⑤','⑥'],
+    neon:     ['1','2','3','4','5','6'],
+    ice:      ['❄1','❄2','❄3','❄4','❄5','❄6'],
+    fire:     ['🔥1','🔥2','🔥3','🔥4','🔥5','🔥6'],
+    galaxy:   ['✦1','✦2','✦3','✦4','✦5','✦6'],
+    red:      ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    blue:     ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    green:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    purple:   ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    orange:   ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    pink:     ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    black:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    teal:     ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    candy:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    ocean:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
+    midnight: ['★1','★2','★3','★4','★5','★6'],
+    lava:     ['🌋1','🌋2','🌋3','🌋4','🌋5','🌋6'],
+    rosegold: ['♥1','♥2','♥3','♥4','♥5','♥6'],
+    diamond:  ['💎1','💎2','💎3','💎4','💎5','💎6']
   };
 
   function activeSkinId() {
@@ -83,6 +89,12 @@
       .remote-skin-pink { background:#db2777 !important; color:#fff !important; }
       .remote-skin-black { background:#1c1c1c !important; color:#fff !important; border:1px solid rgba(255,255,255,.15) !important; }
       .remote-skin-teal { background:#0d9488 !important; color:#fff !important; }
+      .remote-skin-candy { background:linear-gradient(135deg,#fdf2f8,#fbcfe8,#f9a8d4) !important; color:#be185d !important; }
+      .remote-skin-ocean { background:linear-gradient(135deg,#0c4a6e,#0369a1) !important; color:#bae6fd !important; }
+      .remote-skin-midnight { background:linear-gradient(135deg,#020617,#1e293b) !important; color:#94a3b8 !important; border:1px solid rgba(148,163,184,.2) !important; }
+      .remote-skin-lava { background:linear-gradient(135deg,#0f0000,#7f1d1d) !important; color:#fbbf24 !important; border:1px solid rgba(251,191,36,.4) !important; box-shadow:0 0 18px rgba(239,68,68,.35) !important; }
+      .remote-skin-rosegold { background:linear-gradient(135deg,#fce7f3,#f9a8d4,#fda4af) !important; color:#831843 !important; }
+      .remote-skin-diamond { background:linear-gradient(135deg,#dbeafe,#e0e7ff,#f3e8ff) !important; color:#312e81 !important; border:1px solid rgba(167,139,250,.7) !important; box-shadow:0 0 20px rgba(167,139,250,.3) !important; }
       .skin-mini-badge {
         display:inline-flex;
         align-items:center;
@@ -117,7 +129,13 @@
       orange: 'Orange',
       pink: 'Pink',
       black: 'Black',
-      teal: 'Teal'
+      teal: 'Teal',
+      candy: 'Candy',
+      ocean: 'Ocean',
+      midnight: 'Midnight',
+      lava: 'Lava',
+      rosegold: 'Rose Gold',
+      diamond: 'Diamond'
     }[id] || 'Classic';
   }
 

@@ -16,46 +16,6 @@
       className: 'skin-classic'
     },
     {
-      id: 'gold',
-      name: 'Gold Dice',
-      cost: 1,
-      preview: ['①','②','③','④','⑤','⑥'],
-      previewStyle: 'background:linear-gradient(135deg,#fff7cc,#f5a623);color:#251400',
-      className: 'skin-gold'
-    },
-    {
-      id: 'neon',
-      name: 'Neon Dice',
-      cost: 1,
-      preview: ['1','2','3','4','5','6'],
-      previewStyle: 'background:#101827;color:#4ecdc4;border:1px solid rgba(78,205,196,.6)',
-      className: 'skin-neon'
-    },
-    {
-      id: 'ice',
-      name: 'Ice Dice',
-      cost: 1,
-      preview: ['❄1','❄2','❄3','❄4','❄5','❄6'],
-      previewStyle: 'background:linear-gradient(135deg,#e0f7ff,#8fd8ff);color:#06283d',
-      className: 'skin-ice'
-    },
-    {
-      id: 'fire',
-      name: 'Fire Dice',
-      cost: 2,
-      preview: ['🔥1','🔥2','🔥3','🔥4','🔥5','🔥6'],
-      previewStyle: 'background:linear-gradient(135deg,#ffd166,#e94560);color:#180004',
-      className: 'skin-fire'
-    },
-    {
-      id: 'galaxy',
-      name: 'Galaxy Dice',
-      cost: 3,
-      preview: ['✦1','✦2','✦3','✦4','✦5','✦6'],
-      previewStyle: 'background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%);color:#f8fafc;border:1px solid rgba(168,85,247,.7)',
-      className: 'skin-galaxy'
-    },
-    {
       id: 'red',
       name: 'Red Dice',
       cost: 1,
@@ -118,6 +78,94 @@
       preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
       previewStyle: 'background:#0d9488;color:#fff',
       className: 'skin-teal'
+    },
+    {
+      id: 'ice',
+      name: 'Ice Dice',
+      cost: 1,
+      preview: ['❄1','❄2','❄3','❄4','❄5','❄6'],
+      previewStyle: 'background:linear-gradient(135deg,#e0f7ff,#8fd8ff);color:#06283d',
+      className: 'skin-ice'
+    },
+    {
+      id: 'fire',
+      name: 'Fire Dice',
+      cost: 2,
+      preview: ['🔥1','🔥2','🔥3','🔥4','🔥5','🔥6'],
+      previewStyle: 'background:linear-gradient(135deg,#ffd166,#e94560);color:#180004',
+      className: 'skin-fire'
+    },
+    {
+      id: 'galaxy',
+      name: 'Galaxy Dice',
+      cost: 3,
+      preview: ['✦1','✦2','✦3','✦4','✦5','✦6'],
+      previewStyle: 'background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%);color:#f8fafc;border:1px solid rgba(168,85,247,.7)',
+      className: 'skin-galaxy'
+    },
+    {
+      id: 'candy',
+      name: 'Candy Dice',
+      cost: 25,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:linear-gradient(135deg,#fdf2f8,#fbcfe8,#f9a8d4);color:#be185d',
+      className: 'skin-candy'
+    },
+    {
+      id: 'ocean',
+      name: 'Ocean Dice',
+      cost: 50,
+      preview: ['⚀','⚁','⚂','⚃','⚄','⚅'],
+      previewStyle: 'background:linear-gradient(135deg,#0c4a6e,#0369a1);color:#bae6fd',
+      className: 'skin-ocean'
+    },
+    {
+      id: 'midnight',
+      name: 'Midnight Dice',
+      cost: 100,
+      preview: ['★1','★2','★3','★4','★5','★6'],
+      previewStyle: 'background:linear-gradient(135deg,#020617,#1e293b);color:#94a3b8;border:1px solid rgba(148,163,184,.2)',
+      className: 'skin-midnight'
+    },
+    {
+      id: 'lava',
+      name: 'Lava Dice',
+      cost: 150,
+      preview: ['🌋1','🌋2','🌋3','🌋4','🌋5','🌋6'],
+      previewStyle: 'background:linear-gradient(135deg,#0f0000,#7f1d1d);color:#fbbf24;border:1px solid rgba(251,191,36,.4)',
+      className: 'skin-lava'
+    },
+    {
+      id: 'rosegold',
+      name: 'Rose Gold Dice',
+      cost: 200,
+      preview: ['♥1','♥2','♥3','♥4','♥5','♥6'],
+      previewStyle: 'background:linear-gradient(135deg,#fce7f3,#f9a8d4,#fda4af);color:#831843',
+      className: 'skin-rosegold'
+    },
+    {
+      id: 'neon',
+      name: 'Neon Dice',
+      cost: 250,
+      preview: ['1','2','3','4','5','6'],
+      previewStyle: 'background:#101827;color:#4ecdc4;border:1px solid rgba(78,205,196,.6)',
+      className: 'skin-neon'
+    },
+    {
+      id: 'gold',
+      name: 'Gold Dice',
+      cost: 300,
+      preview: ['①','②','③','④','⑤','⑥'],
+      previewStyle: 'background:linear-gradient(135deg,#fff7cc,#f5a623);color:#251400',
+      className: 'skin-gold'
+    },
+    {
+      id: 'diamond',
+      name: 'Diamond Dice',
+      cost: 500,
+      preview: ['💎1','💎2','💎3','💎4','💎5','💎6'],
+      previewStyle: 'background:linear-gradient(135deg,#dbeafe,#e0e7ff,#f3e8ff);color:#312e81;border:1px solid rgba(167,139,250,.7)',
+      className: 'skin-diamond'
     }
   ];
 
@@ -361,6 +409,12 @@
       body.skin-pink .die { background: #db2777; color: #fff; }
       body.skin-black .die { background: #1c1c1c; color: #fff; }
       body.skin-teal .die { background: #0d9488; color: #fff; }
+      body.skin-candy .die { background: linear-gradient(135deg, #fdf2f8, #fbcfe8, #f9a8d4); color: #be185d; }
+      body.skin-ocean .die { background: linear-gradient(135deg, #0c4a6e, #0369a1); color: #bae6fd; }
+      body.skin-midnight .die { background: linear-gradient(135deg, #020617, #1e293b); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+      body.skin-lava .die { background: linear-gradient(135deg, #0f0000, #7f1d1d); color: #fbbf24; border: 1px solid rgba(251,191,36,0.4); box-shadow: 0 0 18px rgba(239,68,68,0.35); }
+      body.skin-rosegold .die { background: linear-gradient(135deg, #fce7f3, #f9a8d4, #fda4af); color: #831843; }
+      body.skin-diamond .die { background: linear-gradient(135deg, #dbeafe, #e0e7ff, #f3e8ff); color: #312e81; border: 1px solid rgba(167,139,250,0.7); box-shadow: 0 0 20px rgba(167,139,250,0.3); }
 
       /* ── Per-die overrides (data-die-skin attribute) ── */
       .die[data-die-skin="classic"] { background: #f8f8f8 !important; color: #111 !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important; border: none !important; }
@@ -377,6 +431,12 @@
       .die[data-die-skin="pink"] { background: #db2777 !important; color: #fff !important; border: none !important; }
       .die[data-die-skin="black"] { background: #1c1c1c !important; color: #fff !important; border: 1px solid rgba(255,255,255,0.15) !important; }
       .die[data-die-skin="teal"] { background: #0d9488 !important; color: #fff !important; border: none !important; }
+      .die[data-die-skin="candy"] { background: linear-gradient(135deg,#fdf2f8,#fbcfe8,#f9a8d4) !important; color: #be185d !important; border: none !important; }
+      .die[data-die-skin="ocean"] { background: linear-gradient(135deg,#0c4a6e,#0369a1) !important; color: #bae6fd !important; border: none !important; }
+      .die[data-die-skin="midnight"] { background: linear-gradient(135deg,#020617,#1e293b) !important; color: #94a3b8 !important; border: 1px solid rgba(148,163,184,0.2) !important; }
+      .die[data-die-skin="lava"] { background: linear-gradient(135deg,#0f0000,#7f1d1d) !important; color: #fbbf24 !important; border: 1px solid rgba(251,191,36,0.4) !important; box-shadow: 0 0 18px rgba(239,68,68,0.35) !important; }
+      .die[data-die-skin="rosegold"] { background: linear-gradient(135deg,#fce7f3,#f9a8d4,#fda4af) !important; color: #831843 !important; border: none !important; }
+      .die[data-die-skin="diamond"] { background: linear-gradient(135deg,#dbeafe,#e0e7ff,#f3e8ff) !important; color: #312e81 !important; border: 1px solid rgba(167,139,250,0.7) !important; box-shadow: 0 0 20px rgba(167,139,250,0.3) !important; }
 
       /* ── Per-die customization UI ── */
       .per-die-section {
