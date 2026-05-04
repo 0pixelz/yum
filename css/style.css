@@ -809,7 +809,49 @@
   .room-player-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); flex-shrink:0; }
   .room-player-name { font-weight: 700; font-size: 0.95rem; flex:1; }
   .room-player-host { font-size: 0.7rem; color: var(--gold); font-weight: 700; }
-  .wait-msg { color: var(--muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 20px; text-align:center; }
+  .wait-msg { color: var(--muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 8px; text-align:center; }
+
+  /* MP GAME MODE SELECTOR */
+  .mp-mode-selector {
+    width: 100%; max-width: 320px;
+    margin: 12px 0 16px;
+  }
+  .mp-mode-label {
+    font-size: 0.72rem; color: var(--muted);
+    font-weight: 700; text-align: center;
+    letter-spacing: 2px; margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .mp-mode-btns {
+    display: flex; gap: 8px;
+  }
+  .mp-mode-btn {
+    flex: 1;
+    padding: 12px 8px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: var(--muted);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .mp-mode-btn.active {
+    border-color: var(--gold);
+    background: rgba(245,166,35,0.12);
+    color: var(--gold);
+    box-shadow: 0 0 14px rgba(245,166,35,0.25);
+  }
+  .mp-mode-btn:disabled {
+    cursor: default;
+    opacity: 0.7;
+  }
+  .mp-mode-info {
+    font-size: 0.72rem; color: var(--muted);
+    text-align: center; margin-top: 7px;
+    line-height: 1.4;
+  }
 
   /* MULTIPLAYER BANNER */
   #mpBanner {

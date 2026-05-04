@@ -892,6 +892,7 @@ async function createGame() {
     host: playerId,
     started: false,
     currentTurn: playerId,
+    gameMode: 'normal',
     players: {
       [playerId]: { name: playerName, scores: {}, joined: Date.now() }
     }
@@ -902,6 +903,11 @@ async function createGame() {
 
   showWaiting();
   listenRoom();
+}
+
+function setMpGameMode(mode) {
+  if (!isHost || !roomRef) return;
+  roomRef.update({ gameMode: mode });
 }
 
 async function joinGame() {
@@ -972,6 +978,21 @@ function listenRoom() {
         cnt < 2 ? 'Waiting for more players…' : cnt + ' players ready!';
     }
 
+    // Update game mode selector
+    const gm = data.gameMode || 'normal';
+    const normalBtn  = document.getElementById('mpModeNormalBtn');
+    const powerupBtn = document.getElementById('mpModePowerupBtn');
+    const modeInfo   = document.getElementById('mpModeInfo');
+    if(normalBtn && powerupBtn) {
+      normalBtn.classList.toggle('active', gm === 'normal');
+      powerupBtn.classList.toggle('active', gm === 'powerup');
+      normalBtn.disabled  = !isHost;
+      powerupBtn.disabled = !isHost;
+      if(modeInfo) modeInfo.textContent = gm === 'powerup'
+        ? '⚡ Roll 5-of-a-kind to earn power-ups!'
+        : 'Standard rules, no power-ups';
+    }
+
     if(data.started && document.getElementById('waitingOverlay').style.display !== 'none') {
       // Game started!
       document.getElementById('waitingOverlay').style.display = 'none';
@@ -983,6 +1004,18 @@ function listenRoom() {
       scores = {}; // reset local scores
       renderScores();
       syncDiceUI();
+
+      // Activate power-up mode if the room was set to power-up mode
+      if((data.gameMode || 'normal') === 'powerup') {
+        powerupMode = true;
+        playerPowerups = [];
+        pendingPowerup = null;
+        doublePointsActive = false;
+        undoPowerupState = null;
+        freezeDieIndex = -1;
+        frozenDieValue = 0;
+        renderPowerupBar();
+      }
 
       // Roll to decide who goes first (only host triggers, result synced via currentTurn)
       if(isHost) {
