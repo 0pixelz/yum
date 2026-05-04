@@ -65,6 +65,14 @@
   <div style="text-align:center"><div class="qr-wrap"><div id="qrCode"></div></div><div class="qr-hint">Friends scan this to join instantly</div></div>
   <div class="room-players" id="waitingPlayers"></div>
   <div class="wait-msg" id="waitMsg">Waiting for more players…</div>
+  <div class="mp-mode-selector" id="mpModeSelector">
+    <div class="mp-mode-label">GAME MODE</div>
+    <div class="mp-mode-btns">
+      <button class="mp-mode-btn active" id="mpModeNormalBtn" onclick="setMpGameMode('normal')">🎮 Normal</button>
+      <button class="mp-mode-btn" id="mpModePowerupBtn" onclick="setMpGameMode('powerup')">⚡ Power-Up</button>
+    </div>
+    <div class="mp-mode-info" id="mpModeInfo">Standard rules, no power-ups</div>
+  </div>
   <button class="lobby-btn lobby-btn-create" style="max-width:280px" onclick="startGame()">▶ START GAME</button>
   <button class="lobby-btn lobby-btn-solo" style="max-width:280px;margin-top:6px" onclick="leaveGame()">✕ Cancel</button>
 </div>
