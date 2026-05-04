@@ -900,8 +900,8 @@
   .lb-rank { font-family: 'Bebas Neue', cursive; font-size: 1.4rem; color: rgba(255,255,255,0.2); width:24px; }
   .lb-name-col { flex:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
   .lb-name { font-weight: 700; font-size: 0.9rem; }
-  .lb-pups { display:flex; gap:3px; flex-wrap:wrap; }
-  .lb-pup-icon { font-size: 0.78rem; opacity:0.85; }
+  .lb-pups { display:flex; gap:5px; flex-wrap:wrap; }
+  .lb-pup-icon { font-size: 0.78rem; opacity:0.85; white-space:nowrap; }
   .lb-pup-icon sup { font-size:0.55rem; vertical-align:super; }
   .lb-pup-icon.lb-pup-active { filter:drop-shadow(0 0 4px #c084fc); animation:pup-pulse 1.1s ease infinite; }
   .lb-filled { font-size: 0.72rem; color: var(--muted); }

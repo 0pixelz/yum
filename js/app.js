@@ -1235,7 +1235,9 @@ function renderLeaderboard() {
         const icons = Object.entries(countMap).map(([pid, cnt]) => {
           const icon = POWERUP_ICONS[pid] || '⚡';
           const isActive = lp?.pending === pid;
-          return `<span class="lb-pup-icon${isActive ? ' lb-pup-active' : ''}" title="${pid}">${icon}${cnt > 1 ? `<sup>${cnt}</sup>` : ''}</span>`;
+          const puDef = typeof POWERUPS !== 'undefined' ? POWERUPS.find(p => p.id === pid) : null;
+          const name = puDef ? puDef.name : pid;
+          return `<span class="lb-pup-icon${isActive ? ' lb-pup-active' : ''}" title="${pid}">${icon} ${name}${cnt > 1 ? ` ×${cnt}` : ''}</span>`;
         }).join('');
         pupHtml = `<div class="lb-pups">${icons}</div>`;
       }
