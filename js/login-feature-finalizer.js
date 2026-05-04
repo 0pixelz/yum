@@ -290,6 +290,7 @@
     injectStyles();
     window.claimDailyReward = finalClaimDaily;
     window.openDailyReward = finalClaimDaily;
+    window.yumRefreshMenuButtons = refreshButtons;
     refreshButtons();
     patchWaitingRender();
     renderWaitingUpgrade();
