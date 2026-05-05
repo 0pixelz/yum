@@ -183,8 +183,9 @@ function rollDice() {
   // Sync dice to Firebase for opponents to see
   if(mpMode && roomRef) {
     const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+    let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
     roomRef.child('players/' + playerId + '/liveDice').set({
-      dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, ts: Date.now()
+      dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, perDieColors: _pdc, ts: Date.now()
     });
   }
 }
@@ -209,8 +210,9 @@ function toggleHold(i) {
   // Sync hold state so opponents see which dice are locked
   if(mpMode && roomRef) {
     const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+    let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
     roomRef.child('players/' + playerId + '/liveDice').set({
-      dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, ts: Date.now()
+      dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, perDieColors: _pdc, ts: Date.now()
     });
   }
 }
@@ -1160,11 +1162,18 @@ function listenRoom() {
 
     if(data.started && currentTurnId && currentTurnId !== playerId) {
       const oppLive = allPlayers[currentTurnId]?.liveDice;
+      const oppName = allPlayers[currentTurnId]?.name || 'Opponent';
+      const oppSkin = allPlayers[currentTurnId]?.skin || 'classic';
       if(oppLive && oppLive.dice) {
-        showOpponentDiceInRoller(oppLive, allPlayers[currentTurnId]?.name || 'Opponent');
+        showOpponentDiceInRoller(oppLive, oppName);
       } else {
-        // Opponent hasn't rolled yet — show waiting state
-        showOpponentWaiting(allPlayers[currentTurnId]?.name || 'Opponent');
+        // Opponent hasn't rolled yet — show their skin on empty dice so both players see the active skin
+        showOpponentDiceInRoller(
+          { dice: [0,0,0,0,0], held: [false,false,false,false,false], roll: 0, skin: oppSkin,
+            perDieColors: allPlayers[currentTurnId]?.perDieColors || null },
+          oppName
+        );
+        document.getElementById('rollCount').textContent = `⏳ Waiting for ${oppName} to roll…`;
       }
     } else if(data.started && currentTurnId === playerId) {
       // It's our turn — restore normal dice UI
