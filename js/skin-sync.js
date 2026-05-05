@@ -188,6 +188,7 @@
     diceEls.forEach(el => {
       el.style.removeProperty('background');
       el.style.removeProperty('color');
+      el.style.removeProperty('border');
     });
     if (!perDieColors || !Array.isArray(perDieColors) || perDieColors.length !== 5) return;
     diceEls.forEach((el, idx) => {
