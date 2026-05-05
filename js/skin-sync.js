@@ -40,7 +40,7 @@
 
   function publishMySkin() {
     try {
-      if (!window.mpMode || !window.roomRef || !window.playerId) return;
+      if (!mpMode || !roomRef || !playerId) return;
       const skinId = activeSkinId();
       roomRef.child('players/' + playerId + '/skin').set(skinId);
       roomRef.child('players/' + playerId + '/skinUpdatedAt').set(Date.now());
@@ -49,7 +49,7 @@
 
   function publishLiveDiceSkin() {
     try {
-      if (!window.mpMode || !window.roomRef || !window.playerId) return;
+      if (!mpMode || !roomRef || !playerId) return;
       const skinId = activeSkinId();
       const payload = {
         dice: Array.isArray(window.dice) ? window.dice : dice,
@@ -180,7 +180,7 @@
 
   function updateOpponentSkinBadges() {
     try {
-      if (!window.allPlayers) return;
+      if (!allPlayers) return;
       Object.entries(allPlayers).forEach(([id, p]) => {
         const skinId = p.skin || (p.liveDice && p.liveDice.skin) || 'classic';
         const nameEls = Array.from(document.querySelectorAll('.lb-name, .opp-hname, .bap-name'));
@@ -302,7 +302,7 @@
     if (typeof orig !== 'function' || orig.__skinPatched) return;
     window.showOpponentDiceInRoller = function(liveDice, oppName) {
       const skinId = (liveDice && liveDice.skin) ||
-        (window.currentTurnId && window.allPlayers && allPlayers[currentTurnId] && allPlayers[currentTurnId].skin) ||
+        (currentTurnId && allPlayers && allPlayers[currentTurnId] && allPlayers[currentTurnId].skin) ||
         'classic';
       const safeSkin = SKIN_FACES[skinId] ? skinId : 'classic';
       const oppFaces = SKIN_FACES[safeSkin];
@@ -345,7 +345,7 @@
 
   function decorateRemoteLiveDice() {
     try {
-      if (!window.allPlayers) return;
+      if (!allPlayers) return;
       Object.entries(allPlayers).forEach(([id, p]) => {
         if (id === playerId) return;
         const skinId = p.skin || (p.liveDice && p.liveDice.skin) || 'classic';
@@ -362,7 +362,7 @@
       if (!diceEl) return;
 
       let skinId = 'classic';
-      if (window.allPlayers && nameEl) {
+      if (allPlayers && nameEl) {
         const text = nameEl.textContent || '';
         const found = Object.values(allPlayers).find(p => p && p.name && text.includes(p.name));
         if (found) skinId = found.skin || (found.liveDice && found.liveDice.skin) || 'classic';
@@ -373,13 +373,13 @@
 
   function listenForRoomSkinChanges() {
     try {
-      if (!window.roomRef || !window.mpMode) return;
+      if (!roomRef || !mpMode) return;
       if (window.__skinSyncListening) return;
       window.__skinSyncListening = true;
 
       roomRef.child('players').on('value', snap => {
         const players = snap.val() || {};
-        if (window.allPlayers) {
+        if (allPlayers) {
           Object.keys(players).forEach(id => {
             if (!allPlayers[id]) allPlayers[id] = players[id];
             allPlayers[id].skin = players[id].skin || 'classic';
