@@ -97,7 +97,7 @@
   window.buySkin = function(id) {
     if (!isLoggedIn()) return toast('Sign in with Google or Apple to use the Skin Store');
     const skin = SKINS.find(s => s.id === id);
-    if (!skin) return;
+    if (!skin) return toast('Open the Skin Store to browse available skins');
     const list = owned();
     if (list.includes(id)) return window.equipSkin(id);
     if (credits() < skin.cost) return toast(`Need ${skin.cost} credits`);
