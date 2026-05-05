@@ -891,6 +891,8 @@ async function createGame() {
   roomCode = genCode();
 
   if(!window.db) { showLobbyErr('Multiplayer not available offline'); return; }
+  const _joinSkin = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+  let _joinPdc = null; try { _joinPdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
   roomRef = db.ref('rooms/' + roomCode);
   await roomRef.set({
     host: playerId,
@@ -898,12 +900,13 @@ async function createGame() {
     currentTurn: playerId,
     gameMode: 'normal',
     players: {
-      [playerId]: { name: playerName, scores: {}, joined: Date.now() }
+      [playerId]: { name: playerName, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
     }
   });
 
   // Clean up room when host disconnects (if not started)
   roomRef.child('players/' + playerId).onDisconnect().remove();
+  setTimeout(() => { if (typeof window.publishMyDiceSkin === 'function') window.publishMyDiceSkin(); }, 200);
 
   showWaiting();
   listenRoom();
@@ -928,10 +931,13 @@ async function joinGame() {
   if(snap.val().started) { showLobbyErr('Game already started!'); return; }
 
   roomRef = db.ref('rooms/' + code);
+  const _joinSkin2 = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+  let _joinPdc2 = null; try { _joinPdc2 = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
   await roomRef.child('players/' + playerId).set({
-    name: playerName, scores: {}, joined: Date.now()
+    name: playerName, scores: {}, joined: Date.now(), skin: _joinSkin2, perDieColors: _joinPdc2
   });
   roomRef.child('players/' + playerId).onDisconnect().remove();
+  setTimeout(() => { if (typeof window.publishMyDiceSkin === 'function') window.publishMyDiceSkin(); }, 200);
 
   showWaiting();
   listenRoom();

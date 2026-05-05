@@ -42,7 +42,7 @@
 
   function publishMySkin() {
     try {
-      if (!mpMode || !roomRef || !playerId) return;
+      if (!roomRef || !playerId) return;
       const skinId = activeSkinId();
       roomRef.child('players/' + playerId + '/skin').set(skinId);
       _skinPublishedRoomRef = roomRef;
@@ -51,7 +51,7 @@
 
   function publishMyPerDieColors() {
     try {
-      if (!mpMode || !roomRef || !playerId) return;
+      if (!roomRef || !playerId) return;
       let colors = null;
       try { colors = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
       roomRef.child('players/' + playerId + '/perDieColors').set(colors || null);
