@@ -149,6 +149,9 @@
 
   function applyPerDieColors() {
     if (!isClassicActive()) return;
+    // Don't stamp host's colours onto the dice when showing an opponent's turn.
+    // myDiceUI is false while showOpponentDiceInRoller is active.
+    if (typeof myDiceUI !== 'undefined' && !myDiceUI) return;
     keepDiceDots();
     const colors = getColors();
     document.querySelectorAll('.dice-section .die[data-i]').forEach(el => {
