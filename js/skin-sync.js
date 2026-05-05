@@ -1,6 +1,7 @@
 // ─── MULTIPLAYER DICE SKIN SYNC ──────────────────────────────────────
-// Makes active dice skins visible to opponents in multiplayer.
-// Local skin choice stays in localStorage, then this script publishes it to Firebase.
+// Each player's own skin shows on the dice when it is their turn.
+// Skin ID is published to Firebase once on join and on skin change.
+// It is NOT republished on every roll/hold to avoid Firebase feedback loops.
 
 (function() {
   const ACTIVE_SKIN_KEY = 'yum_active_dice_skin';
@@ -44,30 +45,11 @@
       if (!mpMode || !roomRef || !playerId) return;
       const skinId = activeSkinId();
       roomRef.child('players/' + playerId + '/skin').set(skinId);
-      roomRef.child('players/' + playerId + '/skinUpdatedAt').set(Date.now());
       _skinPublishedRoomRef = roomRef;
     } catch(e) {}
   }
 
-  function publishLiveDiceSkin() {
-    try {
-      if (!mpMode || !roomRef || !playerId) return;
-      const skinId = activeSkinId();
-      const payload = {
-        dice: Array.isArray(window.dice) ? window.dice : dice,
-        held: Array.isArray(window.held) ? window.held : held,
-        roll: 3 - (typeof rollsLeft === 'number' ? rollsLeft : 3),
-        skin: skinId,
-        ts: Date.now()
-      };
-      try {
-        const saved = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null');
-        if (Array.isArray(saved) && saved.length === 5) payload.perDieColors = saved;
-      } catch(e) {}
-      roomRef.child('players/' + playerId + '/liveDice').set(payload);
-      roomRef.child('players/' + playerId + '/skin').set(skinId);
-    } catch(e) {}
-  }
+  // ─── CSS skin classes ────────────────────────────────────────────────
 
   function injectSkinSyncStyles() {
     if (document.getElementById('skinSyncStyles')) return;
@@ -101,11 +83,7 @@
       .remote-skin-lava { background:linear-gradient(135deg,#0f0000,#7f1d1d) !important; color:#fbbf24 !important; border:1px solid rgba(251,191,36,.4) !important; box-shadow:0 0 18px rgba(239,68,68,.35) !important; }
       .remote-skin-rosegold { background:linear-gradient(135deg,#fce7f3,#f9a8d4,#fda4af) !important; color:#831843 !important; }
       .remote-skin-diamond { background:linear-gradient(135deg,#dbeafe,#e0e7ff,#f3e8ff) !important; color:#312e81 !important; border:1px solid rgba(167,139,250,.7) !important; box-shadow:0 0 20px rgba(167,139,250,.3) !important; }
-      /* High-specificity overrides for the main dice roller.
-         skin-store-upgrade.js uses body.skin-* .dice-section .die rules (~0,3-7,1)
-         that beat plain .remote-skin-* (0,1,0). Using the #diceRow ID bumps
-         specificity to (1,2+,0) so the opponent's skin always wins.
-         :not(.held) keeps the standard held-die highlight intact. */
+      /* High-specificity overrides so opponent skin beats body.skin-* rules from skin-store. */
       #diceRow .die.remote-skin-classic:not(.held) { background: var(--white) !important; color:#111 !important; }
       #diceRow .die.remote-skin-gold:not(.held) { background:linear-gradient(135deg,#fff7cc,#f5a623) !important; color:#251400 !important; }
       #diceRow .die.remote-skin-neon:not(.held) { background:#101827 !important; color:#4ecdc4 !important; border:1px solid rgba(78,205,196,.6) !important; box-shadow:0 0 18px rgba(78,205,196,.25) !important; }
@@ -145,120 +123,28 @@
     document.head.appendChild(style);
   }
 
-  function skinName(id) {
-    return {
-      classic: 'Classic',
-      gold: 'Gold',
-      neon: 'Neon',
-      ice: 'Ice',
-      fire: 'Fire',
-      galaxy: 'Galaxy',
-      red: 'Red',
-      blue: 'Blue',
-      green: 'Green',
-      purple: 'Purple',
-      orange: 'Orange',
-      pink: 'Pink',
-      black: 'Black',
-      teal: 'Teal',
-      candy: 'Candy',
-      ocean: 'Ocean',
-      midnight: 'Midnight',
-      lava: 'Lava',
-      rosegold: 'Rose Gold',
-      diamond: 'Diamond'
-    }[id] || 'Classic';
-  }
+  // ─── Remote skin CSS applied to #diceRow ────────────────────────────
 
-  function decorateDiceContainer(container, skinId) {
-    if (!container) return;
-    const safeSkin = SKIN_FACES[skinId] ? skinId : 'classic';
-    const diceEls = container.querySelectorAll('.die, span, .bap-die');
-    diceEls.forEach(el => {
-      Object.keys(SKIN_FACES).forEach(id => el.classList.remove('remote-skin-' + id));
-      el.classList.add('remote-skin-' + safeSkin);
-    });
-  }
+  // Tracks the skin class currently stamped on #diceRow dice so we avoid
+  // removing + re-adding the same class on every Firebase event (which
+  // would produce a one-frame flash as the element briefly has no class).
+  let _appliedRemoteSkin = null;
 
-  function updateOpponentSkinBadges() {
-    try {
-      if (!allPlayers) return;
-      Object.entries(allPlayers).forEach(([id, p]) => {
-        const skinId = p.skin || (p.liveDice && p.liveDice.skin) || 'classic';
-        const nameEls = Array.from(document.querySelectorAll('.lb-name, .opp-hname, .bap-name'));
-        nameEls.forEach(el => {
-          if (!el || !p.name || !el.textContent.includes(p.name)) return;
-          let badge = el.querySelector('.skin-mini-badge');
-          if (!badge) {
-            badge = document.createElement('span');
-            badge.className = 'skin-mini-badge';
-            el.appendChild(badge);
-          }
-          badge.textContent = skinName(skinId);
-        });
-      });
-    } catch(e) {}
-  }
-
-  function patchFunction(name, after) {
-    const original = window[name];
-    if (typeof original !== 'function' || original.__skinSyncPatched) return;
-    const patched = function(...args) {
-      const result = original.apply(this, args);
-      setTimeout(after, 0);
-      return result;
-    };
-    patched.__skinSyncPatched = true;
-    window[name] = patched;
-  }
-
-  function patchSkinChangingFunctions() {
-    ['equipSkin', 'buySkin'].forEach(name => {
-      const original = window[name];
-      if (typeof original !== 'function' || original.__skinPublishPatched) return;
-      const patched = function(...args) {
-        const result = original.apply(this, args);
-        setTimeout(() => {
-          publishMySkin();
-          publishLiveDiceSkin();
-        }, 50);
-        return result;
-      };
-      patched.__skinPublishPatched = true;
-      window[name] = patched;
-    });
-  }
-
-  function patchDiceSyncFunctions() {
-    ['rollDice', 'toggleHold'].forEach(name => patchFunction(name, () => {
-      publishMySkin();
-      publishLiveDiceSkin();
-    }));
-
-    patchFunction('renderLeaderboard', () => {
-      updateOpponentSkinBadges();
-      decorateRemoteLiveDice();
-    });
-
-    patchFunction('showBotActionPopup', () => {
-      setTimeout(applySkinToActionPopup, 0);
-    });
-
-    patchOpponentDiceDisplay();
-    patchRestoreMyDiceUI();
-  }
-
-  function setRollerDiceCssClass(skinId) {
-    const safeSkin = SKIN_FACES[skinId] ? skinId : 'classic';
+  function applyRemoteSkin(skinId) {
+    const safe = SKIN_FACES[skinId] ? skinId : 'classic';
+    if (_appliedRemoteSkin === safe) return;
+    _appliedRemoteSkin = safe;
     const row = document.getElementById('diceRow');
     if (!row) return;
     row.querySelectorAll('.die').forEach(el => {
       Object.keys(SKIN_FACES).forEach(id => el.classList.remove('remote-skin-' + id));
-      if (safeSkin !== 'classic') el.classList.add('remote-skin-' + safeSkin);
+      el.classList.add('remote-skin-' + safe);
     });
   }
 
-  function clearRollerDiceCssClass() {
+  function clearRemoteSkin() {
+    if (_appliedRemoteSkin === null) return;
+    _appliedRemoteSkin = null;
     const row = document.getElementById('diceRow');
     if (!row) return;
     row.querySelectorAll('.die').forEach(el => {
@@ -267,6 +153,8 @@
       el.style.removeProperty('color');
     });
   }
+
+  // ─── Per-die colour palette (opponent free-colour feature) ──────────
 
   const PER_DIE_PALETTE = [
     ['#f8f8f8', '#111'],
@@ -299,37 +187,59 @@
     });
   }
 
+  // ─── Opponent dice display patch ─────────────────────────────────────
+  // The key change vs. the old approach: we track a hash of the opponent's
+  // dice state. showOpponentDiceInRoller is called on EVERY Firebase event
+  // (even ones that don't touch the dice), and each call runs renderDice(true)
+  // which triggers the die-spin animation. By skipping the call when nothing
+  // changed we eliminate the strobe entirely.
+
+  let _lastOppDiceHash = null;
+  let _lastOppSkin     = null;
+
   function patchOpponentDiceDisplay() {
     const orig = window.showOpponentDiceInRoller;
     if (typeof orig !== 'function' || orig.__skinPatched) return;
+
     window.showOpponentDiceInRoller = function(liveDice, oppName) {
       const skinId = (liveDice && liveDice.skin) ||
-        (currentTurnId && allPlayers && allPlayers[currentTurnId] && allPlayers[currentTurnId].skin) ||
+        (typeof currentTurnId !== 'undefined' && allPlayers &&
+          allPlayers[currentTurnId] && allPlayers[currentTurnId].skin) ||
         'classic';
-      const safeSkin = SKIN_FACES[skinId] ? skinId : 'classic';
-      const oppFaces = SKIN_FACES[safeSkin];
+      const safe = SKIN_FACES[skinId] ? skinId : 'classic';
 
-      // Temporarily override getDieFace so renderDice uses the opponent's skin faces.
-      // We can't rely on window.DICE_FACES because app.js declares it as `const`
-      // (not a window property), so that swap path silently does nothing.
-      const origGetDieFace = window.getDieFace;
-      window.getDieFace = function(dieIndex, value) {
-        if (value <= 0) return '–';
-        return oppFaces[value - 1];
-      };
+      // Hash covers dice values, held flags, and roll number.
+      const diceHash = liveDice
+        ? JSON.stringify(liveDice.dice) + '|' + JSON.stringify(liveDice.held) + '|' + (liveDice.roll || 0)
+        : null;
 
-      const result = orig.apply(this, arguments);
+      const diceChanged = diceHash !== _lastOppDiceHash;
+      const skinChanged = safe !== _lastOppSkin;
 
-      // Restore getDieFace so the local player's own dice render correctly afterward
-      window.getDieFace = origGetDieFace;
+      if (!diceChanged && !skinChanged) return; // nothing to update, skip re-render
 
-      // Apply opponent skin CSS (background/colour) to the dice row
-      setRollerDiceCssClass(safeSkin);
+      _lastOppDiceHash = diceHash;
+      _lastOppSkin     = safe;
 
-      // Apply per-die colours if the opponent used the free colour palette
-      applyOpponentPerDieColors(liveDice, document.getElementById('diceRow'));
+      if (diceChanged) {
+        // Override getDieFace so renderDice inside orig uses the opponent's skin faces.
+        const oppFaces = SKIN_FACES[safe];
+        const origGetDieFace = window.getDieFace;
+        window.getDieFace = function(dieIndex, value) {
+          return value <= 0 ? '–' : oppFaces[value - 1];
+        };
+        const result = orig.apply(this, arguments);
+        window.getDieFace = origGetDieFace;
 
-      return result;
+        // Force CSS re-apply after renderDice rebuilt the DOM (elements may be new).
+        _appliedRemoteSkin = null;
+        applyRemoteSkin(safe);
+        applyOpponentPerDieColors(liveDice, document.getElementById('diceRow'));
+        return result;
+      }
+
+      // Dice are the same but skin changed — just update CSS, no re-render.
+      applyRemoteSkin(safe);
     };
     window.showOpponentDiceInRoller.__skinPatched = true;
   }
@@ -338,11 +248,70 @@
     const orig = window.restoreMyDiceUI;
     if (typeof orig !== 'function' || orig.__skinPatched) return;
     window.restoreMyDiceUI = function() {
-      // Strip opponent skin CSS before renderDice runs with local player's dice/faces
-      clearRollerDiceCssClass();
+      // Strip opponent skin CSS before renderDice paints my dice.
+      clearRemoteSkin();
+      // Reset opponent dice tracking so the next turn detects a change correctly.
+      _lastOppDiceHash = null;
+      _lastOppSkin     = null;
       return orig.apply(this, arguments);
     };
     window.restoreMyDiceUI.__skinPatched = true;
+  }
+
+  // ─── Skin-changing functions ─────────────────────────────────────────
+
+  function patchSkinChangingFunctions() {
+    ['equipSkin', 'buySkin'].forEach(name => {
+      const original = window[name];
+      if (typeof original !== 'function' || original.__skinPublishPatched) return;
+      const patched = function(...args) {
+        const result = original.apply(this, args);
+        setTimeout(() => publishMySkin(), 50);
+        return result;
+      };
+      patched.__skinPublishPatched = true;
+      window[name] = patched;
+    });
+  }
+
+  // ─── Leaderboard / action-popup decoration ───────────────────────────
+
+  function skinName(id) {
+    return {
+      classic: 'Classic', gold: 'Gold', neon: 'Neon', ice: 'Ice', fire: 'Fire',
+      galaxy: 'Galaxy', red: 'Red', blue: 'Blue', green: 'Green', purple: 'Purple',
+      orange: 'Orange', pink: 'Pink', black: 'Black', teal: 'Teal', candy: 'Candy',
+      ocean: 'Ocean', midnight: 'Midnight', lava: 'Lava', rosegold: 'Rose Gold',
+      diamond: 'Diamond'
+    }[id] || 'Classic';
+  }
+
+  function decorateDiceContainer(container, skinId) {
+    if (!container) return;
+    const safe = SKIN_FACES[skinId] ? skinId : 'classic';
+    container.querySelectorAll('.die, span, .bap-die').forEach(el => {
+      Object.keys(SKIN_FACES).forEach(id => el.classList.remove('remote-skin-' + id));
+      el.classList.add('remote-skin-' + safe);
+    });
+  }
+
+  function updateOpponentSkinBadges() {
+    try {
+      if (!allPlayers) return;
+      Object.entries(allPlayers).forEach(([id, p]) => {
+        const skinId = p.skin || (p.liveDice && p.liveDice.skin) || 'classic';
+        Array.from(document.querySelectorAll('.lb-name, .opp-hname, .bap-name')).forEach(el => {
+          if (!el || !p.name || !el.textContent.includes(p.name)) return;
+          let badge = el.querySelector('.skin-mini-badge');
+          if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'skin-mini-badge';
+            el.appendChild(badge);
+          }
+          badge.textContent = skinName(skinId);
+        });
+      });
+    } catch(e) {}
   }
 
   function decorateRemoteLiveDice() {
@@ -351,8 +320,8 @@
       Object.entries(allPlayers).forEach(([id, p]) => {
         if (id === playerId) return;
         const skinId = p.skin || (p.liveDice && p.liveDice.skin) || 'classic';
-        // Best-effort: decorate any visible dice containers generated for opponent/live dice.
-        document.querySelectorAll('.live-dice, .opp-live-dice, .bap-dice').forEach(el => decorateDiceContainer(el, skinId));
+        document.querySelectorAll('.live-dice, .opp-live-dice, .bap-dice').forEach(el =>
+          decorateDiceContainer(el, skinId));
       });
     } catch(e) {}
   }
@@ -362,7 +331,6 @@
       const nameEl = document.getElementById('bapName');
       const diceEl = document.getElementById('bapDice');
       if (!diceEl) return;
-
       let skinId = 'classic';
       if (allPlayers && nameEl) {
         const text = nameEl.textContent || '';
@@ -372,6 +340,20 @@
       decorateDiceContainer(diceEl, skinId);
     } catch(e) {}
   }
+
+  function patchFunction(name, after) {
+    const original = window[name];
+    if (typeof original !== 'function' || original.__skinSyncPatched) return;
+    const patched = function(...args) {
+      const result = original.apply(this, args);
+      setTimeout(after, 0);
+      return result;
+    };
+    patched.__skinSyncPatched = true;
+    window[name] = patched;
+  }
+
+  // ─── Firebase listener ───────────────────────────────────────────────
 
   function listenForRoomSkinChanges() {
     try {
@@ -383,7 +365,7 @@
         const players = snap.val() || {};
         if (allPlayers) {
           Object.keys(players).forEach(id => {
-            if (!allPlayers[id]) allPlayers[id] = players[id];
+            if (!allPlayers[id]) allPlayers[id] = {};
             allPlayers[id].skin = players[id].skin || 'classic';
             if (players[id].liveDice) allPlayers[id].liveDice = players[id].liveDice;
           });
@@ -395,28 +377,44 @@
     } catch(e) {}
   }
 
-  function initSkinSync() {
-    injectSkinSyncStyles();
-    patchSkinChangingFunctions();
-    patchDiceSyncFunctions();
-    publishMySkin();
-    listenForRoomSkinChanges();
+  // ─── Init ────────────────────────────────────────────────────────────
 
-    // Room/player globals are created after lobby actions, so retry lightly.
-    // Also retry patching in case showOpponentDiceInRoller wasn't defined yet on first run.
-    setInterval(() => {
+  function trySetup() {
+    try {
       patchSkinChangingFunctions();
-      patchDiceSyncFunctions();
+      patchOpponentDiceDisplay();
+      patchRestoreMyDiceUI();
+      patchFunction('renderLeaderboard', () => {
+        updateOpponentSkinBadges();
+        decorateRemoteLiveDice();
+      });
+      patchFunction('showBotActionPopup', () => {
+        setTimeout(applySkinToActionPopup, 0);
+      });
       if (_skinPublishedRoomRef !== roomRef) publishMySkin();
       listenForRoomSkinChanges();
       updateOpponentSkinBadges();
       decorateRemoteLiveDice();
+    } catch(e) {}
+  }
+
+  function initSkinSync() {
+    injectSkinSyncStyles();
+    trySetup();
+
+    // Retry a handful of times to handle delayed lobby/game init.
+    // Stops after 5 attempts (~7.5 s) — no infinite interval that would
+    // write to Firebase every 1.5 s and trigger the strobe feedback loop.
+    let retries = 5;
+    const retryInterval = setInterval(() => {
+      trySetup();
+      if (--retries <= 0) clearInterval(retryInterval);
     }, 1500);
   }
 
-  window.getActiveDiceSkinId = activeSkinId;
-  window.getDiceFaceForSkin = faceFor;
-  window.publishMyDiceSkin = publishMySkin;
+  window.getActiveDiceSkinId  = activeSkinId;
+  window.getDiceFaceForSkin   = faceFor;
+  window.publishMyDiceSkin    = publishMySkin;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initSkinSync);
