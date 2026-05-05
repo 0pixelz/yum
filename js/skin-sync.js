@@ -4,6 +4,7 @@
 
 (function() {
   const ACTIVE_SKIN_KEY = 'yum_active_dice_skin';
+  let _skinPublishedRoomRef = null;
 
   const SKIN_FACES = {
     classic:  ['⚀','⚁','⚂','⚃','⚄','⚅'],
@@ -44,6 +45,7 @@
       const skinId = activeSkinId();
       roomRef.child('players/' + playerId + '/skin').set(skinId);
       roomRef.child('players/' + playerId + '/skinUpdatedAt').set(Date.now());
+      _skinPublishedRoomRef = roomRef;
     } catch(e) {}
   }
 
@@ -228,9 +230,9 @@
   }
 
   function patchDiceSyncFunctions() {
-    ['rollDice', 'toggleHold', 'renderDice'].forEach(name => patchFunction(name, () => {
+    ['rollDice', 'toggleHold'].forEach(name => patchFunction(name, () => {
       publishMySkin();
-      if (name !== 'renderDice') publishLiveDiceSkin();
+      publishLiveDiceSkin();
     }));
 
     patchFunction('renderLeaderboard', () => {
@@ -374,8 +376,8 @@
   function listenForRoomSkinChanges() {
     try {
       if (!roomRef || !mpMode) return;
-      if (window.__skinSyncListening) return;
-      window.__skinSyncListening = true;
+      if (window.__skinSyncListeningRef === roomRef) return;
+      window.__skinSyncListeningRef = roomRef;
 
       roomRef.child('players').on('value', snap => {
         const players = snap.val() || {};
@@ -405,7 +407,7 @@
     setInterval(() => {
       patchSkinChangingFunctions();
       patchDiceSyncFunctions();
-      publishMySkin();
+      if (_skinPublishedRoomRef !== roomRef) publishMySkin();
       listenForRoomSkinChanges();
       updateOpponentSkinBadges();
       decorateRemoteLiveDice();
