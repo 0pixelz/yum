@@ -567,7 +567,7 @@
     btn.id = 'openSkinStoreBtn';
     btn.className = 'store-open-btn';
     btn.type = 'button';
-    btn.onclick = openSkinStore;
+    btn.onclick = () => (typeof window.openSkinStore === 'function' ? window.openSkinStore() : openSkinStore());
     progressLabel.insertAdjacentElement('afterend', btn);
     refreshStoreButton();
   }

@@ -221,6 +221,8 @@
         };
         saveJSON(GOOGLE_PROFILE_KEY, profile);
         applyProfileToLobby(profile);
+        if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
+        if (window.showToast) showToast('Signed in with Google ✅');
       }
     } catch(e) {}
   }
