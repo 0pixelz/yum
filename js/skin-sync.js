@@ -49,6 +49,15 @@
     } catch(e) {}
   }
 
+  function publishMyPerDieColors() {
+    try {
+      if (!mpMode || !roomRef || !playerId) return;
+      let colors = null;
+      try { colors = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
+      roomRef.child('players/' + playerId + '/perDieColors').set(colors || null);
+    } catch(e) {}
+  }
+
   // ─── CSS skin classes ────────────────────────────────────────────────
 
   function injectSkinSyncStyles() {
@@ -172,7 +181,10 @@
   function applyOpponentPerDieColors(liveDice, row) {
     if (!row) return;
     const diceEls = row.querySelectorAll('.die');
-    const perDieColors = liveDice && liveDice.perDieColors;
+    // Prefer colors embedded in liveDice, fall back to the player's stored perDieColors
+    const perDieColors = (liveDice && liveDice.perDieColors) ||
+      (typeof currentTurnId !== 'undefined' && allPlayers &&
+        allPlayers[currentTurnId] && allPlayers[currentTurnId].perDieColors) || null;
     diceEls.forEach(el => {
       el.style.removeProperty('background');
       el.style.removeProperty('color');
@@ -267,6 +279,17 @@
       const patched = function(...args) {
         const result = original.apply(this, args);
         setTimeout(() => publishMySkin(), 50);
+        return result;
+      };
+      patched.__skinPublishPatched = true;
+      window[name] = patched;
+    });
+    ['setDieColor', 'resetDieColors'].forEach(name => {
+      const original = window[name];
+      if (typeof original !== 'function' || original.__skinPublishPatched) return;
+      const patched = function(...args) {
+        const result = original.apply(this, args);
+        setTimeout(() => publishMyPerDieColors(), 50);
         return result;
       };
       patched.__skinPublishPatched = true;
@@ -368,6 +391,7 @@
             if (!allPlayers[id]) allPlayers[id] = {};
             allPlayers[id].skin = players[id].skin || 'classic';
             if (players[id].liveDice) allPlayers[id].liveDice = players[id].liveDice;
+            if (players[id].perDieColors) allPlayers[id].perDieColors = players[id].perDieColors;
           });
         }
         updateOpponentSkinBadges();
@@ -391,7 +415,7 @@
       patchFunction('showBotActionPopup', () => {
         setTimeout(applySkinToActionPopup, 0);
       });
-      if (_skinPublishedRoomRef !== roomRef) publishMySkin();
+      if (_skinPublishedRoomRef !== roomRef) { publishMySkin(); publishMyPerDieColors(); }
       listenForRoomSkinChanges();
       updateOpponentSkinBadges();
       decorateRemoteLiveDice();
@@ -412,9 +436,10 @@
     }, 1500);
   }
 
-  window.getActiveDiceSkinId  = activeSkinId;
-  window.getDiceFaceForSkin   = faceFor;
-  window.publishMyDiceSkin    = publishMySkin;
+  window.getActiveDiceSkinId    = activeSkinId;
+  window.getDiceFaceForSkin     = faceFor;
+  window.publishMyDiceSkin      = publishMySkin;
+  window.publishMyDiceColors    = publishMyPerDieColors;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initSkinSync);
