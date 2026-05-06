@@ -15,7 +15,7 @@
       + "<circle cx='62' cy='62' r='6' fill='%23111827'/>"
       + "</svg>";
     const manifest = {
-      name: "YUM! Scorecard",
+      name: "YUM!",
       short_name: "YUM!",
       description: "Yum / Yahtzee scorecard with dice scanner and predictions",
       start_url: ".",

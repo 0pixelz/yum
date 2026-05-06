@@ -1,5 +1,5 @@
 {
-  "name": "YUM! Scorecard",
+  "name": "YUM!",
   "short_name": "YUM!",
   "description": "A mobile-friendly YUM / Yahtzee-style scorecard with solo, bot, multiplayer, predictions, and achievements.",
   "start_url": "./index.html",
