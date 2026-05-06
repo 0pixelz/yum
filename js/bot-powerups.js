@@ -43,7 +43,8 @@ function _botWeightedPick(weights) {
 }
 
 // At game start: pick something that's useful out of the gate. Skip undoMove
-// (no prior move to undo) and weight high-impact picks higher.
+// (no prior move to undo) and extraMove (no scored cats to re-score yet),
+// and weight high-impact picks higher.
 function _botPickStarterPowerup() {
   return _botWeightedPick({
     doublePoints: 35,
@@ -53,8 +54,8 @@ function _botPickStarterPowerup() {
   });
 }
 
-// On YUM earn: weight by remaining turns. Skip undoMove (bot doesn't currently
-// have logic to use it intelligently).
+// On YUM earn: weight by remaining turns. Skip undoMove and extraMove
+// (bot doesn't currently have logic to use them intelligently).
 function _botPickEarnedPowerup() {
   const filled    = (typeof botScores === 'object') ? Object.keys(botScores).length : 0;
   const remaining = 13 - filled;

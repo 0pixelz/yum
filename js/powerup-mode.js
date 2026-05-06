@@ -17,13 +17,17 @@ const POWERUPS = [
   { id:'undoMove',    name:'Undo Move',     icon:'<i class="icn icn-refresh"></i>',
     desc:'Take back your last score choice',
     color:'#e94560', gradient:'linear-gradient(135deg,#e94560,#c0392b)' },
+  { id:'extraMove',   name:'Extra Move',    icon:'<i class="icn icn-medal"></i>',
+    desc:'Re-score any filled category — new points are added to it',
+    color:'#9c88ff', gradient:'linear-gradient(135deg,#9c88ff,#6c5ce7)' },
 ];
 
 let powerupMode    = false;
 let playerPowerups = [];   // array of powerup ids in inventory
 let pendingPowerup = null; // id of powerup waiting for a die click
 let doublePointsActive = false;
-let undoPowerupState   = null; // {catId} for undo
+let undoPowerupState   = null; // {catId, prevScore} for undo
+let extraMoveTargetCat = null; // cat id currently being re-scored via Extra Move
 let freezeDieIndex = -1;
 let frozenDieValue = 0;
 
@@ -39,6 +43,7 @@ function startPowerupMode() {
   pendingPowerup     = null;
   doublePointsActive = false;
   undoPowerupState   = null;
+  extraMoveTargetCat = null;
   freezeDieIndex     = -1;
   frozenDieValue     = 0;
   scores             = {};
@@ -131,6 +136,7 @@ function renderPowerupBar() {
   const hintMap = {
     freezeDie: '<i class="icn icn-gem"></i> Click a dice to freeze it',
     luckyDice: '<i class="icn icn-star"></i> Click a dice to reroll with luck',
+    extraMove: '<i class="icn icn-medal"></i> Tap a scored category to re-score it',
   };
   const hint = pendingPowerup && hintMap[pendingPowerup]
     ? `<div class="pup-hint">${hintMap[pendingPowerup]}</div>`
@@ -201,15 +207,30 @@ function activatePowerup(id) {
     case 'undoMove': {
       if (!undoPowerupState) { showToast('No recent score to undo!'); return; }
       consumePowerup('undoMove');
-      const { catId } = undoPowerupState;
+      const { catId, prevScore } = undoPowerupState;
       const cat = (typeof categories !== 'undefined')
         ? categories.find(c => c.id === catId)
         : null;
-      delete scores[catId];
+      if (prevScore !== null && prevScore !== undefined) {
+        scores[catId] = prevScore;
+        showToast(`↩️ ${cat ? cat.name : catId} reverted to ${prevScore} pts`);
+      } else {
+        delete scores[catId];
+        showToast(`↩️ ${cat ? cat.name : catId} score undone — slot is open again!`);
+      }
       undoPowerupState = null;
       renderScores();
       renderPowerupBar();
-      showToast(`↩️ ${cat ? cat.name : catId} score undone — slot is open again!`);
+      syncPowerupsToDb();
+      break;
+    }
+
+    case 'extraMove': {
+      if (!rolled) { showToast('Roll your dice first!'); return; }
+      if (Object.keys(scores).length === 0) { showToast('No filled categories yet!'); return; }
+      pendingPowerup = 'extraMove';
+      renderPowerupBar();
+      showToast('Tap any scored category to re-score it');
       syncPowerupsToDb();
       break;
     }
@@ -308,7 +329,43 @@ cycleDie = function(i) {
   _pupOrigCycleDie(i);
 };
 
-// Patch confirmScore — apply double points + track undo + check yum earn
+// Patch openModal — let Extra Move target an already-filled category
+const _pupOrigOpenModal = openModal;
+openModal = function(id) {
+  if (powerupMode && pendingPowerup === 'extraMove') {
+    if (scores[id] === undefined) {
+      showToast('Extra Move targets a scored category — tap a filled one!');
+      return;
+    }
+    extraMoveTargetCat = id;
+    pendingPowerup     = null;
+    // Temporarily clear the score so the original openModal doesn't bail out
+    // on the "already scored" guard. confirmScore wrapper will add the new
+    // score onto this previous value.
+    const prev = scores[id];
+    delete scores[id];
+    _pupOrigOpenModal(id);
+    scores[id] = prev;
+    renderPowerupBar();
+    syncPowerupsToDb();
+    return;
+  }
+  _pupOrigOpenModal(id);
+};
+
+// Patch closeModalEl — if the player cancels mid-Extra-Move, refund the slot.
+const _pupOrigCloseModalEl = closeModalEl;
+closeModalEl = function() {
+  if (powerupMode && extraMoveTargetCat !== null) {
+    extraMoveTargetCat = null;
+    showToast('Extra Move cancelled');
+    syncPowerupsToDb();
+  }
+  _pupOrigCloseModalEl();
+};
+
+// Patch confirmScore — apply double points + track undo + check yum earn,
+// and add-to-existing when Extra Move is targeting this category.
 const _pupOrigConfirmScore = confirmScore;
 confirmScore = function() {
   if (!powerupMode) { _pupOrigConfirmScore(); return; }
@@ -316,6 +373,8 @@ confirmScore = function() {
   const catId      = activeModal;
   const baseScore  = selectedScore;
   const savedDice  = dice.slice();
+  const isExtra    = (extraMoveTargetCat === catId);
+  const prevScore  = isExtra ? (scores[catId] || 0) : null;
 
   // Apply double points modifier
   if (doublePointsActive && baseScore > 0) {
@@ -326,8 +385,20 @@ confirmScore = function() {
     doublePointsActive = false; // used up, nothing to double on 0
   }
 
-  // Track undo target
-  undoPowerupState = { catId };
+  // Extra Move: consume powerup and stack the new score on top of the previous one.
+  if (isExtra) {
+    consumePowerup('extraMove');
+    const added  = selectedScore || 0;
+    selectedScore = (prevScore || 0) + added;
+    extraMoveTargetCat = null;
+    if (added > 0) {
+      showToast(`Extra Move! +${added} → ${selectedScore} pts total`);
+    }
+  }
+
+  // Track undo target. For Extra Move, remember prevScore so undoMove
+  // reverts to the prior total instead of zeroing the category.
+  undoPowerupState = { catId, prevScore };
 
   _pupOrigConfirmScore();
 
@@ -335,8 +406,8 @@ confirmScore = function() {
   // the freeze is consumed when the die is re-seeded by clearDice patch)
   renderPowerupBar();
 
-  // Check for YUM earn
-  checkPowerupYumEarn(savedDice, baseScore);
+  // Check for YUM earn (skip when re-scoring via Extra Move — no double-dip)
+  if (!isExtra) checkPowerupYumEarn(savedDice, baseScore);
 };
 
 // Patch clearDice — carry frozen die to next turn
@@ -380,6 +451,7 @@ confirmNewGame = function() {
     pendingPowerup     = null;
     doublePointsActive = false;
     undoPowerupState   = null;
+    extraMoveTargetCat = null;
     freezeDieIndex     = -1;
     frozenDieValue     = 0;
     scores             = {};
@@ -432,6 +504,7 @@ rematch = function() {
     pendingPowerup      = null;
     doublePointsActive  = false;
     undoPowerupState    = null;
+    extraMoveTargetCat  = null;
     freezeDieIndex      = -1;
     frozenDieValue      = 0;
     _pupGameOverPending = false;
@@ -467,6 +540,7 @@ quitGame = function() {
     pendingPowerup      = null;
     doublePointsActive  = false;
     undoPowerupState    = null;
+    extraMoveTargetCat  = null;
     freezeDieIndex      = -1;
     frozenDieValue      = 0;
     document.getElementById('powerupBar').style.display = 'none';
@@ -508,6 +582,7 @@ doMpRematch = function() {
     pendingPowerup     = null;
     doublePointsActive = false;
     undoPowerupState   = null;
+    extraMoveTargetCat = null;
     freezeDieIndex     = -1;
     frozenDieValue     = 0;
     _pupGameOverPending = false;
@@ -527,6 +602,7 @@ leaveGame = function() {
     pendingPowerup      = null;
     doublePointsActive  = false;
     undoPowerupState    = null;
+    extraMoveTargetCat  = null;
     freezeDieIndex      = -1;
     frozenDieValue      = 0;
     document.getElementById('powerupBar').style.display = 'none';
