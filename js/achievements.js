@@ -156,22 +156,12 @@ function renderAchievements() {
 // ── Patch confirmScore: track per-score achievements ──────────────────
 (function() {
   const _orig = confirmScore;
-  let _soloAchFired = false;
   confirmScore = function() {
     const catId    = activeModal;
     const hadScore = catId ? scores.hasOwnProperty(catId) : true;
     _orig.apply(this, arguments);
     if (catId && !hadScore && scores.hasOwnProperty(catId)) {
       achOnScore(catId, scores[catId]);
-      // Solo/practice game completion detection
-      if (!mpMode && !botMode) {
-        const filled = Object.keys(scores).length;
-        if (filled === 1) _soloAchFired = false; // first score of a new game
-        if (filled === categories.length && !_soloAchFired) {
-          _soloAchFired = true;
-          setTimeout(() => achOnGameEnd({...scores}, false, false), 300);
-        }
-      }
     }
   };
 })();
@@ -342,7 +332,7 @@ function renderAchievements() {
     ensurePossibilitiesPanel();
     renderPossibilities();
 
-    ['renderDice', 'renderScores', 'rollDice', 'toggleHold', 'cycleDie', 'clearDice', 'confirmScore', 'deleteScore'].forEach(patchFunction);
+    ['renderDice', 'renderScores', 'rollDice', 'toggleHold', 'cycleDie', 'clearDice', 'confirmScore'].forEach(patchFunction);
 
     // Extra refresh for Firebase/multiplayer and bot turn UI changes.
     setInterval(renderPossibilities, 1200);

@@ -88,7 +88,7 @@
     ensurePossibilitiesPanel();
     renderPossibilities();
 
-    ['renderDice', 'renderScores', 'rollDice', 'toggleHold', 'cycleDie', 'clearDice', 'confirmScore', 'deleteScore'].forEach(patchFunction);
+    ['renderDice', 'renderScores', 'rollDice', 'toggleHold', 'cycleDie', 'clearDice', 'confirmScore'].forEach(patchFunction);
 
     // Extra refresh for Firebase/multiplayer and bot turn UI changes.
     setInterval(renderPossibilities, 1200);

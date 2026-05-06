@@ -52,8 +52,6 @@
   <button class="lobby-btn lobby-btn-join" onclick="joinGame()">👥 JOIN GAME</button>
   <div class="lobby-divider">— OR —</div>
   <button class="lobby-btn lobby-btn-bot" onclick="startVsBot()">🤖 PLAY VS BOT</button>
-  <div class="lobby-divider">— OR —</div>
-  <button class="lobby-btn lobby-btn-solo" onclick="startSolo()">🎲 PRACTICE MODE</button>
 
 </div>
 
@@ -111,7 +109,7 @@
 
 <div style="margin:12px"><div class="total-row"><div><div class="total-label">GRAND TOTAL</div><div class="total-sub" id="totalSub">0 of 13 filled</div></div><div class="total-value" id="grandTotal">0</div></div><button class="new-game-btn" onclick="confirmNewGame()" id="newGameBtn">🚪 RETURN TO LOBBY</button></div>
 
-<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)"><div class="modal"><h3 id="modalTitle">Score</h3><div class="modal-hint" id="modalHint"></div><div class="quick-scores" id="quickScores"></div><div class="modal-actions"><button class="btn btn-confirm btn" onclick="confirmScore()">✓ CONFIRM</button><button class="btn-skip" onclick="closeModalEl()">Cancel</button><button class="btn-delete" id="deleteBtn" onclick="deleteScore()">✕ Clear</button></div></div></div>
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)"><div class="modal"><h3 id="modalTitle">Score</h3><div class="modal-hint" id="modalHint"></div><div class="quick-scores" id="quickScores"></div><div class="modal-actions"><button class="btn btn-confirm btn" onclick="confirmScore()">✓ CONFIRM</button><button class="btn-skip" onclick="closeModalEl()">Cancel</button></div></div></div>
 <div class="reaction-picker" id="reactionPicker"><div class="reaction-picker-title">SEND REACTION</div><div class="reaction-grid" id="reactionGrid"></div><button class="reaction-close" onclick="closeReactionPicker()">✕ Close</button></div><div id="reactionBubbleContainer"></div>
 <div id="oppViewer" onclick="closeOppViewer(event)"><div class="opp-sheet" id="oppSheet"><div class="opp-header"><div class="opp-avatar" id="oppAvatar">🤖</div><div><div class="opp-hname" id="oppHName">Opponent</div><div class="opp-hscore" id="oppHScore">0 pts</div></div><button class="opp-close" onclick="closeOppViewerBtn()">✕</button></div><div id="oppSheetContent"></div></div></div>
 

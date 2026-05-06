@@ -1,6 +1,6 @@
 # 🎲 YUM! — Multiplayer Dice Scorecard Game
 
-**YUM!** is a mobile-friendly Yum / Yahtzee-style web game where you can play solo, against a smart bot, or with friends in real-time multiplayer. It includes live rooms, QR-code lobby sharing, dice rolling, score tracking, AI-powered move prediction, real-dice scanning, achievements, daily rewards, daily challenges, credits, and a dice Skin Store.
+**YUM!** is a mobile-friendly Yum / Yahtzee-style web game where you can play against a smart bot, or with friends in real-time multiplayer. It includes live rooms, QR-code lobby sharing, dice rolling, score tracking, AI-powered move prediction, real-dice scanning, achievements, daily rewards, daily challenges, credits, and a dice Skin Store.
 
 🔗 **Live App:** [0pixelz.github.io/yum](https://0pixelz.github.io/yum)
 
@@ -12,7 +12,6 @@ YUM! lets players roll five dice up to three times per turn, hold dice between r
 
 The game supports:
 
-- **Practice Mode** for solo free play
 - **Play vs Bot** with an AI opponent
 - **Real-time multiplayer rooms** with friends
 - **Room codes and QR codes** for easy joining
@@ -37,9 +36,6 @@ Join an existing room by typing the room code or scanning the host’s QR code w
 ### 🤖 Play vs Bot
 Play against a bot that uses the same prediction logic as the helper system. The bot evaluates possible dice holds and scoring options to make strong decisions.
 
-### 🎲 Practice Mode
-Play alone without pressure. You can roll dice, manually tap dice to set values, scan real dice, test scoring options, and practice strategies.
-
 ---
 
 ## ✨ Main Features
@@ -47,7 +43,6 @@ Play alone without pressure. You can roll dice, manually tap dice to set values,
 ### 🎲 Dice Roller
 - Roll up to **3 times per turn**
 - Hold/unhold individual dice between rolls
-- Tap dice manually in Practice Mode
 - Animated dice rolling
 - Held dice are visually highlighted
 - Dice faces use classic dot-style dice symbols
