@@ -23,6 +23,7 @@ function _botHasPowerup(id) { return botPowerups.indexOf(id) >= 0; }
 function _botConsumePowerup(id) {
   const i = botPowerups.indexOf(id);
   if (i >= 0) botPowerups.splice(i, 1);
+  if (typeof renderBotLeaderboard === 'function') renderBotLeaderboard();
 }
 
 function _botPowerupToast(html) {
@@ -322,6 +323,7 @@ function _botFinishWithPowerups(move) {
       _botPowerupToast(
         `<i class="icn icn-bot"></i> ${botName} earned ${earned.icon} ${earned.name}!`
       );
+      renderBotLeaderboard();
     }, 1100);
   }
 
@@ -352,8 +354,17 @@ closeFirstRoll = function() {
       _botPowerupToast(
         `<i class="icn icn-bot"></i> ${botName} chose ${p.icon} ${p.name}!`
       );
+      renderBotLeaderboard();
     }, 1500);
   }
+};
+
+// Mirror the player's power-up changes into the bot leaderboard so the
+// "Extra Roll" / etc. label next to the player's name updates live.
+const _bpOrigRenderPowerupBar = renderPowerupBar;
+renderPowerupBar = function() {
+  _bpOrigRenderPowerupBar();
+  if (botMode && typeof renderBotLeaderboard === 'function') renderBotLeaderboard();
 };
 
 // Reset bot inventory whenever a new bot game / rematch / quit happens.
