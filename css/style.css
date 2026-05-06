@@ -1110,6 +1110,54 @@
     border-radius: 10px; padding: 10px 14px;
     display: flex; align-items: center; justify-content: space-between;
   }
+  .opp-pup-summary {
+    float: right;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: none;
+  }
+  .opp-pup-section {
+    padding: 10px 16px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .opp-pup-row {
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .opp-pup-row-label {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 0.78rem; letter-spacing: 2px;
+    color: var(--muted);
+    min-width: 64px; padding-top: 5px;
+  }
+  .opp-pup-chips { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; }
+  .opp-pup-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: color-mix(in srgb, var(--opc, #888) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--opc, #888) 40%, transparent);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    color: var(--white);
+  }
+  .opp-pup-chip-icon { color: var(--opc, var(--white)); display: inline-flex; }
+  .opp-pup-chip-cnt {
+    font-family: 'Bebas Neue', cursive;
+    color: var(--gold);
+    font-size: 0.78rem; letter-spacing: 1px;
+  }
+  .opp-pup-empty-row {
+    color: rgba(255,255,255,0.3);
+    font-size: 0.74rem; padding-top: 6px;
+  }
+  .lb-self-tap-hint {
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-left: 4px;
+  }
 
 
   /* GAME OVER POPUP */
