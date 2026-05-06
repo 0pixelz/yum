@@ -301,7 +301,7 @@ function renderScores() {
   const bonusProgress = Math.min(upperTotal, BONUS_TARGET);
   html += `<div class="bonus-row">
     <div>
-      <div class="bonus-label"><i class="icn icn-gift"></i> UPPER BONUS</div>
+      <div class="bonus-label">${iconHtml('icn-gift',{size:'1.2em'})} UPPER BONUS</div>
       <div class="bonus-sub">${upperTotal}/${BONUS_TARGET} pts → +35 bonus${bonusEarned?' <i class="icn icn-check icn-green"></i>':''}</div>
       <div class="pct-bar-wrap" style="width:180px;margin-top:5px">
         <div class="pct-bar" style="width:${(bonusProgress/BONUS_TARGET)*100}%"></div>
@@ -834,10 +834,97 @@ function dieIcon(n) {
     + dots + '</svg>';
 }
 
+// Inline brand-themed SVG icons for the scorecard categories.
+// Rendered directly (not via CSS mask) so they display correctly even on
+// stale-cache devices and never fall back to system emoji glyphs.
+const INLINE_SVG_ICONS = {
+  'icn-target':
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">'
+    + '<circle cx="16" cy="16" r="14" fill="#1a1a2e" stroke="#f5a623" stroke-width="2"/>'
+    + '<circle cx="16" cy="16" r="10" fill="none" stroke="#f5a623" stroke-width="1.6"/>'
+    + '<circle cx="16" cy="16" r="6" fill="none" stroke="#e94560" stroke-width="1.6"/>'
+    + '<circle cx="16" cy="16" r="2.6" fill="#e94560"/>'
+    + '</svg>',
+  'icn-flame':
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">'
+    + '<defs><linearGradient id="flameG" x1="0" y1="1" x2="0" y2="0">'
+    + '<stop offset="0%" stop-color="#e94560"/><stop offset="60%" stop-color="#f5a623"/>'
+    + '<stop offset="100%" stop-color="#ffd166"/></linearGradient></defs>'
+    + '<path d="M16 2c2 4 6 7 6 12a6 6 0 0 1-1.5 4c2.2 1.2 4 3.6 4 7a8.5 8.5 0 0 1-17 0c0-2.6 1.2-4.8 2.8-6.4 0 0 1.2 2.4 2.7 2.4 0-4 0-9 3-19z" fill="url(#flameG)"/>'
+    + '<path d="M16 12c1 2 2.5 3.6 2.5 6a3 3 0 0 1-5 2.2c0-2.5 1.2-5 2.5-8.2z" fill="#fff3c4" opacity="0.8"/>'
+    + '</svg>',
+  'icn-home':
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">'
+    + '<path d="M16 4 3 15h3v12h7v-7h6v7h7V15h3z" fill="#e94560"/>'
+    + '<path d="M16 4 3 15h3v6l10-9 10 9v-6z" fill="#c0392b"/>'
+    + '<rect x="13" y="20" width="6" height="7" fill="#1a1a2e"/>'
+    + '<rect x="20" y="14" width="3" height="3" fill="#ffd166"/>'
+    + '<rect x="9" y="14" width="3" height="3" fill="#ffd166"/>'
+    + '</svg>',
+  'icn-flag':
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">'
+    + '<rect x="3"  y="20" width="6" height="6" rx="1.2" fill="#4ecdc4"/><circle cx="6"  cy="23" r="1" fill="#1a1a2e"/>'
+    + '<rect x="11" y="16" width="6" height="6" rx="1.2" fill="#4ecdc4"/><circle cx="13" cy="18" r="0.85" fill="#1a1a2e"/><circle cx="15" cy="20" r="0.85" fill="#1a1a2e"/>'
+    + '<rect x="19" y="12" width="6" height="6" rx="1.2" fill="#f5a623"/><circle cx="21" cy="14" r="0.85" fill="#1a1a2e"/><circle cx="23" cy="14" r="0.85" fill="#1a1a2e"/><circle cx="22" cy="16" r="0.85" fill="#1a1a2e"/>'
+    + '<rect x="23" y="4"  width="6" height="6" rx="1.2" fill="#e94560"/><circle cx="25" cy="6"  r="0.85" fill="#fff"/><circle cx="27" cy="6"  r="0.85" fill="#fff"/><circle cx="25" cy="8.5" r="0.85" fill="#fff"/><circle cx="27" cy="8.5" r="0.85" fill="#fff"/>'
+    + '</svg>',
+  'icn-bolt':
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">'
+    + '<defs><linearGradient id="boltG" x1="0" y1="0" x2="1" y2="1">'
+    + '<stop offset="0%" stop-color="#ffd166"/><stop offset="100%" stop-color="#e94560"/>'
+    + '</linearGradient></defs>'
+    + '<path d="M18 2 5 19h7l-2 11 14-18h-7l1-10z" fill="url(#boltG)" stroke="#fff3c4" stroke-width="0.6"/>'
+    + '</svg>',
+  'icn-trophy':
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">'
+    + '<defs><linearGradient id="trophyG" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0%" stop-color="#ffd166"/><stop offset="100%" stop-color="#f5a623"/>'
+    + '</linearGradient></defs>'
+    + '<path d="M9 4h14v3h4v4a5 5 0 0 1-5 5h-.6a6 6 0 0 1-4.4 4.6V23h4v3H11v-3h4v-2.4A6 6 0 0 1 10.6 16H10a5 5 0 0 1-5-5V7h4V4zm0 5H7v2a3 3 0 0 0 2 2.8V9zm14 0v4.8A3 3 0 0 0 25 11V9h-2z" fill="url(#trophyG)" stroke="#7a4a00" stroke-width="0.4"/>'
+    + '</svg>',
+  'icn-gem':
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">'
+    + '<defs><linearGradient id="gemG" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0%" stop-color="#9be7e0"/><stop offset="100%" stop-color="#4ecdc4"/>'
+    + '</linearGradient></defs>'
+    + '<path d="M8 4h16l5 8-13 16L3 12z" fill="url(#gemG)" stroke="#0f3a3a" stroke-width="0.6"/>'
+    + '<path d="M8 4 12 12H3z" fill="#7be0d4"/>'
+    + '<path d="M24 4 20 12h9z" fill="#2bb5ad"/>'
+    + '<path d="M12 12 16 28 20 12z" fill="#39c1b6"/>'
+    + '<path d="M8 4 12 12 16 4zM16 4l4 8 4-8z" fill="#bff3ec" opacity="0.55"/>'
+    + '</svg>',
+  'icn-gift':
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">'
+    + '<rect x="4" y="13" width="24" height="16" rx="2" fill="#e94560"/>'
+    + '<rect x="4" y="13" width="24" height="4" fill="#c0392b"/>'
+    + '<rect x="14" y="13" width="4" height="16" fill="#f5a623"/>'
+    + '<rect x="3" y="9" width="26" height="5" rx="1.2" fill="#f5a623"/>'
+    + '<rect x="14" y="9" width="4" height="5" fill="#ffd166"/>'
+    + '<path d="M16 9c-3-3-7-2-7 1s4 3 7 1c3 2 7 2 7-1s-4-4-7-1z" fill="#ffd166" stroke="#7a4a00" stroke-width="0.4"/>'
+    + '</svg>',
+  'icn-dice':
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">'
+    + '<rect x="5" y="5" width="22" height="22" rx="4" fill="#fff7cc" stroke="#f5a623" stroke-width="1.4"/>'
+    + '<circle cx="11" cy="11" r="2" fill="#e94560"/><circle cx="21" cy="11" r="2" fill="#e94560"/>'
+    + '<circle cx="16" cy="16" r="2" fill="#e94560"/>'
+    + '<circle cx="11" cy="21" r="2" fill="#e94560"/><circle cx="21" cy="21" r="2" fill="#e94560"/>'
+    + '</svg>'
+};
+
+function inlineIconSvg(icon, sizePx, displayCss) {
+  const svg = INLINE_SVG_ICONS[icon];
+  if(!svg) return null;
+  const size = sizePx || 28;
+  const display = displayCss || 'inline-block';
+  return '<span class="yum-inline-icn" data-icn="'+icon+'" style="display:'+display+';width:'+size+'px;height:'+size+'px;line-height:0;flex-shrink:0">'+svg+'</span>';
+}
+
 function renderIcon(icon) {
   if(icon && icon.startsWith('d') && icon.length===2) {
     return dieIcon(parseInt(icon[1]));
   }
+  const inline = icon && icon.startsWith('icn-') ? inlineIconSvg(icon, 28, 'inline-block') : null;
+  if(inline) return inline;
   if(icon && icon.startsWith('icn-')) {
     return '<i class="icn '+icon+'" style="font-size:1.5rem;color:var(--gold)"></i>';
   }
@@ -851,6 +938,9 @@ function iconHtml(icon, opts) {
   const color = opts.color || 'currentColor';
   if(icon && icon.startsWith('d') && icon.length===2) {
     return '<span style="display:inline-block;vertical-align:-0.25em;width:'+size+';height:'+size+'">'+dieIcon(parseInt(icon[1]))+'</span>';
+  }
+  if(icon && icon.startsWith('icn-') && INLINE_SVG_ICONS[icon]) {
+    return '<span style="display:inline-block;vertical-align:-0.25em;width:'+size+';height:'+size+';line-height:0">'+INLINE_SVG_ICONS[icon]+'</span>';
   }
   if(icon && icon.startsWith('icn-')) {
     return '<i class="icn '+icon+'" style="font-size:'+size+';color:'+color+'"></i>';
@@ -897,19 +987,35 @@ async function createGame() {
   isHost = true;
   roomCode = genCode();
 
-  if(!window.db) { showLobbyErr('Multiplayer not available offline'); return; }
+  if(!window.db) {
+    if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
+    for (let i = 0; i < 12 && !window.db; i++) {
+      await new Promise(r => setTimeout(r, 250));
+      if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
+    }
+  }
+  if(!window.db) {
+    showLobbyErr('Multiplayer not available — check your internet and reload.');
+    return;
+  }
   const _joinSkin = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
   let _joinPdc = null; try { _joinPdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
-  roomRef = db.ref('rooms/' + roomCode);
-  await roomRef.set({
-    host: playerId,
-    started: false,
-    currentTurn: playerId,
-    gameMode: 'normal',
-    players: {
-      [playerId]: { name: playerName, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
-    }
-  });
+  try {
+    roomRef = db.ref('rooms/' + roomCode);
+    await roomRef.set({
+      host: playerId,
+      started: false,
+      currentTurn: playerId,
+      gameMode: 'normal',
+      players: {
+        [playerId]: { name: playerName, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
+      }
+    });
+  } catch(err) {
+    console.warn('createGame failed:', err);
+    showLobbyErr('Could not create room. Tap Create again to retry.');
+    return;
+  }
 
   // Clean up room when host disconnects (if not started)
   roomRef.child('players/' + playerId).onDisconnect().remove();
@@ -932,6 +1038,15 @@ async function joinGame() {
   playerName = name;
   roomCode = code;
   isHost = false;
+
+  if(!window.db) {
+    if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
+    for (let i = 0; i < 12 && !window.db; i++) {
+      await new Promise(r => setTimeout(r, 250));
+      if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
+    }
+  }
+  if(!window.db) { showLobbyErr('Multiplayer not available — check your internet and reload.'); return; }
 
   const snap = await db.ref('rooms/' + code).once('value');
   if(!snap.exists()) { showLobbyErr('Room not found! Check the code.'); return; }
