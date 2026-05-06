@@ -2,19 +2,19 @@
 // Separate fun mode with earnable/usable power-ups. Normal modes untouched.
 
 const POWERUPS = [
-  { id:'extraRoll',    name:'Extra Roll',    icon:'🎲',
+  { id:'extraRoll',    name:'Extra Roll',    icon:'<i class="icn icn-dice"></i>',
     desc:'Get one bonus reroll this turn',
     color:'#4ecdc4', gradient:'linear-gradient(135deg,#4ecdc4,#2ecc71)' },
-  { id:'freezeDie',   name:'Freeze Dice',   icon:'❄️',
+  { id:'freezeDie',   name:'Freeze Dice',   icon:'<i class="icn icn-gem"></i>',
     desc:'Lock one dice — carries to your next turn',
     color:'#64b5f6', gradient:'linear-gradient(135deg,#64b5f6,#1e88e5)' },
-  { id:'doublePoints',name:'Double Points', icon:'✨',
+  { id:'doublePoints',name:'Double Points', icon:'<i class="icn icn-sparkle"></i>',
     desc:'Double the score for your next category',
     color:'#f5a623', gradient:'linear-gradient(135deg,#f5a623,#f39c12)' },
-  { id:'luckyDice',   name:'Lucky Dice',    icon:'🍀',
+  { id:'luckyDice',   name:'Lucky Dice',    icon:'<i class="icn icn-star"></i>',
     desc:'Reroll one dice — higher chance of 5 or 6',
     color:'#66bb6a', gradient:'linear-gradient(135deg,#66bb6a,#43a047)' },
-  { id:'undoMove',    name:'Undo Move',     icon:'↩️',
+  { id:'undoMove',    name:'Undo Move',     icon:'<i class="icn icn-refresh"></i>',
     desc:'Take back your last score choice',
     color:'#e94560', gradient:'linear-gradient(135deg,#e94560,#c0392b)' },
 ];
@@ -55,8 +55,10 @@ function startPowerupMode() {
 // ─── PICKER MODAL ────────────────────────────────────────────────────────────
 
 function openPowerupPickerModal(context) {
-  document.getElementById('powerupPickerTitle').textContent =
-    context === 'start' ? '⚡ CHOOSE YOUR POWER-UP!' : '🎲 YUM! EARN A POWER-UP!';
+  document.getElementById('powerupPickerTitle').innerHTML =
+    context === 'start'
+      ? '<i class="icn icn-bolt"></i> CHOOSE YOUR POWER-UP!'
+      : '<i class="icn icn-dice"></i> YUM! EARN A POWER-UP!';
   document.getElementById('powerupPickerSub').textContent =
     context === 'start'
       ? 'Pick one power-up to start your game with'
@@ -122,20 +124,20 @@ function renderPowerupBar() {
 
   // Double-points active banner
   const dblBanner = doublePointsActive
-    ? `<div class="pup-dbl-banner">✨ DOUBLE POINTS ACTIVE — score any category to double it!</div>`
+    ? `<div class="pup-dbl-banner"><i class="icn icn-sparkle"></i> DOUBLE POINTS ACTIVE — score any category to double it!</div>`
     : '';
 
   // Pending action hint
   const hintMap = {
-    freezeDie: '❄️ Click a dice to freeze it',
-    luckyDice: '🍀 Click a dice to reroll with luck',
+    freezeDie: '<i class="icn icn-gem"></i> Click a dice to freeze it',
+    luckyDice: '<i class="icn icn-star"></i> Click a dice to reroll with luck',
   };
   const hint = pendingPowerup && hintMap[pendingPowerup]
     ? `<div class="pup-hint">${hintMap[pendingPowerup]}</div>`
     : '';
 
   bar.innerHTML = `
-    <div class="pup-bar-head">⚡ POWER-UPS</div>
+    <div class="pup-bar-head"><i class="icn icn-bolt"></i> POWER-UPS</div>
     ${dblBanner}
     ${hint}
     <div class="pup-items">${btns}</div>`;
@@ -162,8 +164,8 @@ function activatePowerup(id) {
       consumePowerup('extraRoll');
       rollsLeft++;
       const used = Math.max(0, 3 - rollsLeft + 1);
-      document.getElementById('rollCount').textContent = `Rolls: ${3 - rollsLeft} / 3  ⚡+1`;
-      showToast('🎲 Extra Roll granted — you have one more roll!');
+      document.getElementById('rollCount').textContent = `Rolls: ${3 - rollsLeft} / 3  +1`;
+      showToast('Extra Roll granted — you have one more roll!');
       renderPowerupBar();
       syncPowerupsToDb();
       break;
@@ -182,7 +184,7 @@ function activatePowerup(id) {
       consumePowerup('doublePoints');
       doublePointsActive = true;
       renderPowerupBar();
-      showToast('✨ Double Points active! Score any category to double it.');
+      showToast('Double Points active! Score any category to double it.');
       syncPowerupsToDb();
       break;
     }
@@ -245,7 +247,7 @@ function tryPowerupDieClick(i) {
     renderDice(false);
     refreshDieFreezeVisual();
     renderPowerupBar();
-    showToast(`❄️ Dice frozen (${['⚀','⚁','⚂','⚃','⚄','⚅'][dice[i]-1]}) — carries to next turn!`);
+    showToast(`Dice frozen (${dice[i]}) — carries to next turn!`);
     syncPowerupsToDb();
     return true;
   }
@@ -264,7 +266,7 @@ function tryPowerupDieClick(i) {
     if (el) { el.classList.remove('die-spin'); void el.offsetWidth; el.classList.add('die-spin'); }
     refreshDieFreezeVisual();
     renderPowerupBar();
-    showToast(`🍀 Lucky reroll → ${['⚀','⚁','⚂','⚃','⚄','⚅'][dice[i]-1]}`);
+    showToast(`Lucky reroll → ${dice[i]}`);
     syncPowerupsToDb();
     return true;
   }
@@ -319,7 +321,7 @@ confirmScore = function() {
   if (doublePointsActive && baseScore > 0) {
     selectedScore      = baseScore * 2;
     doublePointsActive = false;
-    showToast(`✨ Double Points! ${baseScore} → ${selectedScore} pts`);
+    showToast(`Double Points! ${baseScore} → ${selectedScore} pts`);
   } else if (doublePointsActive && baseScore === 0) {
     doublePointsActive = false; // used up, nothing to double on 0
   }
@@ -357,7 +359,7 @@ clearDice = function() {
     refreshDieFreezeVisual();
     freezeDieIndex = -1;
     frozenDieValue = 0;
-    showToast(`❄️ Frozen dice (${['⚀','⚁','⚂','⚃','⚄','⚅'][savedVal-1]}) carried to new turn!`);
+    showToast(`Frozen dice (${savedVal}) carried to new turn!`);
   }, 150);
 };
 

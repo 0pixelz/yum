@@ -86,7 +86,7 @@
     handledRematchId = rematchId;
 
     resetLocalBoardForRematch();
-    if (typeof showToast === 'function') showToast('🔄 Rematch! Rolling for who goes first…');
+    if (typeof showToast === 'function') showToast('Rematch! Rolling for who goes first…');
 
     const players = sortedFirstRollPlayers();
     setTimeout(() => {
@@ -136,7 +136,7 @@
         rvbPlayers.innerHTML = ids.map(id => {
           const p = safePlayers()[id] || {};
           const vote = votes[id];
-          const label = vote === true ? '✓' : vote === false ? '✕' : '…';
+          const label = vote === true ? '<i class="icn icn-check"></i>' : vote === false ? '<i class="icn icn-close"></i>' : '…';
           const voted = vote !== undefined;
           return `<div class="rvb-player ${voted ? 'voted' : ''}">${p.name || 'Player'} ${label}</div>`;
         }).join('');
@@ -146,7 +146,7 @@
         rematchVoteRef.off();
         roomRef.child('rematchVotes').remove();
         if (bar) bar.style.display = 'none';
-        if (typeof showToast === 'function') showToast('❌ Rematch cancelled — returning to lobby');
+        if (typeof showToast === 'function') showToast('Rematch cancelled — returning to lobby');
         setTimeout(() => typeof leaveGame === 'function' && leaveGame(), 1200);
         return;
       }

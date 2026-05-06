@@ -137,7 +137,7 @@ function frCheckAllRolled() {
 
   if(winners.length > 1) {
     // Show tie with dice values still visible
-    document.getElementById('frStatus').textContent = '🤝 TIE!';
+    document.getElementById('frStatus').innerHTML = '<i class="icn icn-handshake icn-gold"></i> TIE!';
     document.getElementById('frSub').textContent = 'Tap your dice to re-roll!';
 
     // Wait 2s so players can see the tied values, then reset
@@ -151,7 +151,7 @@ function frCheckAllRolled() {
         const sc = document.getElementById('frScore'+i);
         if(sc) sc.textContent='';
       });
-      document.getElementById('frStatus').textContent = '🎲 ROLL AGAIN!';
+      document.getElementById('frStatus').innerHTML = '<i class="icn icn-dice icn-gold"></i> ROLL AGAIN!';
       // Re-enable player die
       const myDie = document.getElementById('frDie' + frMyIdx);
       if(myDie) {
@@ -185,8 +185,10 @@ function frCheckAllRolled() {
   });
   const winner = firstRollPlayers[winIdx];
   firstRollWinnerId = winner.id;
-  document.getElementById('frStatus').textContent =
-    winner.isMe ? '🏆 YOU GO FIRST!' : `🎲 ${winner.name} GOES FIRST!`;
+  document.getElementById('frStatus').innerHTML =
+    winner.isMe
+      ? '<i class="icn icn-trophy icn-gold"></i> YOU GO FIRST!'
+      : `<i class="icn icn-dice icn-gold"></i> ${winner.name} GOES FIRST!`;
   document.getElementById('frSub').textContent = '';
   const btn = document.getElementById('frBtn');
   btn.style.display = 'block';
@@ -244,7 +246,7 @@ function saveApiKey() {
   if(key) {
     localStorage.setItem('yum_api_key', key);
     document.getElementById('apiKeyWrap').classList.remove('show');
-    setStatus('ok', '✅ API key saved! Try scanning again.');
+    setStatus('ok', '<i class="icn icn-check icn-green"></i> API key saved! Try scanning again.');
   }
 }
 
@@ -287,7 +289,7 @@ function startRematchVote() {
     const rvbPlayers = document.getElementById('rvbPlayers');
     rvbPlayers.innerHTML = Object.entries(allPlayers).map(([id,p]) => {
       const vote = votes[id];
-      const label = vote === true ? '✓' : vote === false ? '✕' : '…';
+      const label = vote === true ? '<i class="icn icn-check"></i>' : vote === false ? '<i class="icn icn-close"></i>' : '…';
       const voted = vote !== undefined;
       return `<div class="rvb-player ${voted?'voted':''}">${p.name} ${label}</div>`;
     }).join('');
@@ -305,7 +307,7 @@ function startRematchVote() {
       rematchVoteRef.off();
       rematchVoteRef.set({});
       bar.style.display = 'none';
-      showToast('❌ Rematch cancelled — returning to lobby');
+      showToast('Rematch cancelled — returning to lobby');
       setTimeout(leaveGame, 1500);
     }
   });
@@ -334,7 +336,7 @@ function doMpRematch() {
   renderDice(false);
   renderScores();
   document.getElementById('rollCount').textContent = 'Rolls: 0 / 3';
-  showToast('🔄 Rematch! Rolling for who goes first…');
+  showToast('Rematch! Rolling for who goes first…');
   // First roll
   const sortedPlayers = Object.entries(allPlayers)
     .sort((a,b) => a[1].joined - b[1].joined)

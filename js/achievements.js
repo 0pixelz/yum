@@ -1,22 +1,30 @@
 // ─── ACHIEVEMENTS ────────────────────────────────────────────────────
 
+// Achievements use the custom icon set (icn-* class names)
 const ACHIEVEMENTS = [
-  { id: 'first_game',    icon: '🎮', name: 'First Roll',    desc: 'Complete your first game',                    check: s => s.gamesPlayed >= 1 },
-  { id: 'first_win',     icon: '🏆', name: 'First Victory', desc: 'Win a game vs bot or multiplayer',             check: s => s.gamesWon >= 1 },
-  { id: 'first_yum',     icon: '🎲', name: 'YUM!',          desc: 'Score a YUM! (5 of a kind)',                   check: s => s.yumCount >= 1 },
-  { id: 'yum_x3',        icon: '🎯', name: 'Triple YUM',    desc: 'Score YUM! 3 times',                          check: s => s.yumCount >= 3 },
-  { id: 'yum_x10',       icon: '🌟', name: 'YUM Master',    desc: 'Score YUM! 10 times',                         check: s => s.yumCount >= 10 },
-  { id: 'full_house',    icon: '🏠', name: 'Home Comforts', desc: 'Score a Full House',                          check: s => s.fullHouseCount >= 1 },
-  { id: 'lg_straight',   icon: '📐', name: 'Full Straight', desc: 'Score a Large Straight',                      check: s => s.lgStraightCount >= 1 },
-  { id: 'bonus',         icon: '⭐', name: 'Bonus Earner',  desc: 'Earn the upper section bonus (63+ pts)',       check: s => s.bonusCount >= 1 },
-  { id: 'perfect_upper', icon: '💫', name: 'Perfect Upper', desc: 'Max out all 6 upper categories in one game',  check: s => s.perfectUpperCount >= 1 },
-  { id: 'score_250',     icon: '🥇', name: 'High Roller',   desc: 'Score 250+ points in a game',                 check: s => s.highScore >= 250 },
-  { id: 'score_300',     icon: '💎', name: 'Yahtzee Pro',   desc: 'Score 300+ points in a game',                 check: s => s.highScore >= 300 },
-  { id: 'bot_slayer',    icon: '🤖', name: 'Bot Slayer',    desc: 'Beat the bot 5 times',                        check: s => s.botWins >= 5 },
-  { id: 'no_scratch',    icon: '✨', name: 'Clean Sheet',   desc: 'Finish a game without any scratches (zeros)', check: s => s.noScratchGames >= 1 },
-  { id: 'games_10',      icon: '🎖️',  name: 'Dedicated',    desc: 'Play 10 games',                               check: s => s.gamesPlayed >= 10 },
-  { id: 'games_25',      icon: '🏅', name: 'Die-Hard',      desc: 'Play 25 games',                               check: s => s.gamesPlayed >= 25 },
+  { id: 'first_game',    icon: 'icn-gamepad',  name: 'First Roll',    desc: 'Complete your first game',                    check: s => s.gamesPlayed >= 1 },
+  { id: 'first_win',     icon: 'icn-trophy',   name: 'First Victory', desc: 'Win a game vs bot or multiplayer',             check: s => s.gamesWon >= 1 },
+  { id: 'first_yum',     icon: 'icn-dice',     name: 'YUM!',          desc: 'Score a YUM! (5 of a kind)',                   check: s => s.yumCount >= 1 },
+  { id: 'yum_x3',        icon: 'icn-target',   name: 'Triple YUM',    desc: 'Score YUM! 3 times',                          check: s => s.yumCount >= 3 },
+  { id: 'yum_x10',       icon: 'icn-star',     name: 'YUM Master',    desc: 'Score YUM! 10 times',                         check: s => s.yumCount >= 10 },
+  { id: 'full_house',    icon: 'icn-home',     name: 'Home Comforts', desc: 'Score a Full House',                          check: s => s.fullHouseCount >= 1 },
+  { id: 'lg_straight',   icon: 'icn-bolt',     name: 'Full Straight', desc: 'Score a Large Straight',                      check: s => s.lgStraightCount >= 1 },
+  { id: 'bonus',         icon: 'icn-gift',     name: 'Bonus Earner',  desc: 'Earn the upper section bonus (63+ pts)',       check: s => s.bonusCount >= 1 },
+  { id: 'perfect_upper', icon: 'icn-sparkle',  name: 'Perfect Upper', desc: 'Max out all 6 upper categories in one game',  check: s => s.perfectUpperCount >= 1 },
+  { id: 'score_250',     icon: 'icn-medal',    name: 'High Roller',   desc: 'Score 250+ points in a game',                 check: s => s.highScore >= 250 },
+  { id: 'score_300',     icon: 'icn-gem',      name: 'Yahtzee Pro',   desc: 'Score 300+ points in a game',                 check: s => s.highScore >= 300 },
+  { id: 'bot_slayer',    icon: 'icn-bot',      name: 'Bot Slayer',    desc: 'Beat the bot 5 times',                        check: s => s.botWins >= 5 },
+  { id: 'no_scratch',    icon: 'icn-flame',    name: 'Clean Sheet',   desc: 'Finish a game without any scratches (zeros)', check: s => s.noScratchGames >= 1 },
+  { id: 'games_10',      icon: 'icn-flag',     name: 'Dedicated',     desc: 'Play 10 games',                               check: s => s.gamesPlayed >= 10 },
+  { id: 'games_25',      icon: 'icn-volcano',  name: 'Die-Hard',      desc: 'Play 25 games',                               check: s => s.gamesPlayed >= 25 },
 ];
+
+function _achIconHtml(icon) {
+  if (typeof icon === 'string' && icon.startsWith('icn-')) {
+    return '<i class="icn ' + icon + ' icn-gold"></i>';
+  }
+  return icon || '';
+}
 
 function loadAchStats() {
   try { return JSON.parse(localStorage.getItem('yum_stats') || '{}'); } catch(e) { return {}; }
@@ -39,7 +47,7 @@ function _drainAchQueue() {
   if (_achNotifBusy || _achNotifQueue.length === 0) return;
   _achNotifBusy = true;
   const ach = _achNotifQueue.shift();
-  document.getElementById('achNotifIcon').textContent = ach.icon;
+  document.getElementById('achNotifIcon').innerHTML = _achIconHtml(ach.icon);
   document.getElementById('achNotifName').textContent = ach.name;
   document.getElementById('achNotifDesc').textContent = ach.desc;
   const el = document.getElementById('achNotif');
@@ -145,10 +153,10 @@ function renderAchievements() {
     const u = unlocked[ach.id];
     const dateStr = u ? new Date(u.unlockedAt).toLocaleDateString() : '';
     return `<div class="ach-card ${u ? 'unlocked' : 'locked'}">
-      <div class="ach-icon">${ach.icon}</div>
+      <div class="ach-icon">${_achIconHtml(ach.icon)}</div>
       <div class="ach-name">${ach.name}</div>
       <div class="ach-desc">${ach.desc}</div>
-      ${u ? `<div class="ach-date">✓ ${dateStr}</div>` : ''}
+      ${u ? `<div class="ach-date"><i class="icn icn-check"></i> ${dateStr}</div>` : ''}
     </div>`;
   }).join('');
 }

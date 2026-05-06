@@ -575,7 +575,7 @@
   function refreshStoreButton() {
     const btn = document.getElementById('openSkinStoreBtn');
     if (!btn) return;
-    btn.textContent = `🎨 Dice Skin Store · ${getAvailableCredits()} credit${getAvailableCredits() === 1 ? '' : 's'}`;
+    btn.innerHTML = `<i class="icn icn-palette"></i> Dice Skin Store · ${getAvailableCredits()} credit${getAvailableCredits() === 1 ? '' : 's'}`;
   }
 
   function ensureStoreOverlay() {
@@ -590,8 +590,8 @@
     overlay.innerHTML = `
       <div class="store-sheet">
         <div class="store-head">
-          <div class="store-title">🎨 DICE SKIN STORE</div>
-          <button class="store-close">✕</button>
+          <div class="store-title"><i class="icn icn-palette"></i> DICE SKIN STORE</div>
+          <button class="store-close"><i class="icn icn-close"></i></button>
         </div>
         <div class="store-credit-box">
           <div>
@@ -724,7 +724,7 @@
       let action = '';
 
       if (isActive) {
-        action = `<button class="skin-action equipped" disabled>✓ EQUIPPED</button>`;
+        action = `<button class="skin-action equipped" disabled><i class="icn icn-check"></i> EQUIPPED</button>`;
       } else if (isOwned) {
         action = `<button class="skin-action" onclick="equipSkin('${skin.id}')">EQUIP</button>`;
       } else if (canBuy) {
@@ -772,14 +772,14 @@
     }
 
     if (getAvailableCredits() < skin.cost) {
-      if (typeof showToast === 'function') showToast('Not enough credits yet 🏆');
+      if (typeof showToast === 'function') showToast('Not enough credits yet');
       return;
     }
 
     owned.push(id);
     setOwnedSkins(owned);
     equipSkin(id);
-    if (typeof showToast === 'function') showToast(`Unlocked ${skin.name}! 🎨`);
+    if (typeof showToast === 'function') showToast(`Unlocked ${skin.name}!`);
   }
 
   function equipSkin(id) {

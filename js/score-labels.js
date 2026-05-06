@@ -94,11 +94,11 @@
   }
 
   function diamondString(wins = winCount()) {
-    return '💎'.repeat(diamondCountFromWins(wins));
+    return '◆'.repeat(diamondCountFromWins(wins));
   }
 
   function stripDiamondSuffix(name) {
-    return String(name || '').replace(/\s*💎+\s*$/g, '').trim();
+    return String(name || '').replace(/\s*[◆💎]+\s*$/g, '').trim();
   }
 
   function nameWithDiamonds(name, wins = winCount()) {
@@ -150,10 +150,10 @@
     if (!Array.isArray(window.ACHIEVEMENTS || (typeof ACHIEVEMENTS !== 'undefined' ? ACHIEVEMENTS : null))) return;
     const list = window.ACHIEVEMENTS || ACHIEVEMENTS;
     const additions = [
-      { id:'wins_50_diamond',  icon:'💎', name:'Diamond Winner I',   desc:'Win 50 games to add 1 diamond beside your name',   check:s=>safeNumber(s.gamesWon)>=50 },
-      { id:'wins_100_diamond', icon:'💎', name:'Diamond Winner II',  desc:'Win 100 games to add 2 diamonds beside your name', check:s=>safeNumber(s.gamesWon)>=100 },
-      { id:'wins_200_diamond', icon:'💎', name:'Diamond Winner III', desc:'Win 200 games to add 3 diamonds beside your name', check:s=>safeNumber(s.gamesWon)>=200 },
-      { id:'wins_500_diamond', icon:'💎', name:'Diamond Legend',     desc:'Win 500 games to add 4 diamonds beside your name', check:s=>safeNumber(s.gamesWon)>=500 }
+      { id:'wins_50_diamond',  icon:'icn-gem', name:'Diamond Winner I',   desc:'Win 50 games to add 1 diamond beside your name',   check:s=>safeNumber(s.gamesWon)>=50 },
+      { id:'wins_100_diamond', icon:'icn-gem', name:'Diamond Winner II',  desc:'Win 100 games to add 2 diamonds beside your name', check:s=>safeNumber(s.gamesWon)>=100 },
+      { id:'wins_200_diamond', icon:'icn-gem', name:'Diamond Winner III', desc:'Win 200 games to add 3 diamonds beside your name', check:s=>safeNumber(s.gamesWon)>=200 },
+      { id:'wins_500_diamond', icon:'icn-gem', name:'Diamond Legend',     desc:'Win 500 games to add 4 diamonds beside your name', check:s=>safeNumber(s.gamesWon)>=500 }
     ];
     additions.forEach(ach => {
       if (!list.some(existing => existing.id === ach.id)) list.push(ach);
@@ -238,7 +238,7 @@
     document.querySelectorAll('.lb-name, .opp-hname, .bap-name, .mp-turn-badge, .rvb-player').forEach(el => {
       if (!el || el.querySelector('.diamond-badge')) return;
       const txt = el.textContent || '';
-      if (txt.includes('💎')) return;
+      if (txt.includes('◆') || txt.includes('💎')) return;
       if (txt.toLowerCase().includes('bot')) return;
       const badge = document.createElement('span');
       badge.className = 'diamond-badge';

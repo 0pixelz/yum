@@ -68,7 +68,7 @@
     const otherRemainingMax = possibleRemainingMax(id);
 
     if (totalNow >= UPPER_TARGET) {
-      return { main: '✓', sub: 'bonus', state: 'done' };
+      return { main: '<i class="icn icn-check"></i>', sub: 'bonus', state: 'done' };
     }
 
     if (filled) {

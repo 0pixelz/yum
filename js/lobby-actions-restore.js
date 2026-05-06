@@ -171,7 +171,7 @@
     if (!code || code.includes('-')) return;
     try {
       await navigator.clipboard.writeText(code);
-      toast('Room code copied 📋');
+      toast('Room code copied');
     } catch(e) {
       toast(code);
     }
@@ -192,7 +192,7 @@
       } catch(e) { return; }
       try {
         await navigator.clipboard.writeText(`${text}\n${url}`);
-        toast('Lobby link copied 📋');
+        toast('Lobby link copied');
       } catch(e) {
         toast(url);
       }
@@ -233,7 +233,7 @@
         return `<div class="lar-player"><div class="lar-avatar">${initial}</div><div class="lar-info"><div class="lar-name">${name}${isMe ? ' · You' : ''}</div><div class="lar-meta">${isHost ? 'Host' : 'Guest'} · ${ready ? 'Ready' : 'Not ready'}</div></div><div class="lar-badge ${ready ? 'ready' : ''}">${isHost ? 'HOST' : ready ? 'READY' : 'WAIT'}</div></div>`;
       }).join('');
 
-    card.innerHTML = `<div class="lar-title">LOBBY PLAYERS</div>${rows}<div class="lar-actions"><button class="lar-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '✓ Ready' : 'Mark Ready'}</button><button class="lar-btn" onclick="copyRoomCodeUpgrade()">📋 Copy Code</button><button class="lar-btn share" onclick="shareLobby()">📤 Share Lobby</button></div>`;
+    card.innerHTML = `<div class="lar-title">LOBBY PLAYERS</div>${rows}<div class="lar-actions"><button class="lar-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '<i class="icn icn-check"></i> Ready' : 'Mark Ready'}</button><button class="lar-btn" onclick="copyRoomCodeUpgrade()"><i class="icn icn-clipboard"></i> Copy Code</button><button class="lar-btn share" onclick="shareLobby()"><i class="icn icn-handshake"></i> Share Lobby</button></div>`;
 
     let shareBlock = document.getElementById('lobbyActionsLargeShareBlock');
     if (!shareBlock) {
@@ -243,7 +243,7 @@
       if (modeSelector) modeSelector.insertAdjacentElement('afterend', shareBlock);
       else card.insertAdjacentElement('afterend', shareBlock);
     }
-    shareBlock.innerHTML = `<button class="lar-share-large" onclick="shareLobby()">📤 SHARE LOBBY</button><div class="lar-share-hint">Send by Messenger, text, email, etc.</div>`;
+    shareBlock.innerHTML = `<button class="lar-share-large" onclick="shareLobby()"><i class="icn icn-handshake"></i> SHARE LOBBY</button><div class="lar-share-hint">Send by Messenger, text, email, etc.</div>`;
   }
 
   function patchRoomFunctions() {

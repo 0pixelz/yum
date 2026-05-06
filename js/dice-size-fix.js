@@ -254,7 +254,7 @@
     if (choice && choice.outcome === 'accepted') {
       const banner = installBanner();
       if (banner) banner.style.display = 'none';
-      if (window.showToast) showToast('YUM! installed 🎲');
+      if (window.showToast) showToast('YUM! installed!');
     }
   };
 

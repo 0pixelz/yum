@@ -318,7 +318,9 @@
       const isClaimed = info.claimed ? dayNum <= cycleDay : dayNum < cycleDay;
       const reward   = rewardForStreakDay(dayNum);
       const isBonus  = dayNum === 7;
-      const icon     = isClaimed ? '✓' : (isBonus ? '🎁' : '⭐');
+      const icon     = isClaimed
+        ? '<i class="icn icn-check icn-green"></i>'
+        : (isBonus ? '<i class="icn icn-gift icn-gold"></i>' : '<i class="icn icn-star icn-gold"></i>');
       const cls      = [
         'dbo-day',
         isClaimed ? 'claimed' : '',
@@ -333,8 +335,8 @@
     }).join('');
 
     const claimBtn = info.claimed
-      ? `<button class="dbo-claim-btn green" disabled>✓ CLAIMED TODAY · COME BACK TOMORROW</button>`
-      : `<button class="dbo-claim-btn" onclick="window.dboPerformBonusClaim()">🎁 CLAIM +${info.reward} CREDITS</button>`;
+      ? `<button class="dbo-claim-btn green" disabled><i class="icn icn-check"></i> CLAIMED TODAY · COME BACK TOMORROW</button>`
+      : `<button class="dbo-claim-btn" onclick="window.dboPerformBonusClaim()"><i class="icn icn-gift"></i> CLAIM +${info.reward} CREDITS</button>`;
 
     const featureLabel = info.claimed ? "TODAY'S CLAIM" : "TODAY'S REWARD";
     const featureName  = info.claimed
@@ -347,15 +349,15 @@
     ov.innerHTML = `
       <div class="dbo-sheet">
         <div class="dbo-header">
-          <div class="dbo-header-title">🎁 DAILY BONUS</div>
-          <span class="dbo-wallet">💰 ${credits()}</span>
-          <button class="dbo-close" onclick="window.dboCloseBonus()">✕</button>
+          <div class="dbo-header-title"><i class="icn icn-gift"></i> DAILY BONUS</div>
+          <span class="dbo-wallet"><i class="icn icn-coin"></i> ${credits()}</span>
+          <button class="dbo-close" onclick="window.dboCloseBonus()"><i class="icn icn-close"></i></button>
         </div>
         <div class="dbo-progress-bar"><div class="dbo-progress-fill" style="width:${pct}%"></div></div>
         <div class="dbo-progress-label">Day ${cycleDay} / 7 · streak ${info.claimed ? info.streak : info.nextStreak}</div>
         <div class="dbo-streak-grid">${days}</div>
         <div class="dbo-feature">
-          <div class="dbo-feature-icon">${info.claimed ? '✓' : '🎁'}</div>
+          <div class="dbo-feature-icon">${info.claimed ? '<i class="icn icn-check icn-green"></i>' : '<i class="icn icn-gift icn-gold"></i>'}</div>
           <div class="dbo-feature-body">
             <div class="dbo-feature-label">${featureLabel}</div>
             <div class="dbo-feature-name">${featureName}</div>
@@ -397,7 +399,7 @@
     localStorage.setItem(BONUS_DATE_KEY, today);
     localStorage.setItem(BONUS_STREAK_KEY, String(info.nextStreak));
     window.addYumCredits(info.reward, 'daily_bonus_final');
-    toast(`🎁 Daily bonus claimed: +${info.reward} credits`);
+    toast(`Daily bonus claimed: +${info.reward} credits`);
     renderBonusOverlay();
     if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
   }
@@ -422,15 +424,15 @@
       ? window.getYumDailyChallengeStatus()
       : null;
     if (!status) {
-      ov.innerHTML = `<div class="dbo-sheet"><div class="dbo-header"><div class="dbo-header-title">🎯 DAILY CHALLENGE</div><button class="dbo-close" onclick="window.dboCloseChallenge()">✕</button></div><div class="dbo-foot-note">Daily challenge not available right now</div></div>`;
+      ov.innerHTML = `<div class="dbo-sheet"><div class="dbo-header"><div class="dbo-header-title"><i class="icn icn-target"></i> DAILY CHALLENGE</div><button class="dbo-close" onclick="window.dboCloseChallenge()"><i class="icn icn-close"></i></button></div><div class="dbo-foot-note">Daily challenge not available right now</div></div>`;
       return;
     }
 
     const pct = Math.round((status.progress / status.target) * 100);
     const claimBtn = status.claimed
-      ? `<button class="dbo-claim-btn green" disabled>✓ REWARD CLAIMED</button>`
+      ? `<button class="dbo-claim-btn green" disabled><i class="icn icn-check"></i> REWARD CLAIMED</button>`
       : status.complete
-        ? `<button class="dbo-claim-btn" onclick="claimDailyChallenge()">🏁 CLAIM +${status.reward} CREDITS</button>`
+        ? `<button class="dbo-claim-btn" onclick="claimDailyChallenge()"><i class="icn icn-flag"></i> CLAIM +${status.reward} CREDITS</button>`
         : `<button class="dbo-claim-btn" disabled>KEEP PLAYING · ${status.progress} / ${status.target}</button>`;
 
     const subtitle = status.claimed
@@ -442,15 +444,15 @@
     ov.innerHTML = `
       <div class="dbo-sheet">
         <div class="dbo-header">
-          <div class="dbo-header-title">🎯 DAILY CHALLENGE</div>
-          <span class="dbo-wallet">💰 ${credits()}</span>
-          <button class="dbo-close" onclick="window.dboCloseChallenge()">✕</button>
+          <div class="dbo-header-title"><i class="icn icn-target"></i> DAILY CHALLENGE</div>
+          <span class="dbo-wallet"><i class="icn icn-coin"></i> ${credits()}</span>
+          <button class="dbo-close" onclick="window.dboCloseChallenge()"><i class="icn icn-close"></i></button>
         </div>
         <div class="dbo-progress-bar"><div class="dbo-progress-fill" style="width:${pct}%"></div></div>
         <div class="dbo-progress-label">${status.progress} / ${status.target} · ${pct}% complete</div>
         <div class="dbo-mission">
           <div class="dbo-mission-row">
-            <div class="dbo-mission-icon">🎯</div>
+            <div class="dbo-mission-icon"><i class="icn icn-target"></i></div>
             <div class="dbo-mission-info">
               <div class="dbo-mission-label">TODAY'S MISSION</div>
               <div class="dbo-mission-name">${status.title}</div>
