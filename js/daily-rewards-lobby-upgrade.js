@@ -183,7 +183,7 @@
     if (!code || code.includes('-')) return;
     try {
       await navigator.clipboard.writeText(code);
-      if (window.showToast) showToast('Room code copied 📋');
+      if (window.showToast) showToast('Room code copied');
     } catch(e) {
       if (window.showToast) showToast(code);
     }
@@ -222,9 +222,9 @@
 
     card.innerHTML = `<div class="waiting-upgrade-title">LOBBY PLAYERS</div>${rows}
       <div class="wup-actions">
-        <button class="wup-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '✓ Ready' : 'Mark Ready'}</button>
-        <button class="wup-btn" onclick="copyRoomCodeUpgrade()">📋 Copy Code</button>
-        <button class="wup-btn share" onclick="shareLobby()">📤 Share Lobby</button>
+        <button class="wup-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '<i class="icn icn-check"></i> Ready' : 'Mark Ready'}</button>
+        <button class="wup-btn" onclick="copyRoomCodeUpgrade()"><i class="icn icn-clipboard"></i> Copy Code</button>
+        <button class="wup-btn share" onclick="shareLobby()"><i class="icn icn-handshake"></i> Share Lobby</button>
       </div>`;
   }
 

@@ -59,7 +59,7 @@ function renderRematchVotes(votes) {
   container.innerHTML = Object.entries(allPlayers).map(function (e) {
     var id = e[0], p = e[1];
     var voted = votes[id] === 'yes';
-    return '<span class="rvb-player' + (voted ? ' voted' : '') + '">' + (voted ? '✓' : '…') + ' ' + p.name + '</span>';
+    return '<span class="rvb-player' + (voted ? ' voted' : '') + '">' + (voted ? '<i class="icn icn-check"></i>' : '…') + ' ' + p.name + '</span>';
   }).join('');
   if (myVoteCast) {
     document.querySelectorAll('.rvb-btn').forEach(function (b) { b.disabled = true; });

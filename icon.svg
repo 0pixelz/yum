@@ -4,17 +4,51 @@
       <stop offset="0%" stop-color="#0f3460"/>
       <stop offset="100%" stop-color="#1a1a2e"/>
     </linearGradient>
-    <linearGradient id="dice" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f5a623"/>
-      <stop offset="100%" stop-color="#e94560"/>
+    <linearGradient id="dieTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffce5c"/>
+      <stop offset="100%" stop-color="#f5a623"/>
     </linearGradient>
+    <linearGradient id="dieRight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e94560"/>
+      <stop offset="100%" stop-color="#a8203a"/>
+    </linearGradient>
+    <linearGradient id="dieLeft" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c33b50"/>
+      <stop offset="100%" stop-color="#7a1a2c"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.55">
+      <stop offset="0%" stop-color="rgba(245,166,35,0.42)"/>
+      <stop offset="100%" stop-color="rgba(245,166,35,0)"/>
+    </radialGradient>
   </defs>
+
+  <!-- Card background -->
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <rect x="96" y="96" width="320" height="320" rx="64" fill="url(#dice)" filter="drop-shadow(0 22px 34px rgba(0,0,0,.35))"/>
-  <circle cx="176" cy="176" r="30" fill="#111827" opacity=".9"/>
-  <circle cx="336" cy="176" r="30" fill="#111827" opacity=".9"/>
-  <circle cx="256" cy="256" r="34" fill="#111827" opacity=".9"/>
-  <circle cx="176" cy="336" r="30" fill="#111827" opacity=".9"/>
-  <circle cx="336" cy="336" r="30" fill="#111827" opacity=".9"/>
-  <text x="256" y="470" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="900" fill="#f5a623" letter-spacing="6">YUM</text>
+
+  <!-- Soft glow halo behind die -->
+  <circle cx="256" cy="240" r="200" fill="url(#halo)"/>
+
+  <!-- Isometric die: 5 pips on top -->
+  <g transform="translate(256 60) scale(2.6)">
+    <!-- LEFT face -->
+    <path d="M-72 50 L0 86 L0 156 L-72 120 Z" fill="url(#dieLeft)"/>
+    <!-- RIGHT face -->
+    <path d="M72 50 L0 86 L0 156 L72 120 Z" fill="url(#dieRight)"/>
+    <!-- TOP face -->
+    <path d="M-72 50 L0 14 L72 50 L0 86 Z" fill="url(#dieTop)" stroke="rgba(255,243,196,0.7)" stroke-width="1"/>
+    <!-- 5 pips on top face (isometric projected) -->
+    <ellipse cx="-32" cy="40" rx="6" ry="3.5" fill="#1a1a2e"/>
+    <ellipse cx="32" cy="40" rx="6" ry="3.5" fill="#1a1a2e"/>
+    <ellipse cx="0" cy="50" rx="6" ry="3.5" fill="#1a1a2e"/>
+    <ellipse cx="-32" cy="60" rx="6" ry="3.5" fill="#1a1a2e"/>
+    <ellipse cx="32" cy="60" rx="6" ry="3.5" fill="#1a1a2e"/>
+    <!-- Edge highlight -->
+    <path d="M-72 50 L0 86 L72 50" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
+  </g>
+
+  <!-- YUM wordmark -->
+  <text x="256" y="468" text-anchor="middle"
+        font-family="'Bebas Neue', 'Arial Narrow', sans-serif"
+        font-size="92" font-weight="900"
+        fill="#f5a623" letter-spacing="14">YUM!</text>
 </svg>

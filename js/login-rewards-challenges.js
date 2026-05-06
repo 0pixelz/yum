@@ -140,9 +140,9 @@
     btn.style.background = 'rgba(245,166,35,.12)';
     btn.onclick = window.openDailyChallenge;
 
-    btn.textContent = status.claimed
-      ? `🎯 Daily Challenge Claimed · +${status.reward} credits`
-      : `🎯 Daily Challenge · ${status.progress}/${status.target} · +${status.reward} credits`;
+    btn.innerHTML = status.claimed
+      ? `<i class="icn icn-target"></i> Daily Challenge Claimed · +${status.reward} credits`
+      : `<i class="icn icn-target"></i> Daily Challenge · ${status.progress}/${status.target} · +${status.reward} credits`;
   }
 
   function addChallengeProgress(stat, amount) {
@@ -155,7 +155,7 @@
     st.progress = Math.min(ch.target, before + (Number(amount) || 1));
     saveChallengeState(st);
     if (before < ch.target && st.progress >= ch.target && window.showToast) {
-      showToast(`✅ Daily challenge complete: +${ch.reward} credits ready`);
+      showToast(`Daily challenge complete: +${ch.reward} credits ready`);
     }
   }
 
@@ -176,7 +176,7 @@
     window.addYumCredits(ch.reward, 'daily_challenge');
     renderDailyChallengeOverlay();
     refreshChallengeButtonText();
-    if (window.showToast) showToast(`🏁 Challenge reward claimed: +${ch.reward} credits`);
+    if (window.showToast) showToast(`Challenge reward claimed: +${ch.reward} credits`);
   };
 
   function injectStyles() {
@@ -218,7 +218,7 @@
     const status = window.getYumDailyChallengeStatus();
     const pct = Math.round((status.progress / status.target) * 100);
     const canClaim = status.complete && !status.claimed;
-    overlay.innerHTML = `<div class="dc-card"><div class="dc-title">🎯 DAILY CHALLENGE</div><div class="dc-sub">Complete today mission to earn Skin Store credits.</div><div class="dc-mission"><div class="dc-name">${status.title}</div><div class="dc-progress"><div class="dc-fill" style="width:${pct}%"></div></div><div class="dc-sub">${status.progress} / ${status.target} · Reward: +${status.reward} credits</div></div><button class="dc-btn" onclick="claimDailyChallenge()" ${canClaim ? '' : 'disabled'}>${status.claimed ? '✓ REWARD CLAIMED' : canClaim ? 'CLAIM CREDITS' : 'KEEP PLAYING'}</button><button class="dc-close" onclick="closeDailyChallenge()">Close</button></div>`;
+    overlay.innerHTML = `<div class="dc-card"><div class="dc-title"><i class="icn icn-target"></i> DAILY CHALLENGE</div><div class="dc-sub">Complete today mission to earn Skin Store credits.</div><div class="dc-mission"><div class="dc-name">${status.title}</div><div class="dc-progress"><div class="dc-fill" style="width:${pct}%"></div></div><div class="dc-sub">${status.progress} / ${status.target} · Reward: +${status.reward} credits</div></div><button class="dc-btn" onclick="claimDailyChallenge()" ${canClaim ? '' : 'disabled'}>${status.claimed ? '<i class="icn icn-check"></i> REWARD CLAIMED' : canClaim ? 'CLAIM CREDITS' : 'KEEP PLAYING'}</button><button class="dc-close" onclick="closeDailyChallenge()">Close</button></div>`;
   }
 
   window.openDailyChallenge = function openDailyChallenge() {

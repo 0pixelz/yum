@@ -11,7 +11,9 @@ function toggleSound() {
   soundEnabled = !soundEnabled;
   localStorage.setItem('yumSound', soundEnabled ? 'on' : 'off');
   const btn = document.getElementById('soundToggle');
-  btn.textContent = soundEnabled ? '🔊' : '🔇';
+  btn.innerHTML = soundEnabled
+    ? '<i class="icn icn-sound-on"></i>'
+    : '<i class="icn icn-sound-off"></i>';
   btn.classList.toggle('muted', !soundEnabled);
 }
 
@@ -116,7 +118,7 @@ const SFX = {
 // Init button state on load
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('soundToggle');
-  if (!soundEnabled) { btn.textContent = '🔇'; btn.classList.add('muted'); }
+  if (!soundEnabled) { btn.innerHTML = '<i class="icn icn-sound-off"></i>'; btn.classList.add('muted'); }
 });
 
 const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
@@ -130,13 +132,13 @@ const categories = [
   { id:'fives', name:'Fives',  icon:'d5', hint:'Sum of all 5s (max 25)', max:25, section:'upper', calc: d=>d.filter(x=>x===5).reduce((a,b)=>a+b,0) },
   { id:'sixes', name:'Sixes',  icon:'d6', hint:'Sum of all 6s (max 30)', max:30, section:'upper', calc: d=>d.filter(x=>x===6).reduce((a,b)=>a+b,0) },
   // Lower
-  { id:'threeKind', name:'3 of a Kind', icon:'🎯', hint:'≥3 same → sum all dice (max 30)', max:30, section:'lower', calc: d=>{const c=counts(d);return Object.values(c).some(v=>v>=3)?d.reduce((a,b)=>a+b,0):0} },
-  { id:'fourKind',  name:'4 of a Kind', icon:'🔥', hint:'≥4 same → sum all dice (max 30)', max:30, section:'lower', calc: d=>{const c=counts(d);return Object.values(c).some(v=>v>=4)?d.reduce((a,b)=>a+b,0):0} },
-  { id:'fullHouse', name:'Full House',  icon:'🏠', hint:'3+2 of a kind → 25 pts', max:25, section:'lower', calc: d=>{const v=Object.values(counts(d)).sort();return(v[0]===2&&v[1]===3)||v[0]===5?25:0} },
-  { id:'smStraight',name:'Sm. Straight',icon:'📏', hint:'4 sequential → 30 pts', max:30, section:'lower', calc: d=>{const u=[...new Set(d)].sort((a,b)=>a-b);const s=u.join('');return['1234','2345','3456'].some(p=>s.includes(p))?30:0} },
-  { id:'lgStraight',name:'Lg. Straight',icon:'📐', hint:'5 sequential → 40 pts', max:40, section:'lower', calc: d=>{const u=[...new Set(d)].sort((a,b)=>a-b);return(u.length===5&&u[4]-u[0]===4)?40:0} },
-  { id:'yum',       name:'YUM!',        icon:'🎲', hint:'5 of a kind → 50 pts', max:50, section:'lower', calc: d=>{return Object.values(counts(d)).some(v=>v===5)?50:0} },
-  { id:'chance',    name:'Chance',      icon:'🎰', hint:'Any roll → sum all dice (max 30)', max:30, section:'lower', calc: d=>d.reduce((a,b)=>a+b,0) },
+  { id:'threeKind', name:'3 of a Kind', icon:'icn-target', hint:'≥3 same → sum all dice (max 30)', max:30, section:'lower', calc: d=>{const c=counts(d);return Object.values(c).some(v=>v>=3)?d.reduce((a,b)=>a+b,0):0} },
+  { id:'fourKind',  name:'4 of a Kind', icon:'icn-flame',  hint:'≥4 same → sum all dice (max 30)', max:30, section:'lower', calc: d=>{const c=counts(d);return Object.values(c).some(v=>v>=4)?d.reduce((a,b)=>a+b,0):0} },
+  { id:'fullHouse', name:'Full House',  icon:'icn-home',   hint:'3+2 of a kind → 25 pts', max:25, section:'lower', calc: d=>{const v=Object.values(counts(d)).sort();return(v[0]===2&&v[1]===3)||v[0]===5?25:0} },
+  { id:'smStraight',name:'Sm. Straight',icon:'icn-flag',   hint:'4 sequential → 30 pts', max:30, section:'lower', calc: d=>{const u=[...new Set(d)].sort((a,b)=>a-b);const s=u.join('');return['1234','2345','3456'].some(p=>s.includes(p))?30:0} },
+  { id:'lgStraight',name:'Lg. Straight',icon:'icn-bolt',   hint:'5 sequential → 40 pts', max:40, section:'lower', calc: d=>{const u=[...new Set(d)].sort((a,b)=>a-b);return(u.length===5&&u[4]-u[0]===4)?40:0} },
+  { id:'yum',       name:'YUM!',        icon:'icn-trophy', hint:'5 of a kind → 50 pts', max:50, section:'lower', calc: d=>{return Object.values(counts(d)).some(v=>v===5)?50:0} },
+  { id:'chance',    name:'Chance',      icon:'icn-gem',    hint:'Any roll → sum all dice (max 30)', max:30, section:'lower', calc: d=>d.reduce((a,b)=>a+b,0) },
 ];
 
 const UPPER_IDS = ['ones','twos','threes','fours','fives','sixes'];
@@ -171,7 +173,7 @@ function cycleDie(i) {
 
 function rollDice() {
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
-  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
+  if(botMode && !playerTurn) { showToast('Wait for the bot!'); return; }
   if(rollsLeft <= 0) return;
   SFX.roll();
   dice = dice.map((v,i) => held[i] ? v : Math.floor(Math.random()*6)+1);
@@ -202,7 +204,7 @@ function clearDice() {
 
 function toggleHold(i) {
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
-  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
+  if(botMode && !playerTurn) { showToast('Wait for the bot!'); return; }
   if(dice[i] === 0) return;
   held[i] = !held[i];
   held[i] ? SFX.hold() : SFX.unhold();
@@ -299,8 +301,8 @@ function renderScores() {
   const bonusProgress = Math.min(upperTotal, BONUS_TARGET);
   html += `<div class="bonus-row">
     <div>
-      <div class="bonus-label">🎁 UPPER BONUS</div>
-      <div class="bonus-sub">${upperTotal}/${BONUS_TARGET} pts → +35 bonus${bonusEarned?' ✓':''}</div>
+      <div class="bonus-label"><i class="icn icn-gift"></i> UPPER BONUS</div>
+      <div class="bonus-sub">${upperTotal}/${BONUS_TARGET} pts → +35 bonus${bonusEarned?' <i class="icn icn-check icn-green"></i>':''}</div>
       <div class="pct-bar-wrap" style="width:180px;margin-top:5px">
         <div class="pct-bar" style="width:${(bonusProgress/BONUS_TARGET)*100}%"></div>
       </div>
@@ -352,14 +354,14 @@ function updateTotals(upperTotal, bonusEarned) {
 
 function openModal(id) {
   // Block if not player's turn
-  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
+  if(botMode && !playerTurn) { showToast('Wait for the bot!'); return; }
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
   // Can't re-score already filled categories
   if(scores[id] !== undefined) { showToast('Already scored!'); return; }
   activeModal = id;
   const cat = categories.find(c=>c.id===id);
   const val = scores[id];
-  document.getElementById('modalTitle').textContent = `${cat.icon} ${cat.name}`;
+  document.getElementById('modalTitle').innerHTML = `${iconHtml(cat.icon,{color:'var(--gold)'})} ${cat.name}`;
   document.getElementById('modalHint').textContent = cat.hint;
 
   const qs = document.getElementById('quickScores');
@@ -370,7 +372,7 @@ function openModal(id) {
   if(allSet) {
     const rolled_score = cat.calc(dice);
     const pct = Math.round((rolled_score / cat.max) * 100);
-    const diceIcons = dice.map(v => ['⚀','⚁','⚂','⚃','⚄','⚅'][v-1]).join(' ');
+    const diceIcons = dice.map(v => `<span style="display:inline-block;width:22px;height:22px;vertical-align:-6px;margin-right:2px">${dieIcon(v)}</span>`).join('');
 
     if(rolled_score > 0) {
       // Show score option only if dice actually score points
@@ -395,8 +397,8 @@ function openModal(id) {
 
     // Strike option — always shown
     const strikeLabel = rolled_score === 0
-      ? '✕ Strike — no matching dice (0 pts)'
-      : '✕ Strike (0 pts)';
+      ? '<i class="icn icn-close"></i> Strike — no matching dice (0 pts)'
+      : '<i class="icn icn-close"></i> Strike (0 pts)';
     btns += `
       <div style="width:100%">
         <button class="quick-btn ${(val===0||rolled_score===0)?'active':''}"
@@ -413,14 +415,14 @@ function openModal(id) {
     // Dice not fully set — only show strike option
     btns += `
       <div style="color:var(--muted);font-size:0.85rem;margin-bottom:12px;text-align:center">
-        🎲 Roll your dice first to see your score
+        <i class="icn icn-dice"></i> Roll your dice first to see your score
       </div>
       <div style="width:100%">
         <button class="quick-btn ${val===0?'active':''}"
           onclick="selectScore(0)"
           style="width:100%;text-align:left;padding:12px 16px;border-radius:12px;
                  background:rgba(233,69,96,0.08);border-color:rgba(233,69,96,0.3)">
-          <span style="color:var(--accent)">✕ Strike (0 pts)</span>
+          <span style="color:var(--accent)"><i class="icn icn-close"></i> Strike (0 pts)</span>
           <span style="font-size:0.72rem;color:var(--muted);display:block;margin-top:2px">
             Scratch this category — can't use it again
           </span>
@@ -551,7 +553,7 @@ function bestHoldForCat(cat, remainRolls, N) {
 }
 
 function diceLabel(d) {
-  return d.filter(v=>v>0).map(v=>['⚀','⚁','⚂','⚃','⚄','⚅'][v-1]).join(' ');
+  return d.filter(v=>v>0).map(v=>`<span style="display:inline-block;width:18px;height:18px;vertical-align:-4px;margin-right:1px">${dieIcon(v)}</span>`).join('');
 }
 
 function holdDesc(initHeld) {
@@ -567,13 +569,13 @@ function runPrediction() {
   const panel = document.getElementById('predPanel');
   const cont  = document.getElementById('predContent');
   panel.style.display='block';
-  cont.innerHTML='<div class="pred-spinner">⏳ Simulating… hang tight</div>';
+  cont.innerHTML='<div class="pred-spinner"><i class="icn icn-orb"></i> Simulating… hang tight</div>';
   panel.scrollIntoView({behavior:'smooth', block:'nearest'});
 
   setTimeout(()=>{
     const unfilledCats = categories.filter(c=>scores[c.id]===undefined);
     if(unfilledCats.length===0){
-      cont.innerHTML='<div class="pred-spinner">🎉 All categories filled!</div>';
+      cont.innerHTML='<div class="pred-spinner"><i class="icn icn-check icn-green"></i> All categories filled!</div>';
       return;
     }
 
@@ -594,7 +596,7 @@ function runPrediction() {
     const hasYumInResults = catResults.every(r => r.cat.id !== 'yum') === false;
     const yumResult = catResults.find(r=>r.cat.id==='yum');
 
-    const medals = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'];
+    // (medal icons now provided via .icn-medal class with rank colors)
 
     let html = `<div style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;padding:0 2px">
       Based on ${N} simulations · ${remRolls} roll${remRolls!==1?'s':''} remaining · unfilled only</div>`;
@@ -608,10 +610,10 @@ function runPrediction() {
       html += `<div style="background:rgba(124,58,237,0.12);border:1px solid rgba(168,85,247,0.4);
         border-radius:12px;padding:12px 14px;margin-bottom:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-weight:800;font-size:1rem;color:#c084fc">🎲 YUM! Chance</div>
+          <div style="font-weight:800;font-size:1rem;color:#c084fc"><i class="icn icn-trophy"></i> YUM! Chance</div>
           <div style="font-family:'Bebas Neue',cursive;font-size:1.6rem;color:${yColor}">${yPct}%</div>
         </div>
-        <div style="font-size:0.8rem;color:var(--gold);margin-bottom:6px;font-weight:700">🎯 ${holdDesc(yr.initHeld)}</div>
+        <div style="font-size:0.8rem;color:var(--gold);margin-bottom:6px;font-weight:700"><i class="icn icn-target"></i> ${holdDesc(yr.initHeld)}</div>
         <div style="height:10px;background:rgba(255,255,255,0.08);border-radius:20px;overflow:hidden;margin-bottom:6px">
           <div style="height:100%;width:${Math.min(yPct,100)}%;border-radius:20px;
             background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width 0.6s"></div>
@@ -632,8 +634,8 @@ function runPrediction() {
       const rank = idx+1;
       html+=`<div class="pred-row">
         <div class="pred-rank">#${rank}</div>
-        <div class="pred-cat">${r.cat.icon} ${r.cat.name}</div>
-        <div class="pred-hold">🎯 ${holdDesc(r.initHeld)}</div>
+        <div class="pred-cat">${iconHtml(r.cat.icon,{color:'var(--gold)'})} ${r.cat.name}</div>
+        <div class="pred-hold"><i class="icn icn-target"></i> ${holdDesc(r.initHeld)}</div>
         <div class="pred-bar-row">
           <div class="pred-bar-wrap">
             <div class="pred-bar-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div>
@@ -671,12 +673,12 @@ async function handleCamImage(event) {
   const preview = document.getElementById('camPreview');
   preview.src = URL.createObjectURL(file);
   preview.style.display = 'block';
-  setStatus('loading', '🔍 Analysing dice…');
+  setStatus('loading', '<i class="icn icn-search"></i> Analysing dice…');
 
   try {
     const results = await scanDiceFromImage(file);
     if(!results || results.length === 0) {
-      setStatus('err', '❌ Could not detect dice — try better lighting & flat surface');
+      setStatus('err', '<i class="icn icn-close"></i> Could not detect dice — try better lighting & flat surface');
       event.target.value = ''; return;
     }
     for(let i=0;i<5;i++) { dice[i] = i < results.length ? results[i] : 0; held[i] = false; }
@@ -684,13 +686,14 @@ async function handleCamImage(event) {
     renderDice(); renderScores();
     const count = results.length;
     if(count === 5) {
-      setStatus('ok', `✅ Detected: ${results.map(v=>['⚀','⚁','⚂','⚃','⚄','⚅'][v-1]).join(' ')}`);
+      const dHtml = results.map(v=>`<span style="display:inline-block;width:18px;height:18px;vertical-align:-4px">${dieIcon(v)}</span>`).join(' ');
+      setStatus('ok', `<i class="icn icn-check"></i> Detected: ${dHtml}`);
     } else {
-      setStatus('ok', `⚠️ Found ${count} dice — set rest manually`);
+      setStatus('ok', `<i class="icn icn-warn"></i> Found ${count} dice — set rest manually`);
     }
   } catch(err) {
     console.error(err);
-    setStatus('err', '❌ Scan failed — try again with better lighting');
+    setStatus('err', '<i class="icn icn-close"></i> Scan failed — try again with better lighting');
   }
   event.target.value = '';
 }
@@ -809,7 +812,7 @@ function detectDiceFromPixels(imageData, w, h) {
 
 function setStatus(type, msg) {
   const el = document.getElementById('camStatus');
-  el.textContent = msg;
+  el.innerHTML = msg;
   el.className = type;
 }
 
@@ -835,7 +838,24 @@ function renderIcon(icon) {
   if(icon && icon.startsWith('d') && icon.length===2) {
     return dieIcon(parseInt(icon[1]));
   }
+  if(icon && icon.startsWith('icn-')) {
+    return '<i class="icn '+icon+'" style="font-size:1.5rem;color:var(--gold)"></i>';
+  }
   return '<span style="font-size:1.3rem">'+icon+'</span>';
+}
+
+// HTML for the icon used in modal titles/inline text — sized to match text
+function iconHtml(icon, opts) {
+  opts = opts || {};
+  const size = opts.size || '1.1em';
+  const color = opts.color || 'currentColor';
+  if(icon && icon.startsWith('d') && icon.length===2) {
+    return '<span style="display:inline-block;vertical-align:-0.25em;width:'+size+';height:'+size+'">'+dieIcon(parseInt(icon[1]))+'</span>';
+  }
+  if(icon && icon.startsWith('icn-')) {
+    return '<i class="icn '+icon+'" style="font-size:'+size+';color:'+color+'"></i>';
+  }
+  return '<span>'+icon+'</span>';
 }
 
 
@@ -852,7 +872,7 @@ let previousPlayerCount = null;
 let previousPlayers = {};
 let prevOpponentScores = {}; // track opponent score counts for change detection
 let prevOpponentPowerups = {}; // track opponent powerup state for change detection
-const POWERUP_ICONS = { extraRoll:'🎲', freezeDie:'❄️', doublePoints:'✨', luckyDice:'🍀', undoMove:'↩️' };
+const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i class="icn icn-gem"></i>', doublePoints:'<i class="icn icn-sparkle"></i>', luckyDice:'<i class="icn icn-star"></i>', undoMove:'<i class="icn icn-refresh"></i>' };
 let mpGameOverShown = false;
 
 function genCode() {
@@ -866,8 +886,9 @@ function getLobbyName() {
 }
 
 function showLobbyErr(msg) {
-  document.getElementById('lobbyErr').textContent = msg;
-  setTimeout(()=>document.getElementById('lobbyErr').textContent='', 3000);
+  const el = document.getElementById('lobbyErr');
+  el.innerHTML = msg;
+  setTimeout(()=>el.textContent='', 3000);
 }
 
 async function createGame() {
@@ -981,7 +1002,7 @@ function listenRoom() {
       normalBtn.disabled  = !isHost;
       powerupBtn.disabled = !isHost;
       if(modeInfo) modeInfo.textContent = gm === 'powerup'
-        ? '⚡ Roll 5-of-a-kind to earn power-ups!'
+        ? 'Roll 5-of-a-kind to earn power-ups!'
         : 'Standard rules, no power-ups';
     }
 
@@ -1130,7 +1151,7 @@ function listenRoom() {
         Object.keys(prevCount).forEach(pid => {
           const removed = (prevCount[pid] || 0) - (curCount[pid] || 0);
           for (let i = 0; i < removed; i++) {
-            const icon = POWERUP_ICONS[pid] || '⚡';
+            const icon = POWERUP_ICONS[pid] || '<i class="icn icn-bolt"></i>';
             const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === pid) || {}).name : null) || pid;
             showToast(`${icon} ${p.name} used ${pName}!`);
           }
@@ -1138,7 +1159,7 @@ function listenRoom() {
 
         // Opponent just entered pending (die-selection) state
         if (!prev.pending && cur.pending) {
-          const icon = POWERUP_ICONS[cur.pending] || '⚡';
+          const icon = POWERUP_ICONS[cur.pending] || '<i class="icn icn-bolt"></i>';
           const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === cur.pending) || {}).name : null) || cur.pending;
           showToast(`${icon} ${p.name} is activating ${pName}…`);
         }
@@ -1161,7 +1182,7 @@ function listenRoom() {
             perDieColors: allPlayers[currentTurnId]?.perDieColors || null },
           oppName
         );
-        document.getElementById('rollCount').textContent = `⏳ Waiting for ${oppName} to roll…`;
+        document.getElementById('rollCount').textContent = `Waiting for ${oppName} to roll…`;
       }
     } else if(data.started && currentTurnId === playerId) {
       // It's our turn — restore normal dice UI
@@ -1196,7 +1217,7 @@ function updateMpUI() {
   const isMyTurn = currentTurnId === playerId;
   const badge = document.getElementById('mpTurnBadge');
   if(isMyTurn) {
-    badge.textContent = '🎲 YOUR TURN';
+    badge.innerHTML = '<i class="icn icn-dice"></i> YOUR TURN';
     badge.className = 'mp-turn-badge my-turn';
   } else {
     const name = allPlayers[currentTurnId]?.name || '…';
@@ -1230,7 +1251,7 @@ function renderLeaderboard() {
         const countMap = {};
         inv.forEach(x => countMap[x] = (countMap[x] || 0) + 1);
         const icons = Object.entries(countMap).map(([pid, cnt]) => {
-          const icon = POWERUP_ICONS[pid] || '⚡';
+          const icon = POWERUP_ICONS[pid] || '<i class="icn icn-bolt"></i>';
           const isActive = lp?.pending === pid;
           const puDef = typeof POWERUPS !== 'undefined' ? POWERUPS.find(p => p.id === pid) : null;
           const name = puDef ? puDef.name : pid;
@@ -1244,7 +1265,7 @@ function renderLeaderboard() {
       <div class="lb-rank">${i+1}</div>
       ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
       <div class="lb-name-col">
-        <div class="lb-name">${p.name}${isMe?' 👆':'<span style="font-size:0.65rem;color:var(--muted)"> 👁 view</span>'}</div>
+        <div class="lb-name">${p.name}${isMe?' <i class="icn icn-tap"></i>':'<span style="font-size:0.65rem;color:var(--muted)"> <i class="icn icn-eye"></i> view</span>'}</div>
         ${pupHtml}
       </div>
       <div class="lb-filled">${filled}/13</div>
@@ -1269,7 +1290,7 @@ function advanceTurn() {
   const idx = playerOrder.indexOf(currentTurnId);
   const nextId = playerOrder[(idx+1) % playerOrder.length];
   roomRef.update({ currentTurn: nextId });
-  showToast('✅ Score saved! ' + (allPlayers[nextId]?.name || 'Next player') + "'s turn");
+  showToast('Score saved! ' + (allPlayers[nextId]?.name || 'Next player') + "'s turn");
 }
 
 function pushScoresToDb() {
@@ -1319,24 +1340,24 @@ confirmScore = function() {
 };
 
 
-// ─── REACTIONS ──────────────────────────────────────────────────────
+// ─── REACTIONS — custom icon stamps (no emojis) ─────────────────────
 const REACTIONS = [
-  { emoji: '👍', label: 'Nice one!' },
-  { emoji: '🔥', label: 'On fire!' },
-  { emoji: '😂', label: 'Ha!' },
-  { emoji: '🎲', label: 'Roll it!' },
-  { emoji: '🏆', label: 'Champion!' },
-  { emoji: '😬', label: 'Yikes…' },
-  { emoji: '👏', label: 'Good job!' },
-  { emoji: '💀', label: 'Dead!' },
-  { emoji: '🤞', label: 'Good luck!' },
-  { emoji: '😎', label: 'Too easy' },
-  { emoji: '🎯', label: 'Bull\'s eye!' },
-  { emoji: '⏰', label: 'Hurry up!' },
-  { emoji: '🥳', label: 'Party time!' },
-  { emoji: '😤', label: 'Intense!' },
-  { emoji: '🤙', label: 'Let\'s go!' },
-  { emoji: '💪', label: 'Strong!' },
+  { emoji: '<i class="icn icn-check icn-green"></i>',  label: 'Nice one!' },
+  { emoji: '<i class="icn icn-flame icn-red"></i>',    label: 'On fire!' },
+  { emoji: '<i class="icn icn-sparkle icn-gold"></i>', label: 'Ha!' },
+  { emoji: '<i class="icn icn-dice icn-gold"></i>',    label: 'Roll it!' },
+  { emoji: '<i class="icn icn-trophy icn-gold"></i>',  label: 'Champion!' },
+  { emoji: '<i class="icn icn-warn icn-gold"></i>',    label: 'Yikes…' },
+  { emoji: '<i class="icn icn-handshake icn-green"></i>', label: 'Good job!' },
+  { emoji: '<i class="icn icn-skull icn-red"></i>',    label: 'Dead!' },
+  { emoji: '<i class="icn icn-star icn-gold"></i>',    label: 'Good luck!' },
+  { emoji: '<i class="icn icn-gem icn-green"></i>',    label: 'Too easy' },
+  { emoji: '<i class="icn icn-target icn-gold"></i>',  label: 'Bull\'s eye!' },
+  { emoji: '<i class="icn icn-bolt icn-gold"></i>',    label: 'Hurry up!' },
+  { emoji: '<i class="icn icn-volcano icn-red"></i>',  label: 'Party time!' },
+  { emoji: '<i class="icn icn-bot icn-red"></i>',      label: 'Intense!' },
+  { emoji: '<i class="icn icn-tap icn-green"></i>',    label: 'Let\'s go!' },
+  { emoji: '<i class="icn icn-medal icn-gold"></i>',   label: 'Strong!' },
 ];
 
 let reactionTargetId = null;
@@ -1427,7 +1448,7 @@ listenRoom = function() {
 // ─── VS BOT ─────────────────────────────────────────────────────────
 let botMode = false;
 let botScores = {};
-let botName = '🤖 Bot';
+let botName = 'Bot';
 let playerTurn = true; // true = human, false = bot
 let botThinkTimeout = null;
 
@@ -1452,7 +1473,7 @@ function startVsBot() {
       if(playerTurn) {
         // closeFirstRoll() now handles the smooth dice-roller transition and turn popup.
       } else {
-        showToast('🤖 Bot goes first!');
+        showToast('Bot goes first!');
         setTimeout(botTakeTurn, 800);
       }
     }
@@ -1471,14 +1492,14 @@ function renderBotLeaderboard() {
     <div class="lb-row me" style="cursor:default">
       <div class="lb-rank">${pLeading?'1':'2'}</div>
       <div style="width:8px"></div>
-      <div class="lb-name">${playerName} ${playerTurn?'🎲':''}</div>
+      <div class="lb-name">${playerName} ${playerTurn?'<i class="icn icn-dice icn-gold"></i>':''}</div>
       <div class="lb-filled">${pFilled}/13</div>
       <div class="lb-score">${pTotal}</div>
     </div>
     <div class="lb-row" style="cursor:pointer;background:rgba(168,85,247,0.07)" onclick="openOppViewer('bot','${botName}',botScores,botScoreDice)">
       <div class="lb-rank">${pLeading?'2':'1'}</div>
       <div style="width:8px"></div>
-      <div class="lb-name">${botName} ${!playerTurn?'🎲':''} <span style="font-size:0.65rem;color:var(--muted)">👁 tap</span></div>
+      <div class="lb-name"><i class="icn icn-bot"></i> ${botName} ${!playerTurn?'<i class="icn icn-dice icn-gold"></i>':''} <span style="font-size:0.65rem;color:var(--muted)"><i class="icn icn-eye"></i> tap</span></div>
       <div class="lb-filled">${bFilled}/13</div>
       <div class="lb-score">${bTotal}</div>
     </div>`;
@@ -1523,7 +1544,7 @@ function botTakeTurn() {
   setTimeout(() => {
     botDice = [0,0,0,0,0].map(() => randDie());
     botHeld = [false,false,false,false,false];
-    document.getElementById('botThinkMsg').textContent = '🤖 Roll 1 of 3…';
+    document.getElementById('botThinkMsg').textContent = 'Roll 1 of 3…';
     showBotDiceInRoller(botDice, botHeld, true);
 
     // Decide hold after roll 1
@@ -1532,7 +1553,7 @@ function botTakeTurn() {
       if(!move1) { finishBotTurn(null); return; }
       // Show which dice bot is holding
       botHeld = move1.held.map(v => v !== 0);
-      document.getElementById('botThinkMsg').textContent = '🤖 Holding ' + botHeld.filter(Boolean).length + ' dice…';
+      document.getElementById('botThinkMsg').textContent = 'Holding ' + botHeld.filter(Boolean).length + ' dice…';
       showBotDiceInRoller(botDice, botHeld, false);
 
       // Roll 2
@@ -1540,11 +1561,11 @@ function botTakeTurn() {
         botDice = move1.held.map((v,i) => v === 0 ? randDie() : v);
         const move2 = botChooseBestMove();
         botHeld = move2 ? move2.held.map(v => v !== 0) : [true,true,true,true,true];
-        document.getElementById('botThinkMsg').textContent = '🤖 Roll 2 of 3…';
+        document.getElementById('botThinkMsg').textContent = 'Roll 2 of 3…';
         showBotDiceInRoller(botDice, botHeld, true);
 
         setTimeout(() => {
-          document.getElementById('botThinkMsg').textContent = '🤖 Holding ' + botHeld.filter(Boolean).length + ' dice…';
+          document.getElementById('botThinkMsg').textContent = 'Holding ' + botHeld.filter(Boolean).length + ' dice…';
           showBotDiceInRoller(botDice, botHeld, false);
 
           // Roll 3
@@ -1552,12 +1573,12 @@ function botTakeTurn() {
             if(!move2) { finishBotTurn(null); return; }
             botDice = move2.held.map((v,i) => v === 0 ? randDie() : v);
             botHeld = [true,true,true,true,true];
-            document.getElementById('botThinkMsg').textContent = '🤖 Roll 3 of 3…';
+            document.getElementById('botThinkMsg').textContent = 'Roll 3 of 3…';
             showBotDiceInRoller(botDice, botHeld, true);
 
             setTimeout(() => {
               const finalMove = botChooseBestMove();
-              document.getElementById('botThinkMsg').textContent = '🤖 Scoring…';
+              document.getElementById('botThinkMsg').textContent = 'Scoring…';
               finishBotTurn(finalMove);
             }, 900);
           }, 700);
@@ -1603,12 +1624,16 @@ function animateBotDice() {
 let _botActionTimer = null;
 function showBotActionPopup(name, diceArr, catName, scored, isPerfect, isZero, isMp) {
   const pop = document.getElementById('botActionPopup');
-  document.getElementById('bapAvatar').textContent = isMp ? '👤' : '🤖';
+  document.getElementById('bapAvatar').innerHTML = isMp
+    ? '<i class="icn icn-players"></i>'
+    : '<i class="icn icn-bot"></i>';
   document.getElementById('bapName').textContent = name.toUpperCase();
   const diceEl = document.getElementById('bapDice');
   if(diceArr && diceArr.length > 0) {
     diceEl.innerHTML = diceArr
-      .map(v => `<span class="bap-die">${v > 0 ? DICE_FACES[v-1] : '⬜'}</span>`)
+      .map(v => `<span class="bap-die">${v > 0
+        ? `<span style="display:inline-block;width:24px;height:24px">${dieIcon(v)}</span>`
+        : '<span style="opacity:0.3">·</span>'}</span>`)
       .join('');
     diceEl.style.display = 'flex';
   } else {
@@ -1617,8 +1642,8 @@ function showBotActionPopup(name, diceArr, catName, scored, isPerfect, isZero, i
   }
   document.getElementById('bapCat').textContent = catName;
   document.getElementById('bapScore').textContent = scored;
-  document.getElementById('bapLabel').textContent =
-    isPerfect ? 'PERFECT! 🏆' : isZero ? 'STRUCK OUT' : 'SCORED';
+  document.getElementById('bapLabel').innerHTML =
+    isPerfect ? 'PERFECT! <i class="icn icn-trophy icn-gold"></i>' : isZero ? 'STRUCK OUT' : 'SCORED';
   pop.classList.remove('perfect', 'zero', 'mp');
   if(isPerfect) pop.classList.add('perfect');
   else if(isZero) pop.classList.add('zero');
@@ -1633,7 +1658,7 @@ function finishBotTurn(move) {
     // No move, skip
     playerTurn = true;
     renderBotLeaderboard();
-    showToast('🎲 Your turn!');
+    showToast('Your turn!');
     return;
   }
 
@@ -1704,12 +1729,12 @@ confirmScore = function() {
 // Patch cycleDie/rollDice/toggleHold to block when bot is playing
 const _origCycleDie = cycleDie;
 cycleDie = function(i) {
-  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
+  if(botMode && !playerTurn) { showToast('Wait for the bot!'); return; }
   _origCycleDie(i);
 };
 const _origRollDice = rollDice;
 rollDice = function() {
-  if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
+  if(botMode && !playerTurn) { showToast('Wait for the bot!'); return; }
   _origRollDice();
 };
 
@@ -1719,7 +1744,9 @@ let botScoreDice = {}; // stores dice used per category for bot
 
 function openOppViewer(targetId, targetName, targetScores, targetScoreDice) {
   const total = calcTotal(targetScores);
-  document.getElementById('oppAvatar').textContent = targetId === 'bot' ? '🤖' : '👤';
+  document.getElementById('oppAvatar').innerHTML = targetId === 'bot'
+    ? '<i class="icn icn-bot"></i>'
+    : '<i class="icn icn-players"></i>';
   document.getElementById('oppHName').textContent = targetName;
   document.getElementById('oppHScore').textContent = total + ' pts';
 
@@ -1736,7 +1763,7 @@ function openOppViewer(targetId, targetName, targetScores, targetScoreDice) {
       const pctColor = pct>=75?'#4ecdc4':pct>=40?'#f5a623':'#e94560';
 
       const diceHtml = usedDice
-        ? usedDice.map(v=>`<span class="opp-die-chip">${['⚀','⚁','⚂','⚃','⚄','⚅'][v-1]}</span>`).join('')
+        ? usedDice.map(v=>`<span class="opp-die-chip"><span style="display:inline-block;width:18px;height:18px;vertical-align:-4px">${dieIcon(v)}</span></span>`).join('')
         : filled ? '<span style="font-size:0.7rem;opacity:0.4">dice unknown</span>' : '';
 
       return `<div class="opp-score-row">
@@ -1765,7 +1792,7 @@ function openOppViewer(targetId, targetName, targetScores, targetScoreDice) {
     <div>${buildRows(upperIds)}</div>
     <div class="opp-bonus-row">
       <div>
-        <div style="font-weight:800;font-size:0.85rem;color:var(--green)">🎁 UPPER BONUS</div>
+        <div style="font-weight:800;font-size:0.85rem;color:var(--green)"><i class="icn icn-gift"></i> UPPER BONUS</div>
         <div style="font-size:0.72rem;color:var(--muted)">${upperTotal}/63 → +35</div>
       </div>
       <div style="font-family:'Bebas Neue',cursive;font-size:1.4rem;color:${bonusEarned?'var(--gold)':'var(--muted)'}">
@@ -1814,15 +1841,14 @@ function showOpponentDiceInRoller(liveDice, oppName) {
   dice = savedDice;
   held = savedHeld;
 
-  let rollText = `👤 ${oppName} — Roll ${rollNum} / 3`;
+  let rollText = `${oppName} — Roll ${rollNum} / 3`;
   if (typeof powerupMode !== 'undefined' && powerupMode) {
     const oppPup = allPlayers[currentTurnId]?.livePowerups;
     if (oppPup?.pending) {
-      const icon = POWERUP_ICONS[oppPup.pending] || '⚡';
       const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === oppPup.pending) || {}).name : null) || oppPup.pending;
-      rollText += `  ${icon} Using ${pName}…`;
+      rollText += `  · Using ${pName}…`;
     } else if (oppPup?.doubleActive) {
-      rollText += '  ✨ Double Points!';
+      rollText += '  · Double Points!';
     }
   }
   document.getElementById('rollCount').textContent = rollText;
@@ -1831,7 +1857,7 @@ function showOpponentDiceInRoller(liveDice, oppName) {
 function showOpponentWaiting(oppName) {
   if(!myDiceUI) return; // already showing something
   document.getElementById('rollCount').textContent =
-    `⏳ Waiting for ${oppName} to roll…`;
+    `Waiting for ${oppName} to roll…`;
 }
 
 function restoreMyDiceUI() {
@@ -1853,8 +1879,10 @@ function showGameOver(players) {
 
   if (winner.isMe) SFX.win();
   else if (!tied) SFX.lose();
-  document.getElementById('goTrophy').textContent =
-    tied ? '🤝' : winner.isMe ? '🏆' : '😤';
+  document.getElementById('goTrophy').innerHTML =
+    tied ? '<i class="icn icn-handshake icn-gold"></i>'
+         : winner.isMe ? '<i class="icn icn-trophy icn-gold"></i>'
+                       : '<i class="icn icn-skull icn-red"></i>';
   document.getElementById('goTitle').textContent =
     tied ? "IT'S A TIE!" : winner.isMe ? 'YOU WIN!' : 'YOU LOSE!';
   document.getElementById('goWinner').textContent =
@@ -1862,7 +1890,7 @@ function showGameOver(players) {
 
   document.getElementById('goScores').innerHTML = players.map((p,i) =>
     `<div class="gameover-score-row">
-      <div class="gameover-score-name">${i===0&&!tied?'🥇 ':''}${p.name}${p.isMe?' (you)':''}</div>
+      <div class="gameover-score-name">${i===0&&!tied?'<i class="icn icn-medal icn-gold"></i> ':''}${p.name}${p.isMe?' (you)':''}</div>
       <div class="gameover-score-val">${p.score}</div>
     </div>`
   ).join('');
@@ -1905,7 +1933,7 @@ function rematch() {
         if(playerTurn) {
           showYourTurnPop('YOU GO FIRST!');
         } else {
-          showToast('🤖 Bot goes first!');
+          showToast('Bot goes first!');
           setTimeout(botTakeTurn, 800);
         }
       }
@@ -1974,11 +2002,11 @@ function closeSessionOverlay(e) {
 function renderSessionContent() {
   // Build tabs: Summary + each game
   const tabs = document.getElementById('sessionTabs');
-  tabs.innerHTML = `<button class="session-tab ${sessionTab==='summary'?'active':''}" onclick="setSessionTab('summary')">📊 Summary</button>`
+  tabs.innerHTML = `<button class="session-tab ${sessionTab==='summary'?'active':''}" onclick="setSessionTab('summary')"><i class="icn icn-clipboard"></i> Summary</button>`
     + sessionGames.map((g,i) =>
         `<button class="session-tab ${sessionTab==='game'+g.gameNum?'active':''}"
           onclick="setSessionTab('game${g.gameNum}')">
-          Game ${g.gameNum}${g.winnerId==='me'?' 🏆':''}
+          Game ${g.gameNum}${g.winnerId==='me'?' <i class="icn icn-trophy icn-gold"></i>':''}
         </button>`
       ).join('');
 
@@ -2011,14 +2039,17 @@ function renderSessionSummary(cont) {
   });
 
   const sorted = Object.entries(stats).sort((a,b)=>b[1].wins-a[1].wins||b[1].totalScore-a[1].totalScore);
-  const medals = ['🥇','🥈','🥉'];
+  const medalColors = ['#f5d76e', '#d3d3d3', '#cd7f32'];
+  const renderMedal = (i) => i < 3
+    ? `<i class="icn icn-medal" style="color:${medalColors[i]};font-size:1.4rem"></i>`
+    : (i+1);
 
   let html = `<div class="session-summary">
     <div class="session-summary-title">STANDINGS · ${sessionGames.length} GAME${sessionGames.length!==1?'S':''}</div>`;
 
   sorted.forEach(([name, s], i) => {
     html += `<div class="session-summary-row">
-      <div class="ssrow-rank">${medals[i]||i+1}</div>
+      <div class="ssrow-rank">${renderMedal(i)}</div>
       <div>
         <div class="ssrow-name">${name}${s.isMe?' (you)':''}</div>
         <div style="font-size:0.7rem;color:var(--muted)">${s.games} game${s.games!==1?'s':''} · avg ${Math.round(s.totalScore/s.games)} pts</div>
@@ -2037,7 +2068,7 @@ function renderSessionSummary(cont) {
     html += `<div style="background:var(--card);border-radius:10px;padding:10px 14px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.06);cursor:pointer" onclick="setSessionTab('game${g.gameNum}')">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
         <span style="font-family:'Bebas Neue',cursive;letter-spacing:2px;color:var(--muted)">GAME ${g.gameNum}</span>
-        <span style="font-size:0.75rem;color:var(--gold);font-weight:700">🏆 ${g.winner}</span>
+        <span style="font-size:0.75rem;color:var(--gold);font-weight:700"><i class="icn icn-trophy"></i> ${g.winner}</span>
       </div>
       ${sorted.map(p=>`<div style="display:flex;justify-content:space-between;font-size:0.85rem">
         <span style="font-weight:700">${p.name}</span>
@@ -2059,7 +2090,7 @@ function renderSessionGame(cont, game) {
   let html = `<div class="session-game-card">
     <div class="sgc-header">
       <div class="sgc-title">GAME ${game.gameNum}</div>
-      <div class="sgc-winner">🏆 ${game.winner}</div>
+      <div class="sgc-winner"><i class="icn icn-trophy icn-gold"></i> ${game.winner}</div>
     </div>
     <table class="sgc-table">
       <thead><tr>
@@ -2155,7 +2186,7 @@ function closeConfirm() {
 async function scanQrCode(event) {
   const file = event.target.files[0];
   if(!file) return;
-  showLobbyErr('📷 Reading QR code…');
+  showLobbyErr('<i class="icn icn-camera"></i> Reading QR code…');
 
   const base64 = await new Promise((res, rej) => {
     const reader = new FileReader();
@@ -2184,10 +2215,10 @@ async function scanQrCode(event) {
     const raw = (data.content?.[0]?.text || '').trim().toUpperCase();
 
     if(!raw || raw === 'NULL' || raw.length !== 4) {
-      showLobbyErr('❌ Could not read QR code — try again');
+      showLobbyErr('<i class="icn icn-close"></i> Could not read QR code — try again');
     } else {
       document.getElementById('joinCode').value = raw;
-      document.getElementById('lobbyErr').textContent = '✅ Room code scanned!';
+      document.getElementById('lobbyErr').innerHTML = '<i class="icn icn-check"></i> Room code scanned!';
       document.getElementById('lobbyErr').style.color = 'var(--green)';
       setTimeout(() => {
         document.getElementById('lobbyErr').textContent = '';
@@ -2195,7 +2226,7 @@ async function scanQrCode(event) {
       }, 2000);
     }
   } catch(e) {
-    showLobbyErr('❌ Scan failed — type the code manually');
+    showLobbyErr('<i class="icn icn-close"></i> Scan failed — type the code manually');
   }
   event.target.value = '';
 }

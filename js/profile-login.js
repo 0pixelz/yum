@@ -98,7 +98,9 @@
 
     const google = loadJSON(GOOGLE_PROFILE_KEY, null);
     const device = getDeviceProfile();
-    const label = google ? `✅ ${google.name || google.email}` : `📱 Device profile: ${device.name}`;
+    const label = google
+      ? `<i class="icn icn-check icn-green"></i> ${google.name || google.email}`
+      : `<i class="icn icn-tap"></i> Device profile: ${device.name}`;
 
     bar.innerHTML = `
       <div style="width:100%;text-align:center;color:var(--muted);font-size:.72rem;font-weight:800;margin-bottom:2px">${label}</div>
@@ -144,7 +146,7 @@
       saveJSON(GOOGLE_PROFILE_KEY, profile);
       applyProfileToLobby(profile);
       if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
-      if (window.showToast) showToast('Signed in with Google ✅');
+      if (window.showToast) showToast('Signed in with Google');
     } catch(e) {
       console.warn('Google sign-in failed:', e);
       if (window.showToast) showToast('Google sign-in failed');
@@ -179,7 +181,7 @@
       saveJSON(GOOGLE_PROFILE_KEY, profile);
       applyProfileToLobby(profile);
       if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
-      if (window.showToast) showToast('Signed in with Apple ✅');
+      if (window.showToast) showToast('Signed in with Apple');
     } catch(e) {
       console.warn('Apple sign-in failed:', e);
       if (window.showToast) showToast('Apple sign-in failed');
@@ -190,7 +192,7 @@
     localStorage.removeItem(GOOGLE_PROFILE_KEY);
     const profile = getDeviceProfile();
     applyProfileToLobby(profile);
-    if (window.showToast) showToast('Using this device profile 📱');
+    if (window.showToast) showToast('Using this device profile');
   };
 
   window.signOutProfile = async function signOutProfile() {
@@ -222,7 +224,7 @@
         saveJSON(GOOGLE_PROFILE_KEY, profile);
         applyProfileToLobby(profile);
         if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
-        if (window.showToast) showToast('Signed in with Google ✅');
+        if (window.showToast) showToast('Signed in with Google');
       }
     } catch(e) {}
   }
@@ -355,7 +357,7 @@
     }
 
     const copied = await copyText(`${text}\n${url}`);
-    if (window.showToast) showToast(copied ? 'Lobby link copied 📋' : url);
+    if (window.showToast) showToast(copied ? 'Lobby link copied' : url);
     else alert(copied ? 'Lobby link copied!' : url);
   };
 

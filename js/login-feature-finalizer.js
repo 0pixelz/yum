@@ -139,7 +139,7 @@
         const isActive = active === skin.id;
         const preview = DOT_FACES.map(face => `<span style="${skin.style}">${face}</span>`).join('');
         let action = '';
-        if (isActive) action = `<button class="ssu-action active" disabled>✓ EQUIPPED</button>`;
+        if (isActive) action = `<button class="ssu-action active" disabled><i class="icn icn-check"></i> EQUIPPED</button>`;
         else if (isOwned) action = `<button class="ssu-action" onclick="equipSkin('${skin.id}')">EQUIP</button>`;
         else if (c >= skin.cost) action = `<button class="ssu-action" onclick="buySkin('${skin.id}')">UNLOCK · ${skin.cost} CREDITS</button>`;
         else action = `<button class="ssu-action locked" disabled>LOCKED · NEED ${skin.cost} CREDITS</button>`;
@@ -147,7 +147,7 @@
       }).join('');
       premiumSection = `<div class="ssu-section"><div class="ssu-section-title">PREMIUM CREDIT SKINS</div><div class="ssu-skins">${skins}</div></div>`;
     }
-    overlay.innerHTML = `<div class="ssu-sheet"><div class="ssu-head"><div class="ssu-title">🎨 SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()">✕</button></div>${walletBlock}<div id="ssuContent">${premiumSection}</div></div>`;
+    overlay.innerHTML = `<div class="ssu-sheet"><div class="ssu-head"><div class="ssu-title"><i class="icn icn-palette"></i> SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()"><i class="icn icn-close"></i></button></div>${walletBlock}<div id="ssuContent">${premiumSection}</div></div>`;
   }
 
   window.openSkinStore = function() { renderFinalSkinStore(); ensureStoreOverlay().classList.add('open'); };
@@ -167,7 +167,7 @@
     localStorage.setItem(streakKey, String(streak));
     const reward = streak % 7 === 0 ? 5 : streak >= 3 ? 2 : 1;
     window.addYumCredits(reward, 'daily_bonus_final');
-    toast(`🎁 Daily bonus claimed: +${reward} credits`);
+    toast(`Daily bonus claimed: +${reward} credits`);
     refreshButtons();
   };
 
@@ -193,7 +193,7 @@
       storeBtn.onclick = window.openSkinStore;
       profileBar.insertAdjacentElement('afterend', storeBtn);
     }
-    storeBtn.textContent = `🎨 Skin Store · ${credits()} credits`;
+    storeBtn.innerHTML = `<i class="icn icn-palette"></i> Skin Store · ${credits()} credits`;
 
     let bonus = document.getElementById('dailyRewardMenuBtn');
     if (!bonus) {
@@ -206,7 +206,7 @@
     bonus.onclick = finalClaimDaily;
     const today = new Date().toISOString().slice(0,10);
     const claimed = localStorage.getItem('yum_daily_bonus_final_date') === today;
-    bonus.textContent = claimed ? `🎁 Daily Bonus Claimed · ${credits()} credits` : `🎁 Claim Daily Bonus · ${credits()} credits`;
+    bonus.innerHTML = claimed ? `<i class="icn icn-gift"></i> Daily Bonus Claimed · ${credits()} credits` : `<i class="icn icn-gift"></i> Claim Daily Bonus · ${credits()} credits`;
 
     let challenge = document.getElementById('dailyChallengeMenuBtn');
     if (!challenge) {
@@ -241,7 +241,7 @@
     const display = document.getElementById('displayCode');
     if (display) code = display.textContent.trim();
     if (!code || code.includes('-')) return;
-    try { await navigator.clipboard.writeText(code); toast('Room code copied 📋'); }
+    try { await navigator.clipboard.writeText(code); toast('Room code copied'); }
     catch(e) { toast(code); }
   };
 
@@ -266,7 +266,7 @@
       const ready = !!p.ready;
       return `<div class="wup-player"><div class="wup-avatar">${initial}</div><div class="wup-info"><div class="wup-name">${p.name || 'Player'}${isMe ? ' · You' : ''}</div><div class="wup-meta">${isHost ? 'Host' : 'Guest'} · ${ready ? 'Ready' : 'Not ready'}</div></div><div class="wup-badge ${ready ? 'ready' : ''}">${isHost ? 'HOST' : ready ? 'READY' : 'WAIT'}</div></div>`;
     }).join('') || '<div class="ssu-small">Waiting for players…</div>';
-    card.innerHTML = `<div class="waiting-upgrade-title">LOBBY PLAYERS</div>${rows}<div class="wup-actions"><button class="wup-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '✓ Ready' : 'Mark Ready'}</button><button class="wup-btn" onclick="copyRoomCodeUpgrade()">📋 Copy Code</button><button class="wup-btn share" onclick="shareLobby()">📤 Share Lobby</button></div>`;
+    card.innerHTML = `<div class="waiting-upgrade-title">LOBBY PLAYERS</div>${rows}<div class="wup-actions"><button class="wup-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '<i class="icn icn-check"></i> Ready' : 'Mark Ready'}</button><button class="wup-btn" onclick="copyRoomCodeUpgrade()"><i class="icn icn-clipboard"></i> Copy Code</button><button class="wup-btn share" onclick="shareLobby()"><i class="icn icn-handshake"></i> Share Lobby</button></div>`;
   }
 
   function patchWaitingRender() {

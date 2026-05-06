@@ -164,7 +164,7 @@
     }
 
     playYumSound();
-    if (window.showToast) showToast('🎉 YUM! 5 of a kind!');
+    if (window.showToast) showToast('YUM! 5 of a kind!');
   }
 
   function patchRollDice() {

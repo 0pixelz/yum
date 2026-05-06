@@ -89,11 +89,11 @@
     const list = ids();
     const rows = list.map(id => {
       const vote = votes ? votes[id] : undefined;
-      const label = vote === true ? '✓ YES' : vote === false ? '✕ NO' : '… waiting';
+      const label = vote === true ? '<i class="icn icn-check"></i> YES' : vote === false ? '<i class="icn icn-close"></i> NO' : '… waiting';
       return '<div class="rvb-player ' + (vote !== undefined ? 'voted' : '') + '">' + playerName(id) + ' ' + label + '</div>';
     }).join('');
     const countdownHtml = voteTimer
-      ? '<div class="rvb-player rvb-countdown" style="width:100%;margin-top:4px;color:var(--muted)">⏱ ' + voteCountdown + 's remaining</div>'
+      ? '<div class="rvb-player rvb-countdown" style="width:100%;margin-top:4px;color:var(--muted)">' + voteCountdown + 's remaining</div>'
       : '';
     box.innerHTML = rows + countdownHtml + (message ? '<div class="rvb-player voted" style="width:100%;margin-top:8px">' + message + '</div>' : '');
   }
@@ -168,7 +168,7 @@
     clearVoteTimer();
 
     resetLocalBoard();
-    if (typeof showToast === 'function') showToast('🔄 Rematch started! Rolling for first turn…');
+    if (typeof showToast === 'function') showToast('Rematch started! Rolling for first turn…');
 
     const players = sortedPlayersForFirstRoll();
     setTimeout(() => {
@@ -190,7 +190,7 @@
     clearVoteTimer();
 
     const name = cancelledBy ? playerName(cancelledBy) : 'A player';
-    const votesMsg = '❌ ' + name + ' declined — returning to lobby…';
+    const votesMsg = '<i class="icn icn-close icn-red"></i> ' + name + ' declined — returning to lobby…';
     showBar();
     renderVotes({}, votesMsg);
     document.querySelectorAll('.rvb-btn').forEach(btn => {
@@ -236,7 +236,7 @@
         const allYes = hasAnyVote && list.length >= 2 && list.every(id => votes[id] === true);
         if (allYes) {
           clearVoteTimer();
-          renderVotes(votes, '✅ Both players accepted — starting rematch…');
+          renderVotes(votes, '<i class="icn icn-check icn-green"></i> Both players accepted — starting rematch…');
           document.querySelectorAll('.rvb-btn').forEach(btn => {
             btn.disabled = true;
             btn.style.opacity = '0.55';

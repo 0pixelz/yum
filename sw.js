@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yum-pwa-v3';
+const CACHE_NAME = 'yum-pwa-v4-icons';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

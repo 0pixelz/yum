@@ -79,9 +79,9 @@
       if (typeof window.openDailyChallenge === 'function') window.openDailyChallenge();
     };
 
-    btn.textContent = status.claimed
-      ? `🎯 Daily Challenge Claimed · +${status.reward} credits`
-      : `🎯 Daily Challenge · ${status.progress}/${status.target} · +${status.reward} credits`;
+    btn.innerHTML = status.claimed
+      ? `<i class="icn icn-target"></i> Daily Challenge Claimed · +${status.reward} credits`
+      : `<i class="icn icn-target"></i> Daily Challenge · ${status.progress}/${status.target} · +${status.reward} credits`;
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fixButton);
