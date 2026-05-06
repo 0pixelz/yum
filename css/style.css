@@ -1978,7 +1978,8 @@
   }
 
   /* Power-up picker modal */
-  #powerupPickerModal {
+  #powerupPickerModal,
+  #botModeModal {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.82);
     z-index: 600;
@@ -1986,8 +1987,15 @@
     opacity: 0; pointer-events: none;
     transition: opacity 0.22s;
   }
-  #powerupPickerModal.open {
+  #powerupPickerModal.open,
+  #botModeModal.open {
     opacity: 1; pointer-events: all;
+  }
+  #botModeModal .pup-picker-sheet {
+    transform: translateY(100%);
+  }
+  #botModeModal.open .pup-picker-sheet {
+    transform: translateY(0);
   }
 
   .pup-picker-sheet {

@@ -1640,15 +1640,45 @@ let botName = 'Bot';
 let playerTurn = true; // true = human, false = bot
 let botThinkTimeout = null;
 
-function startVsBot() {
+function openBotModeChoice() {
+  const name = document.getElementById('playerName').value.trim();
+  if(!name) { showLobbyErr('Enter your name first!'); return; }
+  document.getElementById('botModeModal').classList.add('open');
+}
+
+function closeBotModeChoice() {
+  document.getElementById('botModeModal').classList.remove('open');
+}
+
+function chooseBotMode(mode) {
+  document.getElementById('botModeModal').classList.remove('open');
+  startVsBot(mode);
+}
+
+function startVsBot(mode) {
   const name = document.getElementById('playerName').value.trim();
   if(!name) { showLobbyErr('Enter your name first!'); return; }
   playerName = name;
   botMode = true;
   botScores = {};
   scores = {};
+
+  // Reset power-up state, then enable if requested
+  if (typeof playerPowerups !== 'undefined') {
+    playerPowerups     = [];
+    pendingPowerup     = null;
+    doublePointsActive = false;
+    undoPowerupState   = null;
+    freezeDieIndex     = -1;
+    frozenDieValue     = 0;
+  }
+  if (typeof powerupMode !== 'undefined') {
+    powerupMode = (mode === 'powerup');
+  }
+
   document.getElementById('lobbyOverlay').style.display = 'none';
   document.getElementById('leaderboard').style.display = 'block';
+  if (typeof renderPowerupBar === 'function') renderPowerupBar();
   renderBotLeaderboard();
   renderScores();
   syncDiceUI();

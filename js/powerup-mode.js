@@ -373,8 +373,8 @@ renderDice = function(justRolled) {
 // Patch confirmNewGame — reset powerup state when returning to lobby (solo only)
 const _pupOrigConfirmNewGame = confirmNewGame;
 confirmNewGame = function() {
-  if (powerupMode && !mpMode) {
-    // Solo powerup mode — just return to lobby directly
+  if (powerupMode && !mpMode && !botMode) {
+    // Pure solo powerup mode — just return to lobby directly
     powerupMode        = false;
     playerPowerups     = [];
     pendingPowerup     = null;
@@ -408,11 +408,11 @@ const _pupOrigRenderScores = renderScores;
 renderScores = function() {
   _pupOrigRenderScores();
   // Only trigger solo game-over — multiplayer handles it via listenRoom
-  if (!powerupMode || _pupGameOverPending || mpMode) return;
+  if (!powerupMode || _pupGameOverPending || mpMode || botMode) return;
   if (Object.keys(scores).length >= categories.length) {
     _pupGameOverPending = true;
     setTimeout(() => {
-      if (!powerupMode || mpMode) return;
+      if (!powerupMode || mpMode || botMode) return;
       const total   = calcTotal(scores);
       const players = [{ name: playerName, score: total, isMe: true }];
       // Keep powerupMode=true so rematch works; showGameOver handles display
@@ -425,6 +425,20 @@ renderScores = function() {
 // Patch rematch — restart powerup mode fresh (solo only; MP uses doMpRematch)
 const _pupOrigRematch = rematch;
 rematch = function() {
+  if (powerupMode && botMode) {
+    // Bot + powerup rematch: reset powerup state, let bot rematch handle the rest.
+    // The closeFirstRoll patch will reopen the picker.
+    playerPowerups      = [];
+    pendingPowerup      = null;
+    doublePointsActive  = false;
+    undoPowerupState    = null;
+    freezeDieIndex      = -1;
+    frozenDieValue      = 0;
+    _pupGameOverPending = false;
+    renderPowerupBar();
+    _pupOrigRematch();
+    return;
+  }
   if (!powerupMode || mpMode) { _pupOrigRematch(); return; }
   document.getElementById('gameOverlay').classList.remove('open');
   // Full reset of powerup game state (keep mode active)
@@ -445,6 +459,20 @@ rematch = function() {
 // Patch quitGame — cleanly exit powerup mode (solo only; MP quitGame calls leaveGame)
 const _pupOrigQuitGame = quitGame;
 quitGame = function() {
+  if (powerupMode && botMode) {
+    // Bot + powerup quit: clear powerup state, let bot's quitGame handle teardown.
+    powerupMode         = false;
+    _pupGameOverPending = false;
+    playerPowerups      = [];
+    pendingPowerup      = null;
+    doublePointsActive  = false;
+    undoPowerupState    = null;
+    freezeDieIndex      = -1;
+    frozenDieValue      = 0;
+    document.getElementById('powerupBar').style.display = 'none';
+    _pupOrigQuitGame();
+    return;
+  }
   if (!powerupMode || mpMode) { _pupOrigQuitGame(); return; }
   powerupMode         = false;
   _pupGameOverPending = false;
@@ -462,11 +490,11 @@ quitGame = function() {
   document.getElementById('lobbyOverlay').style.display = 'flex';
 };
 
-// Patch closeFirstRoll — in MP power-up mode, show power-up picker after first-roll
+// Patch closeFirstRoll — in MP/bot power-up mode, show power-up picker after first-roll
 const _pupOrigCloseFirstRoll = closeFirstRoll;
 closeFirstRoll = function() {
   _pupOrigCloseFirstRoll();
-  if (powerupMode && mpMode) {
+  if (powerupMode && (mpMode || botMode)) {
     // Show picker after the first-roll overlay finishes animating out (~900ms)
     setTimeout(() => openPowerupPickerModal('start'), 1100);
   }
