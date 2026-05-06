@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yum-pwa-v5-inline-icons';
+const CACHE_NAME = 'yum-pwa-v6-create-tap-fix';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
