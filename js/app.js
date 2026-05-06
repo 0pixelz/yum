@@ -1706,21 +1706,51 @@ function renderBotLeaderboard() {
   const bFilled = Object.keys(botScores).length;
   const pLeading = pTotal >= bTotal;
 
+  const playerPupHtml = _renderBotLbPupHtml(
+    typeof playerPowerups !== 'undefined' ? playerPowerups : [],
+    typeof pendingPowerup !== 'undefined' ? pendingPowerup : null
+  );
+  const botPupHtml = _renderBotLbPupHtml(
+    typeof botPowerups !== 'undefined' ? botPowerups : [],
+    null
+  );
+
   document.getElementById('lbRows').innerHTML = `
     <div class="lb-row me" style="cursor:default">
       <div class="lb-rank">${pLeading?'1':'2'}</div>
       <div style="width:8px"></div>
-      <div class="lb-name">${playerName} ${playerTurn?'<i class="icn icn-dice icn-gold"></i>':''}</div>
+      <div class="lb-name-col">
+        <div class="lb-name">${playerName} ${playerTurn?'<i class="icn icn-dice icn-gold"></i>':''}</div>
+        ${playerPupHtml}
+      </div>
       <div class="lb-filled">${pFilled}/13</div>
       <div class="lb-score">${pTotal}</div>
     </div>
     <div class="lb-row" style="cursor:pointer;background:rgba(168,85,247,0.07)" onclick="openOppViewer('bot','${botName}',botScores,botScoreDice)">
       <div class="lb-rank">${pLeading?'2':'1'}</div>
       <div style="width:8px"></div>
-      <div class="lb-name"><i class="icn icn-bot"></i> ${botName} ${!playerTurn?'<i class="icn icn-dice icn-gold"></i>':''} <span style="font-size:0.65rem;color:var(--muted)"><i class="icn icn-eye"></i> tap</span></div>
+      <div class="lb-name-col">
+        <div class="lb-name"><i class="icn icn-bot"></i> ${botName} ${!playerTurn?'<i class="icn icn-dice icn-gold"></i>':''} <span style="font-size:0.65rem;color:var(--muted)"><i class="icn icn-eye"></i> tap</span></div>
+        ${botPupHtml}
+      </div>
       <div class="lb-filled">${bFilled}/13</div>
       <div class="lb-score">${bTotal}</div>
     </div>`;
+}
+
+function _renderBotLbPupHtml(inv, pendingId) {
+  if (typeof powerupMode === 'undefined' || !powerupMode) return '';
+  if (!inv || inv.length === 0) return '';
+  const countMap = {};
+  inv.forEach(x => countMap[x] = (countMap[x] || 0) + 1);
+  const icons = Object.entries(countMap).map(([pid, cnt]) => {
+    const icon = POWERUP_ICONS[pid] || '<i class="icn icn-bolt"></i>';
+    const isActive = pendingId === pid;
+    const puDef = typeof POWERUPS !== 'undefined' ? POWERUPS.find(p => p.id === pid) : null;
+    const name = puDef ? puDef.name : pid;
+    return `<span class="lb-pup-icon${isActive ? ' lb-pup-active' : ''}" title="${pid}">${icon} ${name}${cnt > 1 ? ` ×${cnt}` : ''}</span>`;
+  }).join('');
+  return `<div class="lb-pups">${icons}</div>`;
 }
 
 // Bot brain: pick best category + hold pattern using greedy sim
