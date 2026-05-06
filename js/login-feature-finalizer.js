@@ -123,27 +123,34 @@
   function renderFinalSkinStore() {
     injectStyles();
     const overlay = ensureStoreOverlay();
-    if (!isLoggedIn()) {
-      overlay.innerHTML = `<div class="ssu-sheet"><div class="ssu-head"><div class="ssu-title">🎨 SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()">✕</button></div><div class="ssu-login-lock">Sign in with Google or Apple to unlock the Skin Store, Daily Bonus, and Daily Challenge credits.</div></div>`;
-      return;
-    }
-    const c = credits();
+    const loggedIn = isLoggedIn();
+    const c = loggedIn ? credits() : 0;
     const list = owned();
     const active = activeSkin();
     const currentColor = colorPair()[1].toLowerCase();
     const palette = PALETTE.map(([name,bg]) => `<button class="ssu-swatch ${currentColor === bg.toLowerCase() ? 'active' : ''}" title="${name}" style="background:${bg}" onclick="setClassicDiceColor('${bg}')"></button>`).join('');
-    const skins = SKINS.map(skin => {
-      const isOwned = list.includes(skin.id);
-      const isActive = active === skin.id;
-      const preview = DOT_FACES.map(face => `<span style="${skin.style}">${face}</span>`).join('');
-      let action = '';
-      if (isActive) action = `<button class="ssu-action active" disabled>✓ EQUIPPED</button>`;
-      else if (isOwned) action = `<button class="ssu-action" onclick="equipSkin('${skin.id}')">EQUIP</button>`;
-      else if (c >= skin.cost) action = `<button class="ssu-action" onclick="buySkin('${skin.id}')">UNLOCK · ${skin.cost} CREDITS</button>`;
-      else action = `<button class="ssu-action locked" disabled>LOCKED · NEED ${skin.cost} CREDITS</button>`;
-      return `<div class="ssu-card ${isActive ? 'active' : ''}"><div class="ssu-card-top"><div class="ssu-name">${skin.name}</div><div class="ssu-cost">${skin.cost} credits</div></div><div class="ssu-preview">${preview}</div>${action}</div>`;
-    }).join('');
-    overlay.innerHTML = `<div class="ssu-sheet"><div class="ssu-head"><div class="ssu-title">🎨 SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()">✕</button></div><div class="ssu-credit"><div><div class="ssu-small">Your credit wallet</div><div class="ssu-wallet-note">Earn credits from Daily Bonus and Daily Challenge</div></div><div class="ssu-credit-num" id="ssuCredits">${c}</div></div><div id="ssuContent"><div class="ssu-section"><div class="ssu-section-title">FREE ORIGINAL DICE COLOR</div><div class="ssu-small">Choose a color from the palette. This stays free.</div><div class="ssu-palette">${palette}</div><button class="ssu-action ${active === 'classic' ? 'active' : ''}" style="margin-top:10px" onclick="equipSkin('classic')">${active === 'classic' ? '✓ USING ORIGINAL DICE' : 'USE ORIGINAL DICE'}</button></div><div class="ssu-section"><div class="ssu-section-title">PREMIUM CREDIT SKINS</div><div class="ssu-skins">${skins}</div></div></div></div>`;
+    const freeSection = `<div class="ssu-section"><div class="ssu-section-title">FREE ORIGINAL DICE COLOR</div><div class="ssu-small">Choose a color from the palette. This is free for everyone — no sign-in required.</div><div class="ssu-palette">${palette}</div><button class="ssu-action ${active === 'classic' ? 'active' : ''}" style="margin-top:10px" onclick="equipSkin('classic')">${active === 'classic' ? '✓ USING ORIGINAL DICE' : 'USE ORIGINAL DICE'}</button></div>`;
+    const walletBlock = loggedIn
+      ? `<div class="ssu-credit"><div><div class="ssu-small">Your credit wallet</div><div class="ssu-wallet-note">Earn credits from Daily Bonus and Daily Challenge</div></div><div class="ssu-credit-num" id="ssuCredits">${c}</div></div>`
+      : '';
+    let premiumSection;
+    if (!loggedIn) {
+      premiumSection = `<div class="ssu-section"><div class="ssu-section-title">PREMIUM CREDIT SKINS</div><div class="ssu-login-lock">Sign in with Google or Apple to unlock premium skins, Daily Bonus, and Daily Challenge credits.</div></div>`;
+    } else {
+      const skins = SKINS.map(skin => {
+        const isOwned = list.includes(skin.id);
+        const isActive = active === skin.id;
+        const preview = DOT_FACES.map(face => `<span style="${skin.style}">${face}</span>`).join('');
+        let action = '';
+        if (isActive) action = `<button class="ssu-action active" disabled>✓ EQUIPPED</button>`;
+        else if (isOwned) action = `<button class="ssu-action" onclick="equipSkin('${skin.id}')">EQUIP</button>`;
+        else if (c >= skin.cost) action = `<button class="ssu-action" onclick="buySkin('${skin.id}')">UNLOCK · ${skin.cost} CREDITS</button>`;
+        else action = `<button class="ssu-action locked" disabled>LOCKED · NEED ${skin.cost} CREDITS</button>`;
+        return `<div class="ssu-card ${isActive ? 'active' : ''}"><div class="ssu-card-top"><div class="ssu-name">${skin.name}</div><div class="ssu-cost">${skin.cost} credits</div></div><div class="ssu-preview">${preview}</div>${action}</div>`;
+      }).join('');
+      premiumSection = `<div class="ssu-section"><div class="ssu-section-title">PREMIUM CREDIT SKINS</div><div class="ssu-skins">${skins}</div></div>`;
+    }
+    overlay.innerHTML = `<div class="ssu-sheet"><div class="ssu-head"><div class="ssu-title">🎨 SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()">✕</button></div>${walletBlock}<div id="ssuContent">${freeSection}${premiumSection}</div></div>`;
   }
 
   window.openSkinStore = function() { renderFinalSkinStore(); ensureStoreOverlay().classList.add('open'); };
@@ -173,12 +180,6 @@
     const oldReward = document.getElementById('dailyRewardMenuBtn');
     const oldChallenge = document.getElementById('dailyChallengeMenuBtn');
     const store = document.getElementById('mainSkinStoreBtn');
-    if (!isLoggedIn()) {
-      [oldReward, oldChallenge, store].forEach(el => { if (el) el.remove(); });
-      const rewardOverlay = document.getElementById('dailyRewardOverlay');
-      if (rewardOverlay) rewardOverlay.classList.remove('open');
-      return;
-    }
     let storeBtn = store;
     if (!storeBtn) {
       storeBtn = document.createElement('button');
@@ -187,6 +188,13 @@
       storeBtn.type = 'button';
       storeBtn.onclick = window.openSkinStore;
       profileBar.insertAdjacentElement('afterend', storeBtn);
+    }
+    if (!isLoggedIn()) {
+      [oldReward, oldChallenge].forEach(el => { if (el) el.remove(); });
+      const rewardOverlay = document.getElementById('dailyRewardOverlay');
+      if (rewardOverlay) rewardOverlay.classList.remove('open');
+      storeBtn.textContent = `🎨 Dice Colors · Free`;
+      return;
     }
     storeBtn.textContent = `🎨 Skin Store · ${credits()} credits`;
 
