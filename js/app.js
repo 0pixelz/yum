@@ -966,7 +966,16 @@ const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i 
 let mpGameOverShown = false;
 
 function genCode() {
-  return Math.random().toString(36).substr(2,4).toUpperCase();
+  // Firebase rules require ^[A-Z0-9]{4,8}$, so guarantee exactly 4 chars
+  // from a fixed alphabet (no ambiguous 0/O/1/I) instead of relying on
+  // Math.random().toString(36).substr(2,4) which can occasionally return
+  // fewer than 4 chars when the random value is small.
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return code;
 }
 
 function getLobbyName() {
@@ -1008,7 +1017,7 @@ async function createGame() {
     let _joinPdc = null; try { _joinPdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
     try {
       roomRef = _db.ref('rooms/' + roomCode);
-      await roomRef.set({
+      const setPromise = roomRef.set({
         host: playerId,
         started: false,
         currentTurn: playerId,
@@ -1017,9 +1026,20 @@ async function createGame() {
           [playerId]: { name: playerName, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
         }
       });
+      // Race the Firebase write against a 7s timeout so a stalled connection
+      // doesn't leave the player stuck on "Creating room…" with no feedback.
+      await Promise.race([
+        setPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000))
+      ]);
     } catch(err) {
       console.warn('createGame failed:', err);
-      showLobbyErr('Could not create room. Tap Create again to retry.');
+      const msg = (err && err.message === 'timeout')
+        ? 'Server is slow — check your internet and tap Create again.'
+        : 'Could not create room. Tap Create again to retry.';
+      showLobbyErr(msg);
+      try { if (roomRef) { roomRef.off(); } } catch(e) {}
+      roomRef = null;
       return;
     }
 
@@ -1027,6 +1047,10 @@ async function createGame() {
     roomRef.child('players/' + playerId).onDisconnect().remove();
     setTimeout(() => { if (typeof window.publishMyDiceSkin === 'function') window.publishMyDiceSkin(); }, 200);
 
+    // Mark this client as the host that just created the room so listenRoom
+    // can ignore a transient empty snapshot during the first ~3s instead of
+    // bouncing the user back to the lobby via leaveGame().
+    window.__yumJustCreatedAt = Date.now();
     showWaiting();
     listenRoom();
   } finally {
@@ -1088,21 +1112,40 @@ function showWaiting() {
   w.style.display = 'flex';
   document.getElementById('displayCode').textContent = roomCode;
 
-  // Generate QR code with the room code embedded in the page URL
-  const qrEl = document.getElementById('qrCode');
-  qrEl.innerHTML = '';
-  const joinUrl = window.location.href.split('?')[0] + '?join=' + roomCode;
-  new QRCode(qrEl, {
-    text: joinUrl,
-    width: 160, height: 160,
-    colorDark: '#000000', colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.M
-  });
+  // Generate QR code with the room code embedded in the page URL.
+  // Wrap in try/catch so a missing/blocked QR library can't bubble up
+  // and prevent showWaiting() from finishing its overlay swap.
+  try {
+    const qrEl = document.getElementById('qrCode');
+    if (qrEl && typeof QRCode === 'function') {
+      qrEl.innerHTML = '';
+      const joinUrl = window.location.href.split('?')[0] + '?join=' + roomCode;
+      new QRCode(qrEl, {
+        text: joinUrl,
+        width: 160, height: 160,
+        colorDark: '#000000', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+  } catch(e) {
+    console.warn('QR code render failed:', e);
+  }
 }
 
 function listenRoom() {
   roomRef.on('value', snap => {
-    if(!snap.exists()) { leaveGame(); return; }
+    if(!snap.exists()) {
+      // Right after createGame the host's local cache may briefly report
+      // the room as missing while the server confirms the write. Don't
+      // kick the user back to the lobby in that window — wait for the
+      // next snapshot which will have the real data.
+      const justCreated = window.__yumJustCreatedAt && (Date.now() - window.__yumJustCreatedAt < 3500);
+      if (justCreated) return;
+      leaveGame();
+      return;
+    }
+    // Once we get a real snapshot we no longer need the grace window.
+    window.__yumJustCreatedAt = 0;
     const data = snap.val();
     allPlayers = data.players || {};
     currentTurnId = data.currentTurn;

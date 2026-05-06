@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yum-pwa-v6-create-tap-fix';
+const CACHE_NAME = 'yum-pwa-v7-create-room-timeout';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
