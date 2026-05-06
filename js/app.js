@@ -982,47 +982,56 @@ function showLobbyErr(msg) {
 }
 
 async function createGame() {
-  const name = getLobbyName(); if(!name) return;
-  playerName = name;
-  isHost = true;
-  roomCode = genCode();
-
-  if(!window.db) {
-    if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
-    for (let i = 0; i < 12 && !window.db; i++) {
-      await new Promise(r => setTimeout(r, 250));
-      if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
-    }
-  }
-  if(!window.db) {
-    showLobbyErr('Multiplayer not available — check your internet and reload.');
-    return;
-  }
-  const _joinSkin = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
-  let _joinPdc = null; try { _joinPdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
+  if (window.__yumCreateGameInFlight) return;
+  window.__yumCreateGameInFlight = true;
   try {
-    roomRef = db.ref('rooms/' + roomCode);
-    await roomRef.set({
-      host: playerId,
-      started: false,
-      currentTurn: playerId,
-      gameMode: 'normal',
-      players: {
-        [playerId]: { name: playerName, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
+    const name = getLobbyName(); if(!name) return;
+    playerName = name;
+    isHost = true;
+    roomCode = genCode();
+
+    showLobbyErr('<i class="icn icn-dice"></i> Creating room…');
+
+    if(!window.db) {
+      if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
+      for (let i = 0; i < 12 && !window.db; i++) {
+        await new Promise(r => setTimeout(r, 250));
+        if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
       }
-    });
-  } catch(err) {
-    console.warn('createGame failed:', err);
-    showLobbyErr('Could not create room. Tap Create again to retry.');
-    return;
+    }
+    const _db = window.db;
+    if(!_db) {
+      showLobbyErr('Multiplayer not available — check your internet and reload.');
+      return;
+    }
+    const _joinSkin = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+    let _joinPdc = null; try { _joinPdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
+    try {
+      roomRef = _db.ref('rooms/' + roomCode);
+      await roomRef.set({
+        host: playerId,
+        started: false,
+        currentTurn: playerId,
+        gameMode: 'normal',
+        players: {
+          [playerId]: { name: playerName, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
+        }
+      });
+    } catch(err) {
+      console.warn('createGame failed:', err);
+      showLobbyErr('Could not create room. Tap Create again to retry.');
+      return;
+    }
+
+    // Clean up room when host disconnects (if not started)
+    roomRef.child('players/' + playerId).onDisconnect().remove();
+    setTimeout(() => { if (typeof window.publishMyDiceSkin === 'function') window.publishMyDiceSkin(); }, 200);
+
+    showWaiting();
+    listenRoom();
+  } finally {
+    window.__yumCreateGameInFlight = false;
   }
-
-  // Clean up room when host disconnects (if not started)
-  roomRef.child('players/' + playerId).onDisconnect().remove();
-  setTimeout(() => { if (typeof window.publishMyDiceSkin === 'function') window.publishMyDiceSkin(); }, 200);
-
-  showWaiting();
-  listenRoom();
 }
 
 function setMpGameMode(mode) {
@@ -1046,13 +1055,21 @@ async function joinGame() {
       if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
     }
   }
-  if(!window.db) { showLobbyErr('Multiplayer not available — check your internet and reload.'); return; }
+  const _db = window.db;
+  if(!_db) { showLobbyErr('Multiplayer not available — check your internet and reload.'); return; }
 
-  const snap = await db.ref('rooms/' + code).once('value');
+  let snap;
+  try {
+    snap = await _db.ref('rooms/' + code).once('value');
+  } catch(err) {
+    console.warn('joinGame failed:', err);
+    showLobbyErr('Could not reach server. Tap Join again to retry.');
+    return;
+  }
   if(!snap.exists()) { showLobbyErr('Room not found! Check the code.'); return; }
   if(snap.val().started) { showLobbyErr('Game already started!'); return; }
 
-  roomRef = db.ref('rooms/' + code);
+  roomRef = _db.ref('rooms/' + code);
   const _joinSkin2 = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
   let _joinPdc2 = null; try { _joinPdc2 = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
   await roomRef.child('players/' + playerId).set({
@@ -1554,7 +1571,9 @@ const _origListenRoom = listenRoom;
 listenRoom = function() {
   _origListenRoom();
   // We'll start reaction listener after game starts
-  const checkStarted = db.ref('rooms/' + roomCode + '/started').on('value', snap => {
+  const _db = window.db;
+  if (!_db || !roomCode) return;
+  _db.ref('rooms/' + roomCode + '/started').on('value', snap => {
     if(snap.val() === true) listenReactions();
   });
 };
