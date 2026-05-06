@@ -141,7 +141,7 @@
 
   function init() {
     injectStyles();
-    ['renderScores', 'confirmScore', 'deleteScore', 'rollDice', 'clearDice'].forEach(patchFunction);
+    ['renderScores', 'confirmScore', 'rollDice', 'clearDice'].forEach(patchFunction);
     setTimeout(renderHelpers, 0);
 
     const section = document.getElementById('scoreSection');

@@ -268,7 +268,7 @@
       window.confirmScore = patchedConfirm;
     }
 
-    ['startSolo','startVsBot','startGame'].forEach(name => {
+    ['startVsBot','startGame'].forEach(name => {
       const fn = window[name];
       if (typeof fn === 'function' && !fn.__dailyChallengeCreditPatched) {
         const patched = function(...args) {

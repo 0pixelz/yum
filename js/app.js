@@ -354,15 +354,13 @@ function openModal(id) {
   // Block if not player's turn
   if(botMode && !playerTurn) { showToast('Wait for the bot! 🤖'); return; }
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
-  // In multiplayer/bot modes, can't re-score already filled categories
-  if((mpMode || botMode) && scores[id] !== undefined) { showToast('Already scored!'); return; }
+  // Can't re-score already filled categories
+  if(scores[id] !== undefined) { showToast('Already scored!'); return; }
   activeModal = id;
   const cat = categories.find(c=>c.id===id);
   const val = scores[id];
   document.getElementById('modalTitle').textContent = `${cat.icon} ${cat.name}`;
   document.getElementById('modalHint').textContent = cat.hint;
-  // Only allow delete in practice mode
-  document.getElementById('deleteBtn').style.display = (!mpMode && !botMode && val !== undefined) ? 'block' : 'none';
 
   const qs = document.getElementById('quickScores');
   let btns = '';
@@ -458,12 +456,6 @@ function confirmScore() {
   }, 150);
 }
 
-function deleteScore() {
-  delete scores[activeModal];
-  closeModalEl();
-  renderScores();
-}
-
 function closeModal(e) {
   if(e.target === document.getElementById('modalBackdrop')) closeModalEl();
 }
@@ -480,13 +472,7 @@ function confirmNewGame() {
   }
   if(botMode) {
     showConfirm('Are you sure you want to quit the game?', 'Yes, quit', quitGame);
-    return;
   }
-  // Practice mode — go back to lobby
-  scores = {};
-  clearDice();
-  renderScores();
-  document.getElementById('lobbyOverlay').style.display = 'flex';
 }
 
 
@@ -941,10 +927,6 @@ async function joinGame() {
 
   showWaiting();
   listenRoom();
-}
-
-function startSolo() {
-  document.getElementById('lobbyOverlay').style.display = 'none';
 }
 
 function showWaiting() {

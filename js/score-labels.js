@@ -262,10 +262,9 @@
     patchAsyncFunction('joinGame', beforeMultiplayerStart);
     patchAsyncFunction('startGame', beforeMultiplayerStart);
     patchAsyncFunction('startVsBot', beforeLocalStart);
-    patchAsyncFunction('startSolo', beforeLocalStart);
 
     polishScoreLabels();
-    ['renderScores','renderDice','rollDice','cycleDie','toggleHold','clearDice','confirmScore','deleteScore'].forEach(name => patchRenderFunction(name, polishScoreLabels));
+    ['renderScores','renderDice','rollDice','cycleDie','toggleHold','clearDice','confirmScore'].forEach(name => patchRenderFunction(name, polishScoreLabels));
     ['renderLeaderboard','renderBotLeaderboard','showBotActionPopup','showYourTurn'].forEach(name => patchRenderFunction(name, decorateDisplayedNames));
     patchRenderFunction('renderAchievements', renderAchievementProgressBars);
     patchRenderFunction('checkAchievements', checkDiamondAchievementsNow);
