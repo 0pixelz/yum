@@ -984,10 +984,17 @@ function getLobbyName() {
   return n;
 }
 
-function showLobbyErr(msg) {
+function showLobbyErr(msg, opts) {
   const el = document.getElementById('lobbyErr');
-  el.innerHTML = msg;
-  setTimeout(()=>el.textContent='', 3000);
+  if (!el) return;
+  if (opts && opts.text) {
+    el.textContent = msg;
+  } else {
+    el.innerHTML = msg;
+  }
+  if (window.__yumLobbyErrTimer) clearTimeout(window.__yumLobbyErrTimer);
+  const hold = (opts && typeof opts.holdMs === 'number') ? opts.holdMs : 3000;
+  window.__yumLobbyErrTimer = setTimeout(()=>{ el.textContent = ''; }, hold);
 }
 
 async function createGame() {
@@ -1034,10 +1041,14 @@ async function createGame() {
       ]);
     } catch(err) {
       console.warn('createGame failed:', err);
+      const code = (err && (err.code || err.name)) || 'unknown';
+      const detail = (err && err.message) || String(err);
+      const connected = (window.yumFirebaseConnected === true) ? 'online' : 'offline';
+      const dbPresent = !!window.db;
       const msg = (err && err.message === 'timeout')
-        ? 'Server is slow — check your internet and tap Create again.'
-        : 'Could not create room. Tap Create again to retry.';
-      showLobbyErr(msg);
+        ? `Timeout creating room (db=${dbPresent}, fb=${connected}). Tap Create to retry.`
+        : `Create failed: ${code} — ${detail} (db=${dbPresent}, fb=${connected})`;
+      showLobbyErr(msg, { text: true, holdMs: 15000 });
       try { if (roomRef) { roomRef.off(); } } catch(e) {}
       roomRef = null;
       return;
