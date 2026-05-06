@@ -829,7 +829,7 @@ function dieIcon(n) {
   const dots = (pipMap[n]||[]).map(([x,y]) =>
     '<circle cx="'+x+'" cy="'+y+'" r="8.5" fill="#f0f0f0"/>'
   ).join('');
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 100 100" style="border-radius:8px;flex-shrink:0;display:block">'
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 100 100" style="border-radius:8px;flex-shrink:0;display:block;max-width:100%;max-height:100%">'
     + '<rect width="100" height="100" rx="20" fill="#1e8a9e"/>'
     + dots + '</svg>';
 }
