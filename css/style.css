@@ -1461,6 +1461,18 @@
     margin-bottom: 14px;
   }
   .bap-die { font-size: 2rem; line-height: 1; }
+  /* bap-die wraps a self-painted SVG die (see dieIcon). The opponent skin sync
+     stamps remote-skin-* classes on these spans, which would otherwise paint a
+     white/skinned square behind the SVG's rounded corners. Force transparent. */
+  .bap-die,
+  .bap-die > span,
+  .bap-dice .bap-die,
+  .bap-dice .bap-die > span {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
   .bap-result {
     border-top: 1px solid rgba(255,255,255,0.08);
     padding-top: 12px;
