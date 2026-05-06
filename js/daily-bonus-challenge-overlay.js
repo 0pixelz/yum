@@ -4,17 +4,55 @@
 
 (function() {
   const PROFILE_KEY      = 'yum_google_profile';
-  const BONUS_DATE_KEY   = 'yum_daily_bonus_final_date';
-  const BONUS_STREAK_KEY = 'yum_daily_bonus_final_streak';
+  const LEGACY_DATE_KEY   = 'yum_daily_bonus_final_date';
+  const LEGACY_STREAK_KEY = 'yum_daily_bonus_final_streak';
 
   function loadJSON(key, fallback) {
     try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
     catch(e) { return fallback; }
   }
 
+  function getProfile() {
+    return loadJSON(PROFILE_KEY, null);
+  }
+
   function isLoggedIn() {
-    const p = loadJSON(PROFILE_KEY, null);
+    const p = getProfile();
     return !!(p && (p.type === 'google' || p.type === 'apple') && (p.uid || p.email));
+  }
+
+  // Scope per-user so multiple accounts on one device don't clobber each
+  // other's streak. Falls back to a stable id if uid is missing (older sessions).
+  function getProfileId() {
+    const p = getProfile();
+    if (!p) return '';
+    return String(p.uid || p.email || '').trim();
+  }
+
+  function userKey(suffix) {
+    const id = getProfileId();
+    return id ? `${suffix}__${id}` : suffix;
+  }
+
+  const BONUS_DATE_KEY   = () => userKey(LEGACY_DATE_KEY);
+  const BONUS_STREAK_KEY = () => userKey(LEGACY_STREAK_KEY);
+
+  // One-time migration: copy the unscoped legacy keys into the current user's
+  // scoped keys so existing streaks aren't lost the first time they sign in
+  // after this update.
+  function migrateLegacyKeys() {
+    if (!isLoggedIn()) return;
+    const dateKey = BONUS_DATE_KEY();
+    const streakKey = BONUS_STREAK_KEY();
+    if (dateKey === LEGACY_DATE_KEY) return; // nothing to migrate
+    const legacyDate = localStorage.getItem(LEGACY_DATE_KEY);
+    const legacyStreak = localStorage.getItem(LEGACY_STREAK_KEY);
+    if (legacyDate && !localStorage.getItem(dateKey)) {
+      localStorage.setItem(dateKey, legacyDate);
+    }
+    if (legacyStreak && !localStorage.getItem(streakKey)) {
+      localStorage.setItem(streakKey, legacyStreak);
+    }
   }
 
   function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -23,6 +61,74 @@
 
   function credits() {
     return typeof window.getYumCredits === 'function' ? window.getYumCredits() : 0;
+  }
+
+  // ── Firebase sync ──────────────────────────────────────────────────
+  // Persist the bonus state under users/<uid>/dailyBonus so the streak
+  // follows the user across devices and survives a wiped localStorage.
+  function userBonusRef() {
+    try {
+      if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
+      if (!window.db || !window.firebase || !window.firebase.database) return null;
+      const p = getProfile();
+      if (!p || !p.uid) return null;
+      return window.db.ref('users/' + p.uid + '/dailyBonus');
+    } catch(e) { return null; }
+  }
+
+  // Apply a remote snapshot to local storage when it represents progress
+  // beyond what we have here. "Beyond" means a later date, or the same date
+  // with an equal-or-higher streak (the canonical post-claim state).
+  function applyRemoteState(remote) {
+    if (!remote || !remote.lastDate) return false;
+    const dateKey = BONUS_DATE_KEY();
+    const streakKey = BONUS_STREAK_KEY();
+    const localDate = localStorage.getItem(dateKey) || '';
+    const localStreak = Number(localStorage.getItem(streakKey)) || 0;
+    const remoteStreak = Number(remote.streak) || 0;
+    const isNewer = remote.lastDate > localDate ||
+      (remote.lastDate === localDate && remoteStreak > localStreak);
+    if (!isNewer) return false;
+    localStorage.setItem(dateKey, remote.lastDate);
+    localStorage.setItem(streakKey, String(remoteStreak));
+    return true;
+  }
+
+  let hydratePromise = null;
+  function hydrateFromFirebase() {
+    if (hydratePromise) return hydratePromise;
+    const ref = userBonusRef();
+    if (!ref) return Promise.resolve(false);
+    hydratePromise = ref.once('value').then(snap => {
+      const remote = snap.val();
+      const changed = applyRemoteState(remote);
+      // If we have a richer local copy than the server, push it up so the
+      // server is up to date.
+      const dateKey = BONUS_DATE_KEY();
+      const streakKey = BONUS_STREAK_KEY();
+      const localDate = localStorage.getItem(dateKey);
+      const localStreak = Number(localStorage.getItem(streakKey)) || 0;
+      const remoteDate = remote && remote.lastDate ? remote.lastDate : '';
+      const remoteStreak = remote && remote.streak ? Number(remote.streak) || 0 : 0;
+      const localIsNewer = !!localDate && (
+        localDate > remoteDate ||
+        (localDate === remoteDate && localStreak > remoteStreak)
+      );
+      if (localIsNewer) {
+        ref.set({ lastDate: localDate, streak: localStreak, updatedAt: Date.now() }).catch(() => {});
+      }
+      return changed;
+    }).catch(() => false).finally(() => { hydratePromise = null; });
+    return hydratePromise;
+  }
+
+  function persistBonusState(date, streak) {
+    localStorage.setItem(BONUS_DATE_KEY(), date);
+    localStorage.setItem(BONUS_STREAK_KEY(), String(streak));
+    const ref = userBonusRef();
+    if (ref) {
+      ref.set({ lastDate: date, streak, updatedAt: Date.now() }).catch(() => {});
+    }
   }
 
   // ── Daily-bonus reward ladder ──────────────────────────────────────
@@ -39,9 +145,9 @@
 
   function streakInfo() {
     const today = todayISO();
-    const lastDate = localStorage.getItem(BONUS_DATE_KEY);
+    const lastDate = localStorage.getItem(BONUS_DATE_KEY());
     const claimed  = lastDate === today;
-    const streak   = Number(localStorage.getItem(BONUS_STREAK_KEY)) || 0;
+    const streak   = Number(localStorage.getItem(BONUS_STREAK_KEY())) || 0;
 
     let nextStreak;
     if (claimed) {
@@ -376,9 +482,17 @@
       toast('Sign in with Google or Apple to claim daily bonus');
       return;
     }
+    migrateLegacyKeys();
     injectStyles();
     renderBonusOverlay();
     requestAnimationFrame(() => ensureBonusOverlay().classList.add('open'));
+    // Pull the latest server-side state (in case the user claimed on another
+    // device) and re-render once it lands.
+    hydrateFromFirebase().then(changed => {
+      if (changed && document.getElementById('dboBonusOverlay')?.classList.contains('open')) {
+        renderBonusOverlay();
+      }
+    });
   }
 
   function closeBonus() {
@@ -386,22 +500,29 @@
     if (ov) ov.classList.remove('open');
   }
 
-  function performBonusClaim() {
-    if (!isLoggedIn()) return toast('Sign in with Google or Apple to claim daily bonus');
-    if (typeof window.addYumCredits !== 'function') return;
+  function doClaim() {
     const today = todayISO();
-    if (localStorage.getItem(BONUS_DATE_KEY) === today) {
+    if (localStorage.getItem(BONUS_DATE_KEY()) === today) {
       toast('Daily bonus already claimed today');
       renderBonusOverlay();
       return;
     }
     const info = streakInfo();
-    localStorage.setItem(BONUS_DATE_KEY, today);
-    localStorage.setItem(BONUS_STREAK_KEY, String(info.nextStreak));
+    persistBonusState(today, info.nextStreak);
     window.addYumCredits(info.reward, 'daily_bonus_final');
     toast(`Daily bonus claimed: +${info.reward} credits`);
     renderBonusOverlay();
     if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
+  }
+
+  function performBonusClaim() {
+    if (!isLoggedIn()) return toast('Sign in with Google or Apple to claim daily bonus');
+    if (typeof window.addYumCredits !== 'function') return;
+    migrateLegacyKeys();
+    // Make sure we have the latest server-side state before deciding what
+    // streak day this claim belongs to. Otherwise a fresh device or a wiped
+    // localStorage would always award day 1.
+    hydrateFromFirebase().then(() => doClaim());
   }
 
   window.dboCloseBonus = closeBonus;
@@ -504,11 +625,30 @@
   window.openDailyChallenge = openChallenge;
   window.openDailyReward = openBonus;
 
+  // Pull state from Firebase whenever the auth state changes (e.g. just
+  // signed in). This is what keeps the streak in sync across devices.
+  let lastWatchedUid = null;
+  function watchAuthForHydrate() {
+    if (!isLoggedIn()) return;
+    migrateLegacyKeys();
+    const p = getProfile();
+    const uid = p && p.uid ? String(p.uid) : '';
+    if (!uid || uid === lastWatchedUid) return;
+    lastWatchedUid = uid;
+    hydrateFromFirebase().then(changed => {
+      if (changed && document.getElementById('dboBonusOverlay')?.classList.contains('open')) {
+        renderBonusOverlay();
+      }
+      if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
+    });
+  }
+
   function init() {
     injectStyles();
     ensureBonusOverlay();
     ensureChallengeOverlay();
     bindMenuButtons();
+    watchAuthForHydrate();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
@@ -526,5 +666,6 @@
     bindMenuButtons();
     window.openDailyChallenge = openChallenge;
     window.openDailyReward = openBonus;
+    watchAuthForHydrate();
   }, 600);
 })();

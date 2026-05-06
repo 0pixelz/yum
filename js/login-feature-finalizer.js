@@ -153,23 +153,22 @@
   window.openSkinStore = function() { renderFinalSkinStore(); ensureStoreOverlay().classList.add('open'); };
   window.closeSkinStore = function() { const overlay = document.getElementById('skinStoreUpgradeOverlay'); if (overlay) overlay.classList.remove('open'); };
 
+  // The daily bonus claim is owned by daily-bonus-challenge-overlay.js, which
+  // hydrates the streak from Firebase before awarding. Always route the menu
+  // button through the overlay so we can never write the wrong streak from
+  // stale localStorage.
   const finalClaimDaily = function() {
     if (!isLoggedIn()) return toast('Sign in with Google or Apple to claim daily bonus');
-    if (typeof window.addYumCredits !== 'function') return;
-    const key = 'yum_daily_bonus_final_date';
-    const streakKey = 'yum_daily_bonus_final_streak';
-    const today = new Date().toISOString().slice(0,10);
-    if (localStorage.getItem(key) === today) return toast('Daily bonus already claimed today');
-    const prev = localStorage.getItem(key);
-    const diff = prev ? Math.round((new Date(today + 'T00:00:00') - new Date(prev + 'T00:00:00')) / 86400000) : 1;
-    const streak = diff === 1 ? (Number(localStorage.getItem(streakKey)) || 0) + 1 : 1;
-    localStorage.setItem(key, today);
-    localStorage.setItem(streakKey, String(streak));
-    const reward = streak % 7 === 0 ? 5 : streak >= 3 ? 2 : 1;
-    window.addYumCredits(reward, 'daily_bonus_final');
-    toast(`Daily bonus claimed: +${reward} credits`);
-    refreshButtons();
+    if (typeof window.openDailyReward === 'function') return window.openDailyReward();
   };
+
+  function userScopedBonusDate() {
+    const profile = loadJSON(PROFILE_KEY, null);
+    const id = profile && (profile.uid || profile.email) ? String(profile.uid || profile.email).trim() : '';
+    const base = 'yum_daily_bonus_final_date';
+    const scoped = id ? `${base}__${id}` : base;
+    return localStorage.getItem(scoped) || localStorage.getItem(base);
+  }
 
   function refreshButtons() {
     const profileBar = document.getElementById('profileLoginBar');
@@ -205,7 +204,7 @@
     }
     bonus.onclick = finalClaimDaily;
     const today = new Date().toISOString().slice(0,10);
-    const claimed = localStorage.getItem('yum_daily_bonus_final_date') === today;
+    const claimed = userScopedBonusDate() === today;
     bonus.innerHTML = claimed ? `<i class="icn icn-gift"></i> Daily Bonus Claimed · ${credits()} credits` : `<i class="icn icn-gift"></i> Claim Daily Bonus · ${credits()} credits`;
 
     let challenge = document.getElementById('dailyChallengeMenuBtn');
