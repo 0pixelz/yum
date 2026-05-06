@@ -127,9 +127,6 @@
     const c = loggedIn ? credits() : 0;
     const list = owned();
     const active = activeSkin();
-    const currentColor = colorPair()[1].toLowerCase();
-    const palette = PALETTE.map(([name,bg]) => `<button class="ssu-swatch ${currentColor === bg.toLowerCase() ? 'active' : ''}" title="${name}" style="background:${bg}" onclick="setClassicDiceColor('${bg}')"></button>`).join('');
-    const freeSection = `<div class="ssu-section"><div class="ssu-section-title">FREE ORIGINAL DICE COLOR</div><div class="ssu-small">Choose a color from the palette. This is free for everyone — no sign-in required.</div><div class="ssu-palette">${palette}</div><button class="ssu-action ${active === 'classic' ? 'active' : ''}" style="margin-top:10px" onclick="equipSkin('classic')">${active === 'classic' ? '✓ USING ORIGINAL DICE' : 'USE ORIGINAL DICE'}</button></div>`;
     const walletBlock = loggedIn
       ? `<div class="ssu-credit"><div><div class="ssu-small">Your credit wallet</div><div class="ssu-wallet-note">Earn credits from Daily Bonus and Daily Challenge</div></div><div class="ssu-credit-num" id="ssuCredits">${c}</div></div>`
       : '';
@@ -150,7 +147,7 @@
       }).join('');
       premiumSection = `<div class="ssu-section"><div class="ssu-section-title">PREMIUM CREDIT SKINS</div><div class="ssu-skins">${skins}</div></div>`;
     }
-    overlay.innerHTML = `<div class="ssu-sheet"><div class="ssu-head"><div class="ssu-title">🎨 SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()">✕</button></div>${walletBlock}<div id="ssuContent">${freeSection}${premiumSection}</div></div>`;
+    overlay.innerHTML = `<div class="ssu-sheet"><div class="ssu-head"><div class="ssu-title">🎨 SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()">✕</button></div>${walletBlock}<div id="ssuContent">${premiumSection}</div></div>`;
   }
 
   window.openSkinStore = function() { renderFinalSkinStore(); ensureStoreOverlay().classList.add('open'); };
@@ -180,6 +177,13 @@
     const oldReward = document.getElementById('dailyRewardMenuBtn');
     const oldChallenge = document.getElementById('dailyChallengeMenuBtn');
     const store = document.getElementById('mainSkinStoreBtn');
+    if (!isLoggedIn()) {
+      [oldReward, oldChallenge].forEach(el => { if (el) el.remove(); });
+      if (store) store.remove();
+      const rewardOverlay = document.getElementById('dailyRewardOverlay');
+      if (rewardOverlay) rewardOverlay.classList.remove('open');
+      return;
+    }
     let storeBtn = store;
     if (!storeBtn) {
       storeBtn = document.createElement('button');
@@ -188,13 +192,6 @@
       storeBtn.type = 'button';
       storeBtn.onclick = window.openSkinStore;
       profileBar.insertAdjacentElement('afterend', storeBtn);
-    }
-    if (!isLoggedIn()) {
-      [oldReward, oldChallenge].forEach(el => { if (el) el.remove(); });
-      const rewardOverlay = document.getElementById('dailyRewardOverlay');
-      if (rewardOverlay) rewardOverlay.classList.remove('open');
-      storeBtn.textContent = `🎨 Dice Colors · Free`;
-      return;
     }
     storeBtn.textContent = `🎨 Skin Store · ${credits()} credits`;
 
