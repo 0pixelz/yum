@@ -162,60 +162,19 @@
     if (typeof window.openDailyReward === 'function') return window.openDailyReward();
   };
 
-  function userScopedBonusDate() {
-    const profile = loadJSON(PROFILE_KEY, null);
-    const id = profile && (profile.uid || profile.email) ? String(profile.uid || profile.email).trim() : '';
-    const base = 'yum_daily_bonus_final_date';
-    const scoped = id ? `${base}__${id}` : base;
-    return localStorage.getItem(scoped) || localStorage.getItem(base);
-  }
-
+  // The three lobby buttons (Skin Store / Daily Bonus / Daily Challenge) are
+  // replaced by a single "Rewards & Store" hub button owned by
+  // rewards-store-hub.js. We just ensure any leftover legacy buttons are
+  // cleaned up here and close the legacy reward overlay on logout.
   function refreshButtons() {
-    const profileBar = document.getElementById('profileLoginBar');
-    if (!profileBar) return;
-    const oldReward = document.getElementById('dailyRewardMenuBtn');
-    const oldChallenge = document.getElementById('dailyChallengeMenuBtn');
-    const store = document.getElementById('mainSkinStoreBtn');
+    ['mainSkinStoreBtn', 'dailyRewardMenuBtn', 'dailyChallengeMenuBtn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
     if (!isLoggedIn()) {
-      [oldReward, oldChallenge].forEach(el => { if (el) el.remove(); });
-      if (store) store.remove();
       const rewardOverlay = document.getElementById('dailyRewardOverlay');
       if (rewardOverlay) rewardOverlay.classList.remove('open');
-      return;
     }
-    let storeBtn = store;
-    if (!storeBtn) {
-      storeBtn = document.createElement('button');
-      storeBtn.id = 'mainSkinStoreBtn';
-      storeBtn.className = 'main-skin-store-btn';
-      storeBtn.type = 'button';
-      storeBtn.onclick = window.openSkinStore;
-      profileBar.insertAdjacentElement('afterend', storeBtn);
-    }
-    storeBtn.innerHTML = `<i class="icn icn-palette"></i> Skin Store · ${credits()} credits`;
-
-    let bonus = document.getElementById('dailyRewardMenuBtn');
-    if (!bonus) {
-      bonus = document.createElement('button');
-      bonus.id = 'dailyRewardMenuBtn';
-      bonus.type = 'button';
-      bonus.className = 'yum-login-feature-btn bonus';
-      storeBtn.insertAdjacentElement('afterend', bonus);
-    }
-    bonus.onclick = finalClaimDaily;
-    const today = new Date().toISOString().slice(0,10);
-    const claimed = userScopedBonusDate() === today;
-    bonus.innerHTML = claimed ? `<i class="icn icn-gift"></i> Daily Bonus Claimed · ${credits()} credits` : `<i class="icn icn-gift"></i> Claim Daily Bonus · ${credits()} credits`;
-
-    let challenge = document.getElementById('dailyChallengeMenuBtn');
-    if (!challenge) {
-      challenge = document.createElement('button');
-      challenge.id = 'dailyChallengeMenuBtn';
-      challenge.type = 'button';
-      challenge.className = 'yum-login-feature-btn challenge';
-      bonus.insertAdjacentElement('afterend', challenge);
-    }
-    challenge.onclick = window.openDailyChallenge;
   }
 
   function getPlayers() { try { return allPlayers || {}; } catch(e) { return {}; } }
