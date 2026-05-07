@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yum-pwa-v7-create-room-timeout';
+const CACHE_NAME = 'yum-pwa-v8-restore-social-login';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
