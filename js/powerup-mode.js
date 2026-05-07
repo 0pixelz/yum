@@ -41,6 +41,8 @@ function startPowerupMode() {
   undoPowerupState   = null;
   freezeDieIndex     = -1;
   frozenDieValue     = 0;
+  pendingFreezeIdx   = -1;
+  pendingFreezeVal   = 0;
   scores             = {};
 
   clearDice();
@@ -339,28 +341,62 @@ confirmScore = function() {
   checkPowerupYumEarn(savedDice, baseScore);
 };
 
-// Patch clearDice — carry frozen die to next turn
+// Pending freeze carry-over — survives across bot's / opponent's turn so the
+// player's frozen die is reapplied at the start of their next turn (not the
+// bot's or opponent's, which would otherwise overwrite the local dice array).
+let pendingFreezeIdx = -1;
+let pendingFreezeVal = 0;
+
+function _isMyTurnNow() {
+  if (typeof mpMode !== 'undefined' && mpMode) {
+    return typeof currentTurnId !== 'undefined' && currentTurnId === playerId;
+  }
+  if (typeof botMode !== 'undefined' && botMode) {
+    return typeof playerTurn !== 'undefined' && playerTurn;
+  }
+  return true;
+}
+
+function _applyPendingFreeze() {
+  if (!powerupMode || pendingFreezeIdx < 0) return;
+  if (!_isMyTurnNow()) return;
+  const idx = pendingFreezeIdx;
+  const val = pendingFreezeVal;
+  pendingFreezeIdx = -1;
+  pendingFreezeVal = 0;
+  dice[idx] = val;
+  held[idx] = true;
+  rolled    = true;
+  renderDice(false);
+  refreshDieFreezeVisual();
+  showToast(`Frozen dice (${val}) carried to new turn!`);
+}
+
+// Patch clearDice — carry frozen die to the player's next turn. The carry
+// is staged into pendingFreezeIdx/Val so it survives the bot's or opponent's
+// turn (which overwrite the local dice array) and only gets applied when the
+// player's turn actually resumes.
 const _pupOrigClearDice = clearDice;
 clearDice = function() {
-  const savedIdx = freezeDieIndex;
-  const savedVal = frozenDieValue;
+  // Stage any active freeze into the pending carry-over. Both clearDice calls
+  // that happen back-to-back at score time reference the same die, so we only
+  // capture once (don't overwrite a pending carry that's already staged).
+  if (powerupMode && freezeDieIndex >= 0) {
+    pendingFreezeIdx = freezeDieIndex;
+    pendingFreezeVal = frozenDieValue;
+    freezeDieIndex = -1;
+    frozenDieValue = 0;
+  }
 
   _pupOrigClearDice();
 
-  if (!powerupMode || savedIdx < 0) return;
+  if (!powerupMode || pendingFreezeIdx < 0) return;
 
-  // After clearDice sets everything to 0, restore the frozen die
-  setTimeout(() => {
-    if (!powerupMode) return;
-    dice[savedIdx] = savedVal;
-    held[savedIdx] = true;
-    rolled         = true;
-    renderDice(false);
-    refreshDieFreezeVisual();
-    freezeDieIndex = -1;
-    frozenDieValue = 0;
-    showToast(`Frozen dice (${savedVal}) carried to new turn!`);
-  }, 150);
+  // Try to apply once orig clearDice has zeroed things out. If it's not yet
+  // our turn (bot is about to play, opponent is mid-turn), this is a no-op
+  // and the carry stays pending until rollDice / restoreMyDiceUI / a later
+  // clearDice triggers another apply attempt.
+  setTimeout(_applyPendingFreeze, 150);
 };
 
 // Patch renderDice — keep freeze visual in sync
@@ -382,6 +418,8 @@ confirmNewGame = function() {
     undoPowerupState   = null;
     freezeDieIndex     = -1;
     frozenDieValue     = 0;
+    pendingFreezeIdx   = -1;
+    pendingFreezeVal   = 0;
     scores             = {};
     clearDice();
     renderScores();
@@ -434,6 +472,8 @@ rematch = function() {
     undoPowerupState    = null;
     freezeDieIndex      = -1;
     frozenDieValue      = 0;
+    pendingFreezeIdx    = -1;
+    pendingFreezeVal    = 0;
     _pupGameOverPending = false;
     renderPowerupBar();
     _pupOrigRematch();
@@ -448,6 +488,8 @@ rematch = function() {
   undoPowerupState   = null;
   freezeDieIndex     = -1;
   frozenDieValue     = 0;
+  pendingFreezeIdx   = -1;
+  pendingFreezeVal   = 0;
   _pupGameOverPending = false;
   scores             = {};
   clearDice();
@@ -469,6 +511,8 @@ quitGame = function() {
     undoPowerupState    = null;
     freezeDieIndex      = -1;
     frozenDieValue      = 0;
+    pendingFreezeIdx    = -1;
+    pendingFreezeVal    = 0;
     document.getElementById('powerupBar').style.display = 'none';
     _pupOrigQuitGame();
     return;
@@ -482,6 +526,8 @@ quitGame = function() {
   undoPowerupState    = null;
   freezeDieIndex      = -1;
   frozenDieValue      = 0;
+  pendingFreezeIdx    = -1;
+  pendingFreezeVal    = 0;
   scores              = {};
   clearDice();
   renderScores();
@@ -510,6 +556,8 @@ doMpRematch = function() {
     undoPowerupState   = null;
     freezeDieIndex     = -1;
     frozenDieValue     = 0;
+    pendingFreezeIdx   = -1;
+    pendingFreezeVal   = 0;
     _pupGameOverPending = false;
     renderPowerupBar();
     if (roomRef) roomRef.child('players/' + playerId + '/livePowerups').remove();
@@ -529,7 +577,31 @@ leaveGame = function() {
     undoPowerupState    = null;
     freezeDieIndex      = -1;
     frozenDieValue      = 0;
+    pendingFreezeIdx    = -1;
+    pendingFreezeVal    = 0;
     document.getElementById('powerupBar').style.display = 'none';
   }
   _pupOrigLeaveGame();
 };
+
+// Patch rollDice — flush a pending freeze carry-over before rolling so the
+// frozen die is locked into place even if the apply timer was skipped (MP
+// turn-resume race) or if dice were overwritten by the bot's roll display.
+const _pupOrigRollDicePending = rollDice;
+rollDice = function() {
+  if (powerupMode && pendingFreezeIdx >= 0 && _isMyTurnNow()) {
+    _applyPendingFreeze();
+  }
+  _pupOrigRollDicePending();
+};
+
+// Patch restoreMyDiceUI — apply a pending freeze when our MP turn resumes,
+// since the apply timer may have skipped earlier while currentTurnId pointed
+// at the opponent.
+if (typeof restoreMyDiceUI === 'function') {
+  const _pupOrigRestoreMyDiceUI = restoreMyDiceUI;
+  restoreMyDiceUI = function() {
+    _pupOrigRestoreMyDiceUI();
+    if (powerupMode && pendingFreezeIdx >= 0) _applyPendingFreeze();
+  };
+}

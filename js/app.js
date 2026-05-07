@@ -1214,6 +1214,10 @@ function listenRoom() {
         undoPowerupState = null;
         freezeDieIndex = -1;
         frozenDieValue = 0;
+        if (typeof pendingFreezeIdx !== 'undefined') {
+          pendingFreezeIdx = -1;
+          pendingFreezeVal = 0;
+        }
         renderPowerupBar();
       }
 
@@ -1248,6 +1252,10 @@ function listenRoom() {
         undoPowerupState = null;
         freezeDieIndex = -1;
         frozenDieValue = 0;
+        if (typeof pendingFreezeIdx !== 'undefined') {
+          pendingFreezeIdx = -1;
+          pendingFreezeVal = 0;
+        }
         renderPowerupBar();
       }
     }
@@ -1672,6 +1680,10 @@ function startVsBot(mode) {
     undoPowerupState   = null;
     freezeDieIndex     = -1;
     frozenDieValue     = 0;
+    if (typeof pendingFreezeIdx !== 'undefined') {
+      pendingFreezeIdx = -1;
+      pendingFreezeVal = 0;
+    }
   }
   if (typeof powerupMode !== 'undefined') {
     powerupMode = (mode === 'powerup');
