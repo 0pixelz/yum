@@ -146,6 +146,7 @@ const BONUS_TARGET = 63;
 const BONUS_POINTS = 35;
 
 let scores = {};
+let playerScoreDice = {}; // stores dice used per category for the local player
 let dice = [0,0,0,0,0];
 let held = [false,false,false,false,false];
 let rolled = false;
@@ -447,6 +448,7 @@ function selectScore(v) {
 function confirmScore() {
   if(selectedScore === null || selectedScore === undefined) { closeModalEl(); return; }
   scores[activeModal] = selectedScore;
+  playerScoreDice[activeModal] = dice.slice();
   if(activeModal === 'yum' && selectedScore === 50) SFX.yum();
   else if(selectedScore === 0) SFX.scratch();
   else SFX.score();
@@ -1201,7 +1203,7 @@ function listenRoom() {
       document.getElementById('mpBanner').style.display = 'block';
       document.getElementById('leaderboard').style.display = 'block';
       document.getElementById('mpCodeBadge').textContent = roomCode;
-      scores = {}; // reset local scores
+      scores = {}; playerScoreDice = {}; // reset local scores
       renderScores();
       syncDiceUI();
 
@@ -1405,7 +1407,7 @@ function leaveGame() {
   document.getElementById('mpBanner').style.display = 'none';
   document.getElementById('leaderboard').style.display = 'none';
   document.getElementById('lobbyOverlay').style.display = 'flex';
-  scores = {}; renderScores();
+  scores = {}; playerScoreDice = {}; renderScores();
 }
 
 function updateMpUI() {
@@ -1671,6 +1673,7 @@ function startVsBot(mode) {
   botMode = true;
   botScores = {};
   scores = {};
+  playerScoreDice = {};
 
   // Reset power-up state, then enable if requested
   if (typeof playerPowerups !== 'undefined') {
@@ -1969,6 +1972,7 @@ confirmScore = function() {
   // Safety: if selectedScore is 0 (strike) ensure it's explicitly saved
   if(botMode && activeModal && selectedScore === 0) {
     scores[activeModal] = 0;
+    playerScoreDice[activeModal] = dice.slice();
     closeModalEl();
     renderScores();
     setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 150);
@@ -2179,7 +2183,7 @@ function rematch() {
   if(botMode) {
     // Full reset
     botScores = {}; botScoreDice = {};
-    scores = {}; playerTurn = true;
+    scores = {}; playerScoreDice = {}; playerTurn = true;
     rollsLeft = 3; rolled = false;
     dice = [0,0,0,0,0]; held = [false,false,false,false,false];
     renderDice(false);
@@ -2211,7 +2215,7 @@ function quitGame() {
   document.getElementById('gameOverlay').classList.remove('open');
   if(botMode) {
     botMode = false; botScores = {}; botScoreDice = {};
-    scores = {}; playerTurn = true;
+    scores = {}; playerScoreDice = {}; playerTurn = true;
     document.getElementById('leaderboard').style.display = 'none';
     clearDice(); renderScores();
   } else if(mpMode) {

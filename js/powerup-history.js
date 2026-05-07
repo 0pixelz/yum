@@ -225,7 +225,7 @@
       const meRow = lbRows.querySelector('.lb-row.me');
       if (!meRow) return;
       meRow.style.cursor = 'pointer';
-      meRow.onclick = () => openOppViewer('me', playerName, scores, {});
+      meRow.onclick = () => openOppViewer('me', playerName, scores, typeof playerScoreDice !== 'undefined' ? playerScoreDice : {});
       const nameEl = meRow.querySelector('.lb-name');
       if (nameEl && !nameEl.querySelector('.lb-self-tap-hint')) {
         const hint = document.createElement('span');
