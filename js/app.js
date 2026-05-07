@@ -567,13 +567,21 @@ function holdDesc(initHeld) {
   return `Keep ${diceLabel(initHeld)} · re-roll ${reroll}`;
 }
 
+function closePrediction() {
+  const panel = document.getElementById('predOverlay');
+  if(panel) panel.classList.remove('open');
+}
+
+function closePredictionOverlay(e) {
+  if(e && e.target && e.target.id === 'predOverlay') closePrediction();
+}
+
 function runPrediction() {
   if(!dice.every(v=>v>0)) return;
-  const panel = document.getElementById('predPanel');
+  const panel = document.getElementById('predOverlay');
   const cont  = document.getElementById('predContent');
-  panel.style.display='block';
+  panel.classList.add('open');
   cont.innerHTML='<div class="pred-spinner"><i class="icn icn-orb"></i> Simulating… hang tight</div>';
-  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
 
   setTimeout(()=>{
     const unfilledCats = categories.filter(c=>scores[c.id]===undefined);
@@ -661,7 +669,8 @@ renderDice = function(justRolled){
   const btn = document.getElementById('predictBtn');
   if(btn) btn.disabled = !dice.every(v=>v>0);
   if(!dice.every(v=>v>0)){
-    document.getElementById('predPanel').style.display='none';
+    const ov = document.getElementById('predOverlay');
+    if(ov) ov.classList.remove('open');
   }
   // Hide tap label and scan button in multiplayer/bot
   syncDiceUI();
