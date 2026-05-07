@@ -231,9 +231,10 @@ function renderDice(justRolled) {
     const wasRolled = justRolled && !held[i];
     const faceChanged = el.textContent !== face;
     if(wasRolled || faceChanged) {
-      el.classList.remove('die-spin');
+      el.classList.remove('die-spin', 'die-rolled-same');
       void el.offsetWidth; // force reflow
       el.classList.add('die-spin');
+      if(wasRolled && !faceChanged) el.classList.add('die-rolled-same');
     }
     el.textContent = face;
     if (typeof window.applyDieSkinAttr === 'function') window.applyDieSkinAttr(el, i);
