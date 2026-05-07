@@ -241,6 +241,19 @@
   } else {
     initProfileLogin();
   }
+
+  // Watchdog: re-render the social login bar if anything strips it from the DOM,
+  // or if profile-login.js ran before the lobby input was present.
+  setInterval(() => {
+    const input = document.getElementById('playerName');
+    if (!input) return;
+    const bar = document.getElementById('profileLoginBar');
+    const hasGoogleBtn = bar && bar.querySelector('button[onclick*="signInWithGoogle"]');
+    const hasAppleBtn = bar && bar.querySelector('button[onclick*="signInWithApple"]');
+    if (!bar || !hasGoogleBtn || !hasAppleBtn) {
+      renderProfileBar();
+    }
+  }, 700);
 })();
 
 // ─── SHARE LOBBY / DIRECT JOIN LINK ──────────────────────────────────
