@@ -96,6 +96,8 @@
         background: var(--bg); width: 100%; max-width: 520px;
         max-height: 92vh; border-radius: 24px 24px 0 0;
         overflow-y: auto; padding-bottom: 28px;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
         transform: translateY(100%);
         transition: transform .35s cubic-bezier(.34,1.2,.64,1);
       }
@@ -388,6 +390,8 @@
 
   function render() {
     const ov = ensureOverlay();
+    const prevSheet = ov.querySelector('.rh-sheet');
+    const prevScroll = prevSheet ? prevSheet.scrollTop : 0;
     if (!isLoggedIn()) {
       ov.innerHTML = `<div class="rh-sheet">
         <div class="rh-header">
@@ -408,6 +412,10 @@
       ${renderChallengeSection()}
       ${renderSkinSection()}
     </div>`;
+    if (prevScroll) {
+      const newSheet = ov.querySelector('.rh-sheet');
+      if (newSheet) newSheet.scrollTop = prevScroll;
+    }
   }
 
   function openHub() {
@@ -487,10 +495,9 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  setInterval(() => {
-    refreshHubButton();
-    if (document.getElementById('rewardsHubOverlay')?.classList.contains('open')) render();
-  }, 800);
+  // Refresh only the hub button on a timer; never re-render the open
+  // overlay here, otherwise rewriting innerHTML resets the user's scroll.
+  setInterval(refreshHubButton, 800);
 
   window.addEventListener('yumCreditsChanged', () => {
     refreshHubButton();
