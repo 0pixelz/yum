@@ -2523,6 +2523,11 @@ window.addEventListener('beforeunload', function(e) {
 
 
 function showYourTurnPop(sub) {
+  // Most callers schedule this via setTimeout, so by the time it fires the
+  // turn may already have flipped to the bot/opponent. Re-check the current
+  // turn state and bail if it's no longer our turn.
+  if (mpMode && currentTurnId && currentTurnId !== playerId) return;
+  if (botMode && playerTurn === false) return;
   const pop = document.getElementById('yourTurnPop');
   const subEl = document.getElementById('yourTurnSub');
   if(subEl) subEl.textContent = sub || 'ROLL THE DICE';
