@@ -388,26 +388,35 @@
 
   function render() {
     const ov = ensureOverlay();
-    if (!isLoggedIn()) {
-      ov.innerHTML = `<div class="rh-sheet">
+    const html = !isLoggedIn()
+      ? `<div class="rh-sheet">
         <div class="rh-header">
           <div class="rh-header-title"><i class="icn icn-gift"></i> REWARDS &amp; STORE</div>
           <button class="rh-close" onclick="window.rhCloseHub()"><i class="icn icn-close"></i></button>
         </div>
         <div class="rh-empty">Sign in with Google or Apple to earn credits and unlock skins.</div>
+      </div>`
+      : `<div class="rh-sheet">
+        <div class="rh-header">
+          <div class="rh-header-title"><i class="icn icn-gift"></i> REWARDS &amp; STORE</div>
+          <span class="rh-wallet"><i class="icn icn-coin"></i> ${credits()}</span>
+          <button class="rh-close" onclick="window.rhCloseHub()"><i class="icn icn-close"></i></button>
+        </div>
+        ${renderBonusSection()}
+        ${renderChallengeSection()}
+        ${renderSkinSection()}
       </div>`;
-      return;
-    }
-    ov.innerHTML = `<div class="rh-sheet">
-      <div class="rh-header">
-        <div class="rh-header-title"><i class="icn icn-gift"></i> REWARDS &amp; STORE</div>
-        <span class="rh-wallet"><i class="icn icn-coin"></i> ${credits()}</span>
-        <button class="rh-close" onclick="window.rhCloseHub()"><i class="icn icn-close"></i></button>
-      </div>
-      ${renderBonusSection()}
-      ${renderChallengeSection()}
-      ${renderSkinSection()}
-    </div>`;
+
+    // Skip re-render when nothing changed — replacing innerHTML otherwise
+    // destroys the .rh-sheet scroll container and snaps scrollTop back to 0.
+    if (ov.dataset.rhHtml === html) return;
+
+    const oldSheet = ov.querySelector('.rh-sheet');
+    const prevScroll = oldSheet ? oldSheet.scrollTop : 0;
+    ov.innerHTML = html;
+    ov.dataset.rhHtml = html;
+    const newSheet = ov.querySelector('.rh-sheet');
+    if (newSheet && prevScroll) newSheet.scrollTop = prevScroll;
   }
 
   function openHub() {
@@ -418,7 +427,9 @@
 
   function closeHub() {
     const ov = document.getElementById('rewardsHubOverlay');
-    if (ov) ov.classList.remove('open');
+    if (!ov) return;
+    ov.classList.remove('open');
+    delete ov.dataset.rhHtml;
   }
 
   function claimBonusFromHub() {
