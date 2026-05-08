@@ -3,6 +3,9 @@
   "target": {
     "namespace": "android_app",
     "package_name": "io.yamio.app",
-    "sha256_cert_fingerprints": ["E5:D4:3F:12:1D:16:E0:E5:45:98:EE:E9:3B:EA:00:33:AC:DD:61:AC:2C:13:3C:9F:DE:6A:F1:19:10:E6:10:76"]
+    "sha256_cert_fingerprints": [
+      "E5:D4:3F:12:1D:16:E0:E5:45:98:EE:E9:3B:EA:00:33:AC:DD:61:AC:2C:13:3C:9F:DE:6A:F1:19:10:E6:10:76",
+      "36:9C:20:4E:88:75:53:CF:25:76:10:93:5B:7E:73:08:B8:AF:6C:A0:87:4E:4E:5C:5A:92:AE:6B:88:3B:8C:A8"
+    ]
   }
 }]
