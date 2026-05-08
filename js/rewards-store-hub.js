@@ -23,7 +23,7 @@
   function getProfile() { return loadJSON(PROFILE_KEY, null); }
   function isLoggedIn() {
     const p = getProfile();
-    return !!(p && (p.type === 'google' || p.type === 'apple') && (p.uid || p.email));
+    return !!(p && p.type === 'google' && (p.uid || p.email));
   }
   function profileId() {
     const p = getProfile();
@@ -394,7 +394,7 @@
           <div class="rh-header-title"><i class="icn icn-gift"></i> REWARDS &amp; STORE</div>
           <button class="rh-close" onclick="window.rhCloseHub()"><i class="icn icn-close"></i></button>
         </div>
-        <div class="rh-empty">Sign in with Google or Apple to earn credits and unlock skins.</div>
+        <div class="rh-empty">Sign in with Google to earn credits and unlock skins.</div>
       </div>`
       : `<div class="rh-sheet">
         <div class="rh-header">

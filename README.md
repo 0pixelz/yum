@@ -19,7 +19,7 @@ The game supports:
 - **Score suggestions and AI predictions** using Monte Carlo simulations
 - **Camera dice scan** for reading real dice from a photo
 - **Achievements and progression**
-- **Google / Apple login support**
+- **Google login support**
 - **Credits, daily bonus, daily challenge, and Skin Store**
 - **PWA install support** for Android and iOS
 
@@ -140,7 +140,6 @@ Examples of progression goals can include things like winning games, scoring str
 Yamio supports account-based features through:
 
 - **Google login**
-- **Apple login**
 - Local device profile fallback
 
 When logged in, the game can unlock account-based features such as:
@@ -253,7 +252,7 @@ Each category can only be used **once**. If you cannot or do not want to score, 
 | **CSS** | Mobile-first styling, animations, PWA UI |
 | **JavaScript** | Game logic, scoring, lobby, bot, predictions |
 | **Firebase Realtime Database** | Multiplayer rooms, live dice, player sync |
-| **Firebase Auth** | Google / Apple login support |
+| **Firebase Auth** | Google login support |
 | **QRCode.js** | QR room code generation |
 | **AI Vision / API integration** | Dice photo scanning |
 | **Monte Carlo simulation** | Prediction engine and bot decision-making |
@@ -270,7 +269,7 @@ index.html              # Main app layout
 manifest.json           # PWA install settings
 css/style.css           # Main styling
 js/app.js               # Main game logic
-js/profile-login.js     # Google / Apple profile login
+js/profile-login.js     # Google profile login
 js/login-feature-finalizer.js # Login-gated features, daily rewards, Skin Store, lobby enhancements
 js/skin-store-upgrade.js # Dice skin visuals and color customization
 js/skin-sync.js         # Multiplayer dice skin sync
@@ -296,8 +295,7 @@ To use multiplayer and login features, configure Firebase:
 2. Add a web app
 3. Enable **Realtime Database**
 4. Enable **Google Authentication** if using Google login
-5. Enable **Apple Authentication** if using Apple login
-6. Add your Firebase config to the project
+5. Add your Firebase config to the project
 
 ---
 

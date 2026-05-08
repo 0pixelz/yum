@@ -29,7 +29,7 @@
 
   function isLoggedIn() {
     const p = loadJSON(PROFILE_KEY, null);
-    return !!(p && (p.type === 'google' || p.type === 'apple') && (p.uid || p.email));
+    return !!(p && p.type === 'google' && (p.uid || p.email));
   }
 
   function challengeState() {
