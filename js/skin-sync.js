@@ -271,6 +271,45 @@
     window.restoreMyDiceUI.__skinPatched = true;
   }
 
+  // ─── Single-player bot turn dice ─────────────────────────────────────
+  // During the bot's turn the main #diceRow is reused to show its rolls,
+  // which would otherwise inherit the local player's equipped skin. Force
+  // the classic faces + skin so the bot has its own visual identity.
+
+  function patchShowBotDiceInRoller() {
+    const orig = window.showBotDiceInRoller;
+    if (typeof orig !== 'function' || orig.__skinPatched) return;
+    window.showBotDiceInRoller = function() {
+      const classicFaces = SKIN_FACES.classic;
+      const origGetDieFace = window.getDieFace;
+      window.getDieFace = function(dieIndex, value) {
+        return value <= 0 ? '–' : classicFaces[value - 1];
+      };
+      const result = orig.apply(this, arguments);
+      window.getDieFace = origGetDieFace;
+      _appliedRemoteSkin = null;
+      applyRemoteSkin('classic');
+      const row = document.getElementById('diceRow');
+      if (row) row.querySelectorAll('.die').forEach(el => {
+        el.style.removeProperty('background');
+        el.style.removeProperty('color');
+        el.style.removeProperty('border');
+      });
+      return result;
+    };
+    window.showBotDiceInRoller.__skinPatched = true;
+  }
+
+  function patchClearDice() {
+    const orig = window.clearDice;
+    if (typeof orig !== 'function' || orig.__skinPatched) return;
+    window.clearDice = function() {
+      clearRemoteSkin();
+      return orig.apply(this, arguments);
+    };
+    window.clearDice.__skinPatched = true;
+  }
+
   // ─── Skin-changing functions ─────────────────────────────────────────
 
   function patchSkinChangingFunctions() {
@@ -409,6 +448,8 @@
       patchSkinChangingFunctions();
       patchOpponentDiceDisplay();
       patchRestoreMyDiceUI();
+      patchShowBotDiceInRoller();
+      patchClearDice();
       patchFunction('renderLeaderboard', () => {
         updateOpponentSkinBadges();
         decorateRemoteLiveDice();
