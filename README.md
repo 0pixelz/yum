@@ -1,14 +1,14 @@
-# 🎲 YAM IO — Multiplayer Dice Scorecard Game
+# 🎲 Yamio — Multiplayer Dice Scorecard Game
 
-**YAM IO** is a mobile-friendly Yam / Yahtzee-style web game where you can play against a smart bot, or with friends in real-time multiplayer. It includes live rooms, QR-code lobby sharing, dice rolling, score tracking, AI-powered move prediction, real-dice scanning, achievements, daily rewards, daily challenges, credits, and a dice Skin Store.
+**Yamio** is a mobile-friendly Yam / Yahtzee-style web game where you can play against a smart bot, or with friends in real-time multiplayer. It includes live rooms, QR-code lobby sharing, dice rolling, score tracking, AI-powered move prediction, real-dice scanning, achievements, daily rewards, daily challenges, credits, and a dice Skin Store.
 
-🔗 **Live App:** [0pixelz.github.io/yum](https://0pixelz.github.io/yum)
+🔗 **Live App:** [yamio.io](https://yamio.io)
 
 ---
 
 ## 🚀 What the Game Does
 
-YAM IO lets players roll five dice up to three times per turn, hold dice between rolls, and score one category per turn. The goal is to build the best scorecard by choosing the right categories at the right time.
+Yamio lets players roll five dice up to three times per turn, hold dice between rolls, and score one category per turn. The goal is to build the best scorecard by choosing the right categories at the right time.
 
 The game supports:
 
@@ -123,7 +123,7 @@ Bot mode is useful when you want to practice without needing another player onli
 
 ## 🏆 Achievements & Progression
 
-YAM IO includes progression features to make the game more rewarding:
+Yamio includes progression features to make the game more rewarding:
 
 - Achievement tracking
 - Progress bar / completion percentage
@@ -137,7 +137,7 @@ Examples of progression goals can include things like winning games, scoring str
 
 ## 🔐 Login Features
 
-YAM IO supports account-based features through:
+Yamio supports account-based features through:
 
 - **Google login**
 - **Apple login**
@@ -211,10 +211,10 @@ This allows the game to expand beyond classic Yam rules with special abilities o
 
 ## 📱 Install as an App
 
-YAM IO is built as a **Progressive Web App (PWA)**.
+Yamio is built as a **Progressive Web App (PWA)**.
 
 ### Android
-1. Open [0pixelz.github.io/yum](https://0pixelz.github.io/yum) in Chrome
+1. Open [yamio.io](https://yamio.io) in Chrome
 2. Tap the install banner if it appears
 3. Or open the browser menu and choose **Add to Home Screen**
 
