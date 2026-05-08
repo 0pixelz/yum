@@ -993,6 +993,10 @@ function genCode() {
 function getLobbyName() {
   const n = document.getElementById('playerName').value.trim();
   if(!n) { showLobbyErr('Enter your name first!'); return null; }
+  if (typeof window.yumValidateUsername === 'function') {
+    const check = window.yumValidateUsername(n);
+    if (!check.ok) { showLobbyErr(check.reason); return null; }
+  }
   return n;
 }
 
@@ -1663,6 +1667,10 @@ let botThinkTimeout = null;
 function openBotModeChoice() {
   const name = document.getElementById('playerName').value.trim();
   if(!name) { showLobbyErr('Enter your name first!'); return; }
+  if (typeof window.yumValidateUsername === 'function') {
+    const check = window.yumValidateUsername(name);
+    if (!check.ok) { showLobbyErr(check.reason); return; }
+  }
   document.getElementById('botModeModal').classList.add('open');
 }
 
@@ -1678,6 +1686,10 @@ function chooseBotMode(mode) {
 function startVsBot(mode) {
   const name = document.getElementById('playerName').value.trim();
   if(!name) { showLobbyErr('Enter your name first!'); return; }
+  if (typeof window.yumValidateUsername === 'function') {
+    const check = window.yumValidateUsername(name);
+    if (!check.ok) { showLobbyErr(check.reason); return; }
+  }
   playerName = name;
   botMode = true;
   botScores = {};
