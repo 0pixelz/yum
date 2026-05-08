@@ -1250,7 +1250,7 @@ function listenRoom() {
       // the room as missing while the server confirms the write. Don't
       // kick the user back to the lobby in that window — wait for the
       // next snapshot which will have the real data.
-      const justCreated = window.__yumJustCreatedAt && (Date.now() - window.__yumJustCreatedAt < 3500);
+      const justCreated = window.__yumJustCreatedAt && (Date.now() - window.__yumJustCreatedAt < 6000);
       if (justCreated) return;
       leaveGame();
       return;
@@ -1716,15 +1716,22 @@ function sendReaction(idx) {
   // listeners that filter by their own Date.now().
   const TS = (window.firebase && firebase.database && firebase.database.ServerValue)
     ? firebase.database.ServerValue.TIMESTAMP : Date.now();
-  roomRef.child('reactions').push({
+  // Fan-out the reaction and the per-user throttle timestamp atomically so the
+  // server-side rule can rate-limit without trusting client clocks.
+  const reactionId = roomRef.child('reactions').push().key;
+  const updates = {};
+  updates['reactions/' + reactionId] = {
     from: playerId,
     fromName: playerName,
     to: reactionTargetId,
     toName: toName,
     emoji: r.emoji,
     label: r.label,
+    uid: playerId,
     ts: TS
-  });
+  };
+  updates['_reactionTs/' + playerId] = TS;
+  roomRef.update(updates).catch(() => {});
   closeReactionPicker();
 }
 
