@@ -24,6 +24,20 @@
 
       if (!firebase.apps || firebase.apps.length === 0) {
         firebase.initializeApp(window.firebaseConfig);
+
+        if (firebase.appCheck) {
+          try {
+            if (typeof self !== 'undefined' && /[?&]appCheckDebug=1\b/.test(location.search)) {
+              self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+            }
+            firebase.appCheck().activate(
+              new firebase.appCheck.ReCaptchaV3Provider('6LfU598sAAAAAPxSWlcPjq768nbIJwgU5ZwAka6K'),
+              true
+            );
+          } catch(e) {
+            console.warn('App Check activation failed:', e);
+          }
+        }
       }
 
       window.db = firebase.database();
