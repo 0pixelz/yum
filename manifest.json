@@ -1,7 +1,7 @@
 {
-  "name": "YUM!",
-  "short_name": "YUM!",
-  "description": "A mobile-friendly YUM / Yahtzee-style scorecard with solo, bot, multiplayer, predictions, and achievements.",
+  "name": "YAM IO",
+  "short_name": "YAM IO",
+  "description": "A mobile-friendly YAM / Yahtzee-style scorecard with solo, bot, multiplayer, predictions, and achievements.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

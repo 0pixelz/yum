@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yum-pwa-v8-restore-social-login';
+const CACHE_NAME = 'yum-pwa-v9-yam-io-rebrand';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

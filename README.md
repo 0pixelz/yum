@@ -1,6 +1,6 @@
-# 🎲 YUM! — Multiplayer Dice Scorecard Game
+# 🎲 YAM IO — Multiplayer Dice Scorecard Game
 
-**YUM!** is a mobile-friendly Yum / Yahtzee-style web game where you can play against a smart bot, or with friends in real-time multiplayer. It includes live rooms, QR-code lobby sharing, dice rolling, score tracking, AI-powered move prediction, real-dice scanning, achievements, daily rewards, daily challenges, credits, and a dice Skin Store.
+**YAM IO** is a mobile-friendly Yam / Yahtzee-style web game where you can play against a smart bot, or with friends in real-time multiplayer. It includes live rooms, QR-code lobby sharing, dice rolling, score tracking, AI-powered move prediction, real-dice scanning, achievements, daily rewards, daily challenges, credits, and a dice Skin Store.
 
 🔗 **Live App:** [0pixelz.github.io/yum](https://0pixelz.github.io/yum)
 
@@ -8,7 +8,7 @@
 
 ## 🚀 What the Game Does
 
-YUM! lets players roll five dice up to three times per turn, hold dice between rolls, and score one category per turn. The goal is to build the best scorecard by choosing the right categories at the right time.
+YAM IO lets players roll five dice up to three times per turn, hold dice between rolls, and score one category per turn. The goal is to build the best scorecard by choosing the right categories at the right time.
 
 The game supports:
 
@@ -56,12 +56,12 @@ Play against a bot that uses the same prediction logic as the helper system. The
 - Runs Monte Carlo-style simulations to evaluate possible moves
 - Suggests the best dice to hold
 - Helps estimate expected score outcomes
-- Highlights strong scoring opportunities, including YUM chances
+- Highlights strong scoring opportunities, including YAM chances
 
 ### 🧮 Smart Scorecard
-- Full Yum / Yahtzee-style scorecard
+- Full Yam / Yahtzee-style scorecard
 - Upper section: Ones, Twos, Threes, Fours, Fives, Sixes
-- Lower section: 3 of a Kind, 4 of a Kind, Full House, Small Straight, Large Straight, YUM!, Chance
+- Lower section: 3 of a Kind, 4 of a Kind, Full House, Small Straight, Large Straight, YAM!, Chance
 - Upper bonus tracker: **63+ points = +35 bonus**
 - Score percentage indicators
 - Colour-coded score progress bars
@@ -123,7 +123,7 @@ Bot mode is useful when you want to practice without needing another player onli
 
 ## 🏆 Achievements & Progression
 
-YUM! includes progression features to make the game more rewarding:
+YAM IO includes progression features to make the game more rewarding:
 
 - Achievement tracking
 - Progress bar / completion percentage
@@ -131,13 +131,13 @@ YUM! includes progression features to make the game more rewarding:
 - Achievement menu from the main game screen
 - Skin and credit progression tied to play activity
 
-Examples of progression goals can include things like winning games, scoring strong categories, getting YUMs, playing daily, or completing challenges.
+Examples of progression goals can include things like winning games, scoring strong categories, getting YAMs, playing daily, or completing challenges.
 
 ---
 
 ## 🔐 Login Features
 
-YUM! supports account-based features through:
+YAM IO supports account-based features through:
 
 - **Google login**
 - **Apple login**
@@ -205,13 +205,13 @@ Credits can be used for Skin Store unlocks.
 
 The multiplayer lobby includes a game mode selector with support for normal play and power-up style play.
 
-This allows the game to expand beyond classic Yum rules with special abilities or alternate multiplayer rules.
+This allows the game to expand beyond classic Yam rules with special abilities or alternate multiplayer rules.
 
 ---
 
 ## 📱 Install as an App
 
-YUM! is built as a **Progressive Web App (PWA)**.
+YAM IO is built as a **Progressive Web App (PWA)**.
 
 ### Android
 1. Open [0pixelz.github.io/yum](https://0pixelz.github.io/yum) in Chrome
@@ -227,7 +227,7 @@ Once installed, the game opens like an app from your home screen.
 
 ---
 
-## 🧠 How to Play Yum
+## 🧠 How to Play Yam
 
 | Category | How to Score |
 |---|---|
@@ -238,7 +238,7 @@ Once installed, the game opens like an app from your home screen.
 | Full House | 3 of one number + 2 of another → 25 points |
 | Small Straight | 4 sequential dice → 30 points |
 | Large Straight | 5 sequential dice → 40 points |
-| YUM! | 5 dice the same → 50 points |
+| YAM! | 5 dice the same → 50 points |
 | Chance | Any dice combination → sum all dice |
 
 Each category can only be used **once**. If you cannot or do not want to score, you can scratch a category for **0 points**.

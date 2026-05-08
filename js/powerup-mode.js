@@ -60,7 +60,7 @@ function openPowerupPickerModal(context) {
   document.getElementById('powerupPickerTitle').innerHTML =
     context === 'start'
       ? '<i class="icn icn-bolt"></i> CHOOSE YOUR POWER-UP!'
-      : '<i class="icn icn-dice"></i> YUM! EARN A POWER-UP!';
+      : '<i class="icn icn-dice"></i> YAM! EARN A POWER-UP!';
   document.getElementById('powerupPickerSub').textContent =
     context === 'start'
       ? 'Pick one power-up to start your game with'
