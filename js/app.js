@@ -1072,9 +1072,15 @@ async function createGame() {
     playerId = _authUser.uid;
     const _joinSkin = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
     let _joinPdc = null; try { _joinPdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
-    try {
-      roomRef = _db.ref('rooms/' + roomCode);
-      const setPromise = roomRef.set({
+    // Try up to 6 codes to dodge any in-flight collisions. Each attempt uses a
+    // transaction so two clients racing for the same code can't both win.
+    const MAX_CODE_ATTEMPTS = 6;
+    let createOk = false;
+    let lastErr = null;
+    for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS && !createOk; attempt++) {
+      if (attempt > 0) roomCode = genCode();
+      const candidateRef = _db.ref('rooms/' + roomCode);
+      const newRoom = {
         host: playerId,
         started: false,
         currentTurn: playerId,
@@ -1082,22 +1088,46 @@ async function createGame() {
         players: {
           [playerId]: { name: playerName, uid: _authUser.uid, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
         }
-      });
-      // Race the Firebase write against a 7s timeout so a stalled connection
-      // doesn't leave the player stuck on "Creating room…" with no feedback.
-      await Promise.race([
-        setPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000))
-      ]);
-    } catch(err) {
-      console.warn('createGame failed:', err);
+      };
+      try {
+        const txnPromise = candidateRef.transaction(function(curr) {
+          // Abort if the slot is already taken — caller will retry with a new code.
+          if (curr) return undefined;
+          return newRoom;
+        });
+        const result = await Promise.race([
+          txnPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000))
+        ]);
+        if (result && result.committed) {
+          roomRef = candidateRef;
+          createOk = true;
+          break;
+        }
+        // Not committed → collision; loop to try a new code.
+        lastErr = new Error('collision');
+      } catch(err) {
+        lastErr = err;
+        // Network/timeout/permission errors abort the retry loop — only collisions
+        // (transaction returned undefined) are worth retrying.
+        break;
+      }
+    }
+    if (!createOk) {
+      console.warn('createGame failed:', lastErr);
+      const err = lastErr || new Error('unknown');
       const code = (err && (err.code || err.name)) || 'unknown';
       const detail = (err && err.message) || String(err);
       const connected = (window.yumFirebaseConnected === true) ? 'online' : 'offline';
       const dbPresent = !!window.db;
-      const msg = (err && err.message === 'timeout')
-        ? `Timeout creating room (db=${dbPresent}, fb=${connected}). Tap Create to retry.`
-        : `Create failed: ${code} — ${detail} (db=${dbPresent}, fb=${connected})`;
+      let msg;
+      if (err && err.message === 'timeout') {
+        msg = `Timeout creating room (db=${dbPresent}, fb=${connected}). Tap Create to retry.`;
+      } else if (err && err.message === 'collision') {
+        msg = 'All tried room codes were taken — tap Create to try again.';
+      } else {
+        msg = `Create failed: ${code} — ${detail} (db=${dbPresent}, fb=${connected})`;
+      }
       showLobbyErr(msg, { text: true, holdMs: 15000 });
       try { if (roomRef) { roomRef.off(); } } catch(e) {}
       roomRef = null;

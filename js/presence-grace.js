@@ -75,13 +75,48 @@
     if (sweepTimer) { clearInterval(sweepTimer); sweepTimer = null; }
   }
 
-  // The sweeper runs on every client; the per-player transaction makes it
-  // safe — only one client wins the remove per stale slot.
+  // The sweeper is host-only in the steady state — that keeps stale-slot
+  // removal to a single transaction per slot instead of N (one per client).
+  // Two safety valves keep the room from stalling when the host itself is the
+  // problem:
+  //   • If we're offline, skip entirely. Our local view of `allPlayers` /
+  //     `disconnectedAt` is stale, so any removal we'd issue is unsafe — we
+  //     could cull peers who are actually fine. They'll be re-included once
+  //     we reconnect and the snapshot refreshes.
+  //   • If the recorded host is missing or has been gone past HOST_STALE_MS,
+  //     any live client may sweep. host-migration in multiplayer-fault-fixes
+  //     will promote a new host shortly after, but until then we still want
+  //     stale-slot cleanup to make progress.
+  const HOST_STALE_MS = 20 * 1000;
+
+  function isLocallyConnected() {
+    // window.yumFirebaseConnected is wired up in firebase-init.js via
+    // .info/connected — `true` means our websocket is up.
+    return window.yumFirebaseConnected === true;
+  }
+
+  function shouldThisClientSweep(players) {
+    if (!isLocallyConnected()) return false;
+    const hostId = (typeof window.currentHostId === 'string' && window.currentHostId)
+      ? window.currentHostId
+      : null;
+    // Steady state: host sweeps.
+    if (window.isHost === true) return true;
+    // Host vanished or is itself stale → fall back to all-clients-sweep so
+    // host migration isn't a prerequisite for cleanup.
+    const hostNode = hostId ? players[hostId] : null;
+    if (!hostNode) return true;
+    const dAt = hostNode.disconnectedAt;
+    if (typeof dAt === 'number' && (Date.now() - dAt) > HOST_STALE_MS) return true;
+    return false;
+  }
+
   function sweepOnce() {
     if (!inRoom() || !window.allPlayers) return;
     const players = window.allPlayers;
     const ids = Object.keys(players);
     if (!ids.length) return;
+    if (!shouldThisClientSweep(players)) return;
 
     // Use the server's own time-of-last-write as the reference. We
     // approximate "now" with Date.now(); the disconnectedAt was written via

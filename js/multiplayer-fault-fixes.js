@@ -174,6 +174,10 @@
     });
   }
 
+  // Runs on every snapshot — both in the lobby (data.started === false) and
+  // in-game. This is the only mechanism that recovers from a host that bails
+  // before pressing START, so the gating must stay snapshot-driven and not
+  // depend on data.started.
   function migrateHostIfNeeded(data) {
     if (!data || !inRoom()) return;
     const players = window.allPlayers || {};
@@ -257,13 +261,20 @@
       }
       const data = snap.val() || {};
       window.allPlayers = data.players || window.allPlayers || {};
+      // Expose current host id so other modules (presence sweeper) can decide
+      // whether to defer cleanup work to the host.
+      window.currentHostId = (typeof data.host === 'string') ? data.host : null;
 
       refreshRoomDisconnect();
       migrateHostIfNeeded(data);
 
+      // Heartbeat runs in the lobby too — host migration uses lastActiveAt to
+      // tell "thinking" from "ghosted", and a host that bails before
+      // data.started would otherwise leave the room with stale presence data.
+      startHeartbeat();
+
       if (data.started) {
         startTurnWatchdog();
-        startHeartbeat();
       } else {
         stopTurnWatchdog();
       }

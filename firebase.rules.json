@@ -48,7 +48,7 @@
         },
         "rollCount": {
           ".write": "auth != null && (!newData.exists() || root.child('rooms').child($roomId).child('currentTurn').val() === auth.uid || root.child('rooms').child($roomId).child('host').val() === auth.uid)",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3"
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5"
         },
         "gameOver": {
           ".write": "auth != null && root.child('rooms').child($roomId).child('host').val() === auth.uid"
@@ -127,9 +127,7 @@
               ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000"
             },
             "scorecard": {
-              "$category": {
-                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
-              }
+              ".validate": false
             },
             "scores": {
               ".write": "auth != null && (auth.uid === $playerId || (root.child('rooms').child($roomId).child('host').val() === auth.uid && !newData.exists()))",
