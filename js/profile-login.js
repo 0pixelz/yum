@@ -72,8 +72,23 @@
     return loadJSON(GOOGLE_PROFILE_KEY, null) || getDeviceProfile();
   }
 
+  function prefillPlayerNameIfEmpty() {
+    const input = document.getElementById('playerName');
+    if (!input || input.value.trim()) return;
+    let saved = '';
+    try { saved = localStorage.getItem('yum_last_username') || ''; } catch(e) {}
+    if (!saved) {
+      const google = loadJSON(GOOGLE_PROFILE_KEY, null);
+      if (google && google.name) saved = String(google.name);
+    }
+    if (!saved) return;
+    const max = parseInt(input.getAttribute('maxlength'), 10) || 16;
+    input.value = saved.slice(0, max);
+  }
+
   function applyProfileToLobby(profile) {
     renderProfileBar();
+    prefillPlayerNameIfEmpty();
   }
 
   function renderProfileBar() {

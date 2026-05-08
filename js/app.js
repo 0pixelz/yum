@@ -1014,6 +1014,7 @@ function getLobbyName() {
     const check = window.yumValidateUsername(n);
     if (!check.ok) { showLobbyErr(check.reason); return null; }
   }
+  try { localStorage.setItem('yum_last_username', n); } catch(e) {}
   return n;
 }
 
