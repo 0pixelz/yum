@@ -1,12 +1,8 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "io.yamio.app",
-      "sha256_cert_fingerprints": [
-        "REPLACE_WITH_SHA256_FROM_BUBBLEWRAP_KEYSTORE"
-      ]
-    }
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "io.yamio.app",
+    "sha256_cert_fingerprints": ["E5:D4:3F:12:1D:16:E0:E5:45:98:EE:E9:3B:EA:00:33:AC:DD:61:AC:2C:13:3C:9F:DE:6A:F1:19:10:E6:10:76"]
   }
-]
+}]
