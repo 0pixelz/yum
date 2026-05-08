@@ -50,11 +50,15 @@
   // Database rules require auth != null for room reads/writes. Sign the user
   // in anonymously on startup so guests (no Google sign-in) can still play.
   // If a user is already signed in (e.g. via Google), reuse that session.
+  // Always reflects the *current* user — a Google sign-in mid-session must
+  // not return the stale anonymous user, or createGame/joinGame would write
+  // the wrong uid and fail the per-player write rule.
   window.ensureFirebaseAuth = function ensureFirebaseAuth() {
-    if (window.__yumFirebaseAuthReady) return window.__yumFirebaseAuthReady;
-    window.__yumFirebaseAuthReady = (async () => {
-      if (!window.firebase || !firebase.auth) return null;
-      const auth = firebase.auth();
+    if (!window.firebase || !firebase.auth) return Promise.resolve(null);
+    const auth = firebase.auth();
+    if (auth.currentUser) return Promise.resolve(auth.currentUser);
+    if (window.__yumFirebaseAuthInFlight) return window.__yumFirebaseAuthInFlight;
+    window.__yumFirebaseAuthInFlight = (async () => {
       const initialUser = await new Promise(resolve => {
         const unsub = auth.onAuthStateChanged(u => { unsub(); resolve(u); });
       });
@@ -64,11 +68,12 @@
         return cred.user;
       } catch(e) {
         console.warn('Anonymous sign-in failed:', e);
-        window.__yumFirebaseAuthReady = null;
         return null;
+      } finally {
+        window.__yumFirebaseAuthInFlight = null;
       }
     })();
-    return window.__yumFirebaseAuthReady;
+    return window.__yumFirebaseAuthInFlight;
   };
 
   window.ensureFirebaseDb();

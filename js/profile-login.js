@@ -102,7 +102,7 @@
     `;
   }
 
-  async function ensureFirebaseAuth() {
+  async function getAuthInstance() {
     if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
     if (!window.firebase) throw new Error('Firebase SDK not loaded');
     if (!firebase.auth) {
@@ -111,37 +111,91 @@
     return firebase.auth();
   }
 
-  window.signInWithGoogle = async function signInWithGoogle() {
+  function buildGoogleProfile(user) {
+    return {
+      type: 'google',
+      uid: user.uid,
+      name: user.displayName || (user.email ? user.email.split('@')[0] : 'Player'),
+      email: user.email || '',
+      photoURL: user.photoURL || '',
+      signedInAt: Date.now()
+    };
+  }
+
+  function failToast(e) {
+    const code = (e && (e.code || e.name)) || 'unknown';
+    console.warn('Google sign-in failed:', code, e);
+    if (window.showToast) showToast('Google sign-in failed: ' + code);
+  }
+
+  function isStandaloneOrTwa() {
     try {
-      const auth = await ensureFirebaseAuth();
-      const provider = new firebase.auth.GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+      if (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) return true;
+      if (window.navigator && window.navigator.standalone === true) return true;
+      if (document.referrer && document.referrer.startsWith('android-app://')) return true;
+    } catch(e) {}
+    return false;
+  }
 
-      let result;
+  window.signInWithGoogle = async function signInWithGoogle() {
+    let auth;
+    try {
+      auth = await getAuthInstance();
+    } catch(e) {
+      failToast(e);
+      return;
+    }
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('email');
+    provider.addScope('profile');
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    // If signed in anonymously (from the eager auth in firebase-init.js), sign
+    // out first. signInWithPopup/Redirect won't link or merge — it would just
+    // swap users, but some Firebase configs throw 'credential-already-in-use'
+    // or 'admin-restricted-operation' on the swap. Clearing first is reliable.
+    try {
+      const cur = auth.currentUser;
+      if (cur && cur.isAnonymous) await auth.signOut();
+    } catch(e) {}
+
+    // Use redirect in installed PWAs / TWAs (popup is unsupported there).
+    if (isStandaloneOrTwa()) {
       try {
-        result = await auth.signInWithPopup(provider);
-      } catch(popupErr) {
         await auth.signInWithRedirect(provider);
-        return;
+      } catch(e) {
+        failToast(e);
       }
+      return;
+    }
 
-      const user = result.user;
+    // Browser tab: try popup first, fall back to redirect on popup errors.
+    try {
+      const result = await auth.signInWithPopup(provider);
+      const user = result && result.user;
       if (!user) return;
-      const profile = {
-        type: 'google',
-        uid: user.uid,
-        name: user.displayName || (user.email ? user.email.split('@')[0] : 'Player'),
-        email: user.email || '',
-        photoURL: user.photoURL || '',
-        signedInAt: Date.now()
-      };
-      saveJSON(GOOGLE_PROFILE_KEY, profile);
-      applyProfileToLobby(profile);
+      saveJSON(GOOGLE_PROFILE_KEY, buildGoogleProfile(user));
+      applyProfileToLobby();
       if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
       if (window.showToast) showToast('Signed in with Google');
-    } catch(e) {
-      console.warn('Google sign-in failed:', e);
-      if (window.showToast) showToast('Google sign-in failed');
+    } catch(popupErr) {
+      const popupCode = (popupErr && popupErr.code) || '';
+      const isPopupOnly = popupCode === 'auth/popup-blocked'
+        || popupCode === 'auth/popup-closed-by-user'
+        || popupCode === 'auth/cancelled-popup-request'
+        || popupCode === 'auth/operation-not-supported-in-this-environment'
+        || popupCode === 'auth/web-storage-unsupported';
+      if (!isPopupOnly) {
+        failToast(popupErr);
+        return;
+      }
+      try {
+        await auth.signInWithRedirect(provider);
+      } catch(redirectErr) {
+        failToast(redirectErr);
+      }
     }
   };
 
@@ -166,24 +220,18 @@
 
   async function finishRedirectSignIn() {
     try {
-      const auth = await ensureFirebaseAuth();
+      const auth = await getAuthInstance();
       const result = await auth.getRedirectResult();
       if (result && result.user) {
-        const user = result.user;
-        const profile = {
-          type: 'google',
-          uid: user.uid,
-          name: user.displayName || (user.email ? user.email.split('@')[0] : 'Player'),
-          email: user.email || '',
-          photoURL: user.photoURL || '',
-          signedInAt: Date.now()
-        };
-        saveJSON(GOOGLE_PROFILE_KEY, profile);
-        applyProfileToLobby(profile);
+        saveJSON(GOOGLE_PROFILE_KEY, buildGoogleProfile(result.user));
+        applyProfileToLobby();
         if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
         if (window.showToast) showToast('Signed in with Google');
       }
-    } catch(e) {}
+    } catch(e) {
+      console.warn('Google redirect sign-in failed:', e && e.code, e);
+      if (window.showToast && e && e.code) showToast('Google sign-in failed: ' + e.code);
+    }
   }
 
   function initProfileLogin() {
