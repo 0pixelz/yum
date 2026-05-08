@@ -356,7 +356,16 @@ function doMpRematch() {
 // ─── PLAYER LEFT DETECTION ───────────────────────────────────────────
 let plCountdownTimer = null;
 
-function showPlayerLeftPopup(name) {
+function showPlayerLeftPopup(name, survivingCount) {
+  // With ≥2 surviving players the match keeps going — show a non-blocking
+  // toast instead of the "match cancelled" overlay. Only fall back to the
+  // cancel countdown when we're down to a single player (no game possible).
+  if (typeof survivingCount === 'number' && survivingCount >= 2) {
+    if (typeof showToast === 'function') {
+      showToast('<i class="icn icn-warn icn-gold"></i> ' + name + ' left — game continues');
+    }
+    return;
+  }
   document.getElementById('plMsg').textContent =
     `${name} has left the game. The match has been cancelled.`;
   document.getElementById('plCountdown').textContent = '10';

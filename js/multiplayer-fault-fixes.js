@@ -141,24 +141,60 @@
   }
 
   // ── 4: host migration ─────────────────────────────────────────────
+  // Host needs to migrate in two cases:
+  //   1. The host slot is no longer in the players map (hard removal).
+  //   2. The host slot is still there but soft-disconnected past
+  //      HOST_STALE_MS — without this, a host that drops mid-match would
+  //      block the match for the full disconnect grace window.
+  const HOST_STALE_MS = 20 * 1000;
+
+  function isHostStale(data) {
+    const players = window.allPlayers || {};
+    const hostId = data && data.host;
+    if (!hostId) return true;                  // no host recorded
+    if (!players[hostId]) return true;          // host removed
+    const dAt = players[hostId].disconnectedAt;
+    if (typeof dAt === 'number' && (Date.now() - dAt) > HOST_STALE_MS) return true;
+    return false;
+  }
+
+  function liveCandidates(players) {
+    return Object.keys(players).filter(function(id) {
+      const dAt = players[id].disconnectedAt;
+      // Treat a player who's been gone briefly as still eligible — only
+      // strict ghosts get demoted from the candidate list.
+      return !(typeof dAt === 'number' && (Date.now() - dAt) > HOST_STALE_MS);
+    });
+  }
+
   function migrateHostIfNeeded(data) {
     if (!data || !inRoom()) return;
     const players = window.allPlayers || {};
     const ids = Object.keys(players);
     if (!ids.length) return;
 
-    const hostId = data.host;
-    if (hostId && players[hostId]) return; // valid host still here
+    if (!isHostStale(data)) return;
 
-    // Only the candidate (earliest-joined remaining player) tries to claim.
-    const order = ids.slice().sort(function(a, b) {
+    const live = liveCandidates(players);
+    if (!live.length) return;
+
+    // Only the earliest-joined live player tries to claim — keeps the
+    // transaction race contention low.
+    const order = live.slice().sort(function(a, b) {
       return (players[a].joined || 0) - (players[b].joined || 0);
     });
     const candidate = order[0];
     if (candidate !== window.playerId) return;
 
     window.roomRef.child('host').transaction(function(curr) {
-      if (curr && (window.allPlayers || {})[curr]) return undefined;
+      // Someone else already migrated to a healthy host — back off.
+      const cur = window.allPlayers || {};
+      if (curr && cur[curr]) {
+        const dAt = cur[curr] && cur[curr].disconnectedAt;
+        if (!(typeof dAt === 'number' && (Date.now() - dAt) > HOST_STALE_MS)) {
+          return undefined;
+        }
+      }
       return window.playerId;
     }).then(function(res) {
       if (res && res.committed) {

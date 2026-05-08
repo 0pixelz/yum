@@ -964,7 +964,24 @@ function iconHtml(icon, opts) {
 // ─── MULTIPLAYER ────────────────────────────────────────────────────
 let mpMode = false;
 let roomCode = null;
+// playerId is tied to firebase auth.uid as soon as auth is ready so that
+// reloading the page mid-match keeps the same slot. We seed with a temp
+// random id only as a fallback until auth resolves.
 let playerId = 'p_' + Math.random().toString(36).substr(2,9);
+function _yumApplyAuthPlayerId() {
+  try {
+    const u = (window.firebase && firebase.auth && firebase.auth().currentUser) || null;
+    if (u && u.uid) playerId = u.uid;
+  } catch(e) {}
+}
+_yumApplyAuthPlayerId();
+try {
+  if (window.firebase && firebase.auth) {
+    firebase.auth().onAuthStateChanged(u => {
+      if (u && u.uid && !mpMode) playerId = u.uid;
+    });
+  }
+} catch(e) {}
 let playerName = 'Player';
 let isHost = false;
 let roomRef = null;
@@ -1049,6 +1066,10 @@ async function createGame() {
       showLobbyErr('Sign-in failed — check your internet and reload.');
       return;
     }
+    // Use firebase auth.uid as the player slot key so a page refresh during a
+    // match returns to the same slot (and so server-side rules can map the
+    // slot to the authenticated user).
+    playerId = _authUser.uid;
     const _joinSkin = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
     let _joinPdc = null; try { _joinPdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
     try {
@@ -1083,8 +1104,17 @@ async function createGame() {
       return;
     }
 
-    // Clean up room when host disconnects (if not started)
-    roomRef.child('players/' + playerId).onDisconnect().remove();
+    // Soft-disconnect: mark a timestamp on disconnect instead of removing the
+    // slot, so a temporary network drop (subway, lockscreen, app background)
+    // doesn't immediately cancel the match. A sweeper enforces the grace
+    // window and removes the slot if the player stays gone too long.
+    try {
+      const _ts = (window.firebase && firebase.database && firebase.database.ServerValue)
+        ? firebase.database.ServerValue.TIMESTAMP : Date.now();
+      roomRef.child('players/' + playerId + '/disconnectedAt').onDisconnect().set(_ts);
+    } catch(e) {
+      roomRef.child('players/' + playerId).onDisconnect().remove();
+    }
     setTimeout(() => { if (typeof window.publishMyDiceSkin === 'function') window.publishMyDiceSkin(); }, 200);
 
     // Mark this client as the host that just created the room so listenRoom
@@ -1132,6 +1162,8 @@ async function joinGame() {
     }
   } catch(e) { console.warn('auth wait failed:', e); }
   if (!_authUser2) { showLobbyErr('Sign-in failed — check your internet and reload.'); return; }
+  // Use firebase auth.uid as the player slot key (see createGame for rationale).
+  playerId = _authUser2.uid;
 
   let snap;
   try {
@@ -1142,18 +1174,46 @@ async function joinGame() {
     return;
   }
   if(!snap.exists()) { showLobbyErr('Room not found! Check the code.'); return; }
-  if(snap.val().started) { showLobbyErr('Game already started!'); return; }
+  // Allow rejoin: a started game is OK if the auth.uid already has a slot
+  // (e.g. page reload mid-match). Otherwise block as before.
+  const _roomVal = snap.val();
+  const _existingSlot = _roomVal.players && _roomVal.players[playerId];
+  if(_roomVal.started && !_existingSlot) { showLobbyErr('Game already started!'); return; }
 
   roomRef = _db.ref('rooms/' + code);
   const _joinSkin2 = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
   let _joinPdc2 = null; try { _joinPdc2 = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
-  await roomRef.child('players/' + playerId).set({
-    name: playerName, uid: _authUser2.uid, scores: {}, joined: Date.now(), skin: _joinSkin2, perDieColors: _joinPdc2
-  });
-  roomRef.child('players/' + playerId).onDisconnect().remove();
+  if (_existingSlot) {
+    // Rejoin: keep scores/joined, just refresh presence + skin/name and clear
+    // any prior soft-disconnect marker.
+    await roomRef.child('players/' + playerId).update({
+      name: playerName, uid: _authUser2.uid, skin: _joinSkin2, perDieColors: _joinPdc2,
+      disconnectedAt: null
+    });
+    if (_roomVal.started) {
+      mpMode = true;
+      // Skip the waiting overlay since the game is already in progress.
+      document.getElementById('lobbyOverlay').style.display = 'none';
+    } else {
+      showWaiting();
+    }
+  } else {
+    await roomRef.child('players/' + playerId).set({
+      name: playerName, uid: _authUser2.uid, scores: {}, joined: Date.now(), skin: _joinSkin2, perDieColors: _joinPdc2
+    });
+    showWaiting();
+  }
+  // Soft-disconnect: mark a timestamp on disconnect; a sweeper removes the
+  // slot only if the player stays gone past the grace window.
+  try {
+    const _ts = (window.firebase && firebase.database && firebase.database.ServerValue)
+      ? firebase.database.ServerValue.TIMESTAMP : Date.now();
+    roomRef.child('players/' + playerId + '/disconnectedAt').onDisconnect().set(_ts);
+  } catch(e) {
+    roomRef.child('players/' + playerId).onDisconnect().remove();
+  }
   setTimeout(() => { if (typeof window.publishMyDiceSkin === 'function') window.publishMyDiceSkin(); }, 200);
 
-  showWaiting();
   listenRoom();
 }
 
@@ -1322,13 +1382,26 @@ function listenRoom() {
     if(data.started && previousPlayerCount !== null) {
       const currentCount = Object.keys(data.players || {}).length;
       if(currentCount < previousPlayerCount) {
-        // Find who left
         const prevNames = Object.keys(previousPlayers || {});
         const currNames = Object.keys(data.players || {});
         const leftId = prevNames.find(id => !currNames.includes(id));
         const leftName = (previousPlayers[leftId] || {}).name || 'A player';
         if(leftId !== playerId) {
-          showPlayerLeftPopup(leftName);
+          // With ≥2 surviving players, the match continues with the
+          // remaining players — only cancel when we're down to 1 (no game
+          // possible). Pass surviving count so the popup can decide.
+          showPlayerLeftPopup(leftName, currentCount);
+          // If it was the leaver's turn, advance to the next player so
+          // the game doesn't stall waiting on a ghost.
+          if (currentTurnId === leftId && isHost) {
+            const order = Object.entries(data.players || {})
+              .sort((a, b) => (a[1].joined || 0) - (b[1].joined || 0))
+              .map(e => e[0]);
+            if (order.length) {
+              const next = order[0];
+              try { roomRef.update({ currentTurn: next }); } catch(e) {}
+            }
+          }
         }
       }
     }
@@ -1435,10 +1508,18 @@ function startGame() {
 
 function leaveGame() {
   if(roomRef) {
+    // Cancel any onDisconnect handlers we registered before tearing down the
+    // listener — without this, the SDK keeps the registered handler bound to
+    // the original ref and may fire it later (e.g. when the underlying
+    // websocket finally drops), writing stale data into a room we've left.
+    try { roomRef.child('players/' + playerId).onDisconnect().cancel(); } catch(e) {}
+    try { roomRef.child('players/' + playerId + '/disconnectedAt').onDisconnect().cancel(); } catch(e) {}
+    try { roomRef.onDisconnect().cancel(); } catch(e) {}
     roomRef.child('players/' + playerId).remove();
     roomRef.off();
     roomRef = null;
   }
+  window.__yumReactionsAttachedFor = null;
   mpMode = false; roomCode = null;
   document.getElementById('waitingOverlay').style.display = 'none';
   document.getElementById('mpBanner').style.display = 'none';
@@ -1529,7 +1610,18 @@ function advanceTurn() {
 
 function pushScoresToDb() {
   if(!mpMode || !roomRef) return;
-  roomRef.child('players/' + playerId + '/scores').set(scores);
+  // Use a transaction (rather than set) so the write is atomic against
+  // concurrent rematch resets. We also bail out if the room's roundId moved
+  // past ours — that means a rematch reset happened after we started our
+  // turn and our local scores belong to the previous round.
+  const myRoundId = window.__yumRoundId || 0;
+  const localScores = {...scores};
+  const ref = roomRef.child('players/' + playerId + '/scores');
+  ref.transaction(() => localScores).then(res => {
+    // If we detect the round changed via the room snapshot, the listenRoom
+    // sync pulls the empty server state back into local — so this write
+    // can't permanently clobber the reset.
+  }).catch(() => {});
   // Check if all players have filled all 13 categories
   const allDone = Object.values(allPlayers).every(p =>
     Object.keys(p.scores || {}).length >= categories.length
@@ -1619,6 +1711,11 @@ function sendReaction(idx) {
   if(!roomRef) return;
   const r = REACTIONS[idx];
   const toName = allPlayers[reactionTargetId]?.name || 'everyone';
+  // Use ServerValue.TIMESTAMP so all clients agree on the ordering — client
+  // clocks can skew, which would otherwise drop or replay reactions for
+  // listeners that filter by their own Date.now().
+  const TS = (window.firebase && firebase.database && firebase.database.ServerValue)
+    ? firebase.database.ServerValue.TIMESTAMP : Date.now();
   roomRef.child('reactions').push({
     from: playerId,
     fromName: playerName,
@@ -1626,20 +1723,32 @@ function sendReaction(idx) {
     toName: toName,
     emoji: r.emoji,
     label: r.label,
-    ts: Date.now()
+    ts: TS
   });
   closeReactionPicker();
 }
 
 function listenReactions() {
   if(!roomRef) return;
-  // Only listen to reactions sent TO me or FROM me (last 30s)
-  roomRef.child('reactions').orderByChild('ts').startAt(Date.now()).on('child_added', snap => {
-    const r = snap.val();
-    if(!r) return;
-    // Show bubble if it's directed at me or from someone to anyone
-    showReactionBubble(r);
-  });
+  // Guard against the wrapper around listenRoom firing this multiple times
+  // (it re-fires on every snapshot of "started").
+  if (window.__yumReactionsAttachedFor === roomCode) return;
+  window.__yumReactionsAttachedFor = roomCode;
+  // Anchor the cutoff to a server timestamp instead of the client clock —
+  // skewed client clocks would otherwise miss or replay reactions.
+  const _filterRef = roomRef.child('_listenAt/' + playerId);
+  const TS = (window.firebase && firebase.database && firebase.database.ServerValue)
+    ? firebase.database.ServerValue.TIMESTAMP : Date.now();
+  const attachWith = startAt => {
+    roomRef.child('reactions').orderByChild('ts').startAt(startAt).on('child_added', s => {
+      const r = s.val();
+      if(!r) return;
+      showReactionBubble(r);
+    });
+  };
+  _filterRef.set(TS).then(() => _filterRef.once('value')).then(snap => {
+    attachWith((snap && snap.val()) || Date.now());
+  }).catch(() => attachWith(Date.now()));
 }
 
 function showReactionBubble(r) {
