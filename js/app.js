@@ -1563,13 +1563,16 @@ function showToast(msg) {
 
 // Patch confirmScore to push to Firebase and advance turn
 const _origConfirmScore = confirmScore;
+const TURN_TRANSITION_DELAY_MS = 1500;
 confirmScore = function() {
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
   _origConfirmScore();
   if(mpMode) {
     pushScoresToDb();
-    advanceTurn();
-    clearDice();
+    setTimeout(() => {
+      advanceTurn();
+      clearDice();
+    }, TURN_TRANSITION_DELAY_MS);
   }
 };
 
