@@ -1,4 +1,4 @@
-# 🎲 Yamio — Multiplayer Dice Scorecard Game
+# 🎲 Yamio — Multiplayer Dice Game
 
 **Yamio** is a mobile-friendly Yam / Yahtzee-style web game where you can play against a smart bot, or with friends in real-time multiplayer. It includes live rooms, QR-code lobby sharing, dice rolling, score tracking, AI-powered move prediction, real-dice scanning, achievements, daily rewards, daily challenges, credits, and a dice Skin Store.
 
