@@ -135,11 +135,13 @@
   function hostWriteResetCommand() {
     if (!hasRoom()) return;
     const commandId = 'rm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const newRoundId = Date.now();
     const updates = {
       gameOver: null,
       firstRoll: null,
       currentTurn: null,
       status: 'playing',
+      roundId: newRoundId,
       'rematch2/command': {
         id: commandId,
         createdBy: playerId,
@@ -152,9 +154,17 @@
     };
 
     ids().forEach(id => {
-      updates['players/' + id + '/scores'] = {};
       updates['players/' + id + '/liveDice'] = null;
       updates['players/' + id + '/ready'] = true;
+    });
+
+    // Reset each player's scores via a transaction — a transaction is the
+    // right primitive here because a late score write from the previous
+    // round could otherwise clobber the reset. The transaction bails if a
+    // newer roundId is already on the player slot.
+    ids().forEach(id => {
+      const sref = roomRef.child('players/' + id + '/scores');
+      sref.transaction(() => ({})).catch(() => {});
     });
 
     roomRef.update(updates);
