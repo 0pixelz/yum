@@ -170,7 +170,7 @@
       #turnTimer {
         position: fixed;
         top: 70px;
-        right: 12px;
+        left: 12px;
         z-index: 500;
         background: rgba(20, 20, 40, 0.92);
         border: 1.5px solid rgba(245, 166, 35, 0.5);
@@ -200,7 +200,7 @@
         50% { transform: scale(1.08); }
       }
       @media (max-width: 480px) {
-        #turnTimer { top: 60px; right: 8px; font-size: 0.9rem; padding: 5px 12px; }
+        #turnTimer { top: 60px; left: 8px; font-size: 0.9rem; padding: 5px 12px; }
       }
     `;
     document.head.appendChild(style);
