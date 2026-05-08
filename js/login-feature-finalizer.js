@@ -29,7 +29,7 @@
   function saveJSON(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
   function isLoggedIn() {
     const p = loadJSON(PROFILE_KEY, null);
-    return !!(p && (p.type === 'google' || p.type === 'apple') && (p.uid || p.email));
+    return !!(p && p.type === 'google' && (p.uid || p.email));
   }
   function credits() {
     return isLoggedIn() && typeof window.getYumCredits === 'function' ? window.getYumCredits() : 0;
@@ -95,7 +95,7 @@
   };
 
   window.buySkin = function(id) {
-    if (!isLoggedIn()) return toast('Sign in with Google or Apple to use the Skin Store');
+    if (!isLoggedIn()) return toast('Sign in with Google to use the Skin Store');
     const skin = SKINS.find(s => s.id === id);
     if (!skin) return toast('Open the Skin Store to browse available skins');
     const list = owned();
@@ -132,7 +132,7 @@
       : '';
     let premiumSection;
     if (!loggedIn) {
-      premiumSection = `<div class="ssu-section"><div class="ssu-section-title">PREMIUM CREDIT SKINS</div><div class="ssu-login-lock">Sign in with Google or Apple to unlock premium skins, Daily Bonus, and Daily Challenge credits.</div></div>`;
+      premiumSection = `<div class="ssu-section"><div class="ssu-section-title">PREMIUM CREDIT SKINS</div><div class="ssu-login-lock">Sign in with Google to unlock premium skins, Daily Bonus, and Daily Challenge credits.</div></div>`;
     } else {
       const skins = SKINS.map(skin => {
         const isOwned = list.includes(skin.id);
@@ -158,7 +158,7 @@
   // button through the overlay so we can never write the wrong streak from
   // stale localStorage.
   const finalClaimDaily = function() {
-    if (!isLoggedIn()) return toast('Sign in with Google or Apple to claim daily bonus');
+    if (!isLoggedIn()) return toast('Sign in with Google to claim daily bonus');
     if (typeof window.openDailyReward === 'function') return window.openDailyReward();
   };
 

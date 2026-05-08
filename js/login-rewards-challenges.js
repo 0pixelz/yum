@@ -32,7 +32,7 @@
 
   function getLoginProfile() {
     const p = loadJSON(PROFILE_KEY, null);
-    return p && (p.type === 'google' || p.type === 'apple') && (p.uid || p.email) ? p : null;
+    return p && p.type === 'google' && (p.uid || p.email) ? p : null;
   }
 
   function isLoggedIn() {
@@ -161,7 +161,7 @@
 
   window.claimDailyChallenge = function claimDailyChallenge() {
     if (!isLoggedIn()) {
-      if (window.showToast) showToast('Sign in with Google or Apple to earn credits');
+      if (window.showToast) showToast('Sign in with Google to earn credits');
       return;
     }
     const ch = currentChallenge();

@@ -18,7 +18,7 @@
 
   function isLoggedIn() {
     const p = getProfile();
-    return !!(p && (p.type === 'google' || p.type === 'apple') && (p.uid || p.email));
+    return !!(p && p.type === 'google' && (p.uid || p.email));
   }
 
   // Scope per-user so multiple accounts on one device don't clobber each
@@ -479,7 +479,7 @@
 
   function openBonus() {
     if (!isLoggedIn()) {
-      toast('Sign in with Google or Apple to claim daily bonus');
+      toast('Sign in with Google to claim daily bonus');
       return;
     }
     migrateLegacyKeys();
@@ -516,7 +516,7 @@
   }
 
   function performBonusClaim() {
-    if (!isLoggedIn()) return toast('Sign in with Google or Apple to claim daily bonus');
+    if (!isLoggedIn()) return toast('Sign in with Google to claim daily bonus');
     if (typeof window.addYumCredits !== 'function') return;
     migrateLegacyKeys();
     // Make sure we have the latest server-side state before deciding what
@@ -595,7 +595,7 @@
 
   function openChallenge() {
     if (!isLoggedIn()) {
-      toast('Sign in with Google or Apple to play daily challenges');
+      toast('Sign in with Google to play daily challenges');
       return;
     }
     injectStyles();

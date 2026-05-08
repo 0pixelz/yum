@@ -1,6 +1,6 @@
 // ─── DAILY REWARDS + MULTIPLAYER LOBBY UPGRADE ───────────────────────
 // Keeps the upgraded waiting lobby, but daily rewards are strictly gated:
-// no Google / Apple login = no reward button, no modal, no flashing.
+// no Google login = no reward button, no modal, no flashing.
 
 (function() {
   const PROFILE_KEY = 'yum_google_profile';
@@ -12,7 +12,7 @@
 
   function isLoggedInUser() {
     const p = loadJSON(PROFILE_KEY, null);
-    return !!(p && (p.type === 'google' || p.type === 'apple') && (p.uid || p.email));
+    return !!(p && p.type === 'google' && (p.uid || p.email));
   }
 
   function injectStyles() {
@@ -140,7 +140,7 @@
   window.claimDailyReward = function() {
     if (!isLoggedInUser()) {
       closeLegacyRewardOverlay();
-      if (window.showToast) showToast('Sign in with Google or Apple to claim daily bonus');
+      if (window.showToast) showToast('Sign in with Google to claim daily bonus');
       return;
     }
     if (typeof oldClaimDailyReward === 'function' && oldClaimDailyReward !== window.claimDailyReward) {
