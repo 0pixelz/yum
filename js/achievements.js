@@ -4,9 +4,9 @@
 const ACHIEVEMENTS = [
   { id: 'first_game',    icon: 'icn-gamepad',  name: 'First Roll',    desc: 'Complete your first game',                    check: s => s.gamesPlayed >= 1 },
   { id: 'first_win',     icon: 'icn-trophy',   name: 'First Victory', desc: 'Win a game vs bot or multiplayer',             check: s => s.gamesWon >= 1 },
-  { id: 'first_yum',     icon: 'icn-dice',     name: 'YUM!',          desc: 'Score a YUM! (5 of a kind)',                   check: s => s.yumCount >= 1 },
-  { id: 'yum_x3',        icon: 'icn-target',   name: 'Triple YUM',    desc: 'Score YUM! 3 times',                          check: s => s.yumCount >= 3 },
-  { id: 'yum_x10',       icon: 'icn-star',     name: 'YUM Master',    desc: 'Score YUM! 10 times',                         check: s => s.yumCount >= 10 },
+  { id: 'first_yum',     icon: 'icn-dice',     name: 'YAM!',          desc: 'Score a YAM! (5 of a kind)',                   check: s => s.yumCount >= 1 },
+  { id: 'yum_x3',        icon: 'icn-target',   name: 'Triple YAM',    desc: 'Score YAM! 3 times',                          check: s => s.yumCount >= 3 },
+  { id: 'yum_x10',       icon: 'icn-star',     name: 'YAM Master',    desc: 'Score YAM! 10 times',                         check: s => s.yumCount >= 10 },
   { id: 'full_house',    icon: 'icn-home',     name: 'Home Comforts', desc: 'Score a Full House',                          check: s => s.fullHouseCount >= 1 },
   { id: 'lg_straight',   icon: 'icn-bolt',     name: 'Full Straight', desc: 'Score a Large Straight',                      check: s => s.lgStraightCount >= 1 },
   { id: 'bonus',         icon: 'icn-gift',     name: 'Bonus Earner',  desc: 'Earn the upper section bonus (63+ pts)',       check: s => s.bonusCount >= 1 },

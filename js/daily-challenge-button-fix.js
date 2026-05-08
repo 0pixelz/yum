@@ -6,7 +6,7 @@
   const DAILY_CHALLENGE_KEY = 'yum_daily_challenge_state_v2';
 
   const CHALLENGES = [
-    { id: 'two_yums', title: 'Roll 2 YUM today', target: 2, reward: 5 },
+    { id: 'two_yums', title: 'Roll 2 YAM today', target: 2, reward: 5 },
     { id: 'one_win', title: 'Win 1 game today', target: 1, reward: 3 },
     { id: 'three_games', title: 'Play 3 games today', target: 3, reward: 3 },
     { id: 'score_200', title: 'Score 200+ once today', target: 1, reward: 4 },

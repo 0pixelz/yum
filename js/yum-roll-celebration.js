@@ -83,7 +83,7 @@
     el.id = 'yumRollFlash';
     el.innerHTML = `
       <div class="yum-flash-card">
-        <div class="yum-flash-title">YUM!</div>
+        <div class="yum-flash-title">YAM!</div>
         <div class="yum-flash-sub">5 OF A KIND</div>
       </div>
     `;
@@ -164,7 +164,7 @@
     }
 
     playYumSound();
-    if (window.showToast) showToast('YUM! 5 of a kind!');
+    if (window.showToast) showToast('YAM! 5 of a kind!');
   }
 
   function patchRollDice() {
