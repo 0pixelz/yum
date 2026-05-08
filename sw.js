@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yum-pwa-v9-yam-io-rebrand';
+const CACHE_NAME = 'yamio-pwa-v1';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

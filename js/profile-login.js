@@ -357,11 +357,11 @@
     }
 
     const url = shareUrlForRoom(code);
-    const text = `Join my YAM IO game lobby. Room code: ${code}`;
+    const text = `Join my Yamio game lobby. Room code: ${code}`;
 
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Join my YAM IO lobby', text, url });
+        await navigator.share({ title: 'Join my Yamio lobby', text, url });
         return;
       }
     } catch(e) {

@@ -122,13 +122,13 @@
     if (!force && bannerDismissed()) return;
 
     if (isIOS()) {
-      setBannerText('Install YAM IO', 'Tap Share, then Add to Home Screen', 'HOW');
+      setBannerText('Install Yamio', 'Tap Share, then Add to Home Screen', 'HOW');
       banner.style.display = 'flex';
       return;
     }
 
     if (deferredInstallPrompt || isAndroid()) {
-      setBannerText('Install YAM IO', 'Add to home screen as an app', 'INSTALL');
+      setBannerText('Install Yamio', 'Add to home screen as an app', 'INSTALL');
       banner.style.display = 'flex';
     }
   }
@@ -217,7 +217,7 @@
     overlay.onclick = e => { if (e.target === overlay) overlay.classList.remove('open'); };
     overlay.innerHTML = `
       <div class="ios-install-card">
-        <div class="ios-install-title">Install YAM IO on iPhone</div>
+        <div class="ios-install-title">Install Yamio on iPhone</div>
         <div class="ios-install-step"><span>1</span><div>Open this game in Safari.</div></div>
         <div class="ios-install-step"><span>2</span><div>Tap the Share button at the bottom.</div></div>
         <div class="ios-install-step"><span>3</span><div>Choose Add to Home Screen.</div></div>
@@ -231,7 +231,7 @@
     localStorage.removeItem(DISMISSED_KEY);
 
     if (isStandalone()) {
-      if (window.showToast) showToast('YAM IO is already installed');
+      if (window.showToast) showToast('Yamio is already installed');
       return;
     }
 
@@ -254,7 +254,7 @@
     if (choice && choice.outcome === 'accepted') {
       const banner = installBanner();
       if (banner) banner.style.display = 'none';
-      if (window.showToast) showToast('YAM IO installed!');
+      if (window.showToast) showToast('Yamio installed!');
     }
   };
 
