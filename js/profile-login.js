@@ -128,16 +128,6 @@
     if (window.showToast) showToast('Google sign-in failed: ' + code);
   }
 
-  function isStandaloneOrTwa() {
-    try {
-      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
-      if (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) return true;
-      if (window.navigator && window.navigator.standalone === true) return true;
-      if (document.referrer && document.referrer.startsWith('android-app://')) return true;
-    } catch(e) {}
-    return false;
-  }
-
   window.signInWithGoogle = async function signInWithGoogle() {
     let auth;
     try {
@@ -161,17 +151,11 @@
       if (cur && cur.isAnonymous) await auth.signOut();
     } catch(e) {}
 
-    // Use redirect in installed PWAs / TWAs (popup is unsupported there).
-    if (isStandaloneOrTwa()) {
-      try {
-        await auth.signInWithRedirect(provider);
-      } catch(e) {
-        failToast(e);
-      }
-      return;
-    }
-
-    // Browser tab: try popup first, fall back to redirect on popup errors.
+    // Try popup first in every environment, including installed PWAs/TWAs.
+    // signInWithRedirect is unreliable in installed PWAs on Chrome 115+ because
+    // storage partitioning isolates the firebaseapp.com auth handler from the
+    // app origin, so getRedirectResult() returns null on the way back and the
+    // user never gets connected.
     try {
       const result = await auth.signInWithPopup(provider);
       const user = result && result.user;
@@ -218,15 +202,26 @@
 
   window.getYumProfile = getCurrentProfile;
 
+  function captureGoogleUser(user, opts) {
+    if (!user || user.isAnonymous) return false;
+    // Skip the anonymous-side of providerData; we only want real Google users.
+    const isGoogle = (user.providerData || []).some(p => p && p.providerId === 'google.com');
+    if (!isGoogle) return false;
+    const existing = loadJSON(GOOGLE_PROFILE_KEY, null);
+    if (existing && existing.uid === user.uid) return false;
+    saveJSON(GOOGLE_PROFILE_KEY, buildGoogleProfile(user));
+    applyProfileToLobby();
+    if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
+    if (opts && opts.toast && window.showToast) showToast('Signed in with Google');
+    return true;
+  }
+
   async function finishRedirectSignIn() {
     try {
       const auth = await getAuthInstance();
       const result = await auth.getRedirectResult();
       if (result && result.user) {
-        saveJSON(GOOGLE_PROFILE_KEY, buildGoogleProfile(result.user));
-        applyProfileToLobby();
-        if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
-        if (window.showToast) showToast('Signed in with Google');
+        captureGoogleUser(result.user, { toast: true });
       }
     } catch(e) {
       console.warn('Google redirect sign-in failed:', e && e.code, e);
@@ -234,11 +229,37 @@
     }
   }
 
+  // Storage partitioning in installed PWAs can break getRedirectResult, but the
+  // Firebase auth state itself is usually still restored on the app origin
+  // after the redirect lands. Watching onAuthStateChanged catches the Google
+  // user in that case so the profile bar updates without needing a reload.
+  async function watchAuthForGoogleUser() {
+    try {
+      const auth = await getAuthInstance();
+      auth.onAuthStateChanged(u => {
+        if (u && !u.isAnonymous) captureGoogleUser(u, { toast: true });
+      });
+    } catch(e) {}
+  }
+
   function initProfileLogin() {
     injectProfileLoginStyles();
     const profile = getCurrentProfile();
     applyProfileToLobby(profile);
     finishRedirectSignIn();
+    watchAuthForGoogleUser();
+
+    // When the user returns from Chrome Custom Tabs in an installed PWA, the
+    // page typically isn't reloaded, so re-check both the redirect result and
+    // the current auth user every time the tab becomes visible again.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      finishRedirectSignIn();
+      try {
+        const u = window.firebase && firebase.auth && firebase.auth().currentUser;
+        if (u && !u.isAnonymous) captureGoogleUser(u, { toast: true });
+      } catch(e) {}
+    });
   }
 
   if (document.readyState === 'loading') {
