@@ -21,7 +21,11 @@
   if (window.__yumMpFaultFixesLoaded) return;
   window.__yumMpFaultFixesLoaded = true;
 
-  const TURN_TIMEOUT_MS  = 90 * 1000;
+  // 120s gives the per-player 60s autopick (turn-timeout.js) a comfortable
+  // margin to land its score and advance currentTurn before the host watchdog
+  // tries to skip the same turn. The watchdog transaction is also a no-op when
+  // currentTurn has already moved, so the bump is belt-and-suspenders.
+  const TURN_TIMEOUT_MS  = 120 * 1000;
   const HEARTBEAT_MS     = 15 * 1000;
   const WATCHDOG_TICK_MS = 5 * 1000;
 
@@ -101,6 +105,9 @@
 
   function tickTurnWatchdog() {
     if (!inRoom() || !window.allPlayers) return;
+    // Only the host advances stale turns — keeps server-side rules tight
+    // (currentTurn is host-or-self writeable) and avoids transaction storms.
+    if (!window.isHost) return;
     const turn = window.currentTurnId;
     if (!turn) return;
 
