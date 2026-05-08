@@ -1036,6 +1036,19 @@ async function createGame() {
       showLobbyErr('Multiplayer not available — check your internet and reload.');
       return;
     }
+    let _authUser = null;
+    try {
+      if (typeof window.ensureFirebaseAuth === 'function') {
+        _authUser = await Promise.race([
+          window.ensureFirebaseAuth(),
+          new Promise(r => setTimeout(() => r(null), 7000))
+        ]);
+      }
+    } catch(e) { console.warn('auth wait failed:', e); }
+    if (!_authUser) {
+      showLobbyErr('Sign-in failed — check your internet and reload.');
+      return;
+    }
     const _joinSkin = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
     let _joinPdc = null; try { _joinPdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
     try {
@@ -1046,7 +1059,7 @@ async function createGame() {
         currentTurn: playerId,
         gameMode: 'normal',
         players: {
-          [playerId]: { name: playerName, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
+          [playerId]: { name: playerName, uid: _authUser.uid, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
         }
       });
       // Race the Firebase write against a 7s timeout so a stalled connection
@@ -1109,6 +1122,17 @@ async function joinGame() {
   const _db = window.db;
   if(!_db) { showLobbyErr('Multiplayer not available — check your internet and reload.'); return; }
 
+  let _authUser2 = null;
+  try {
+    if (typeof window.ensureFirebaseAuth === 'function') {
+      _authUser2 = await Promise.race([
+        window.ensureFirebaseAuth(),
+        new Promise(r => setTimeout(() => r(null), 7000))
+      ]);
+    }
+  } catch(e) { console.warn('auth wait failed:', e); }
+  if (!_authUser2) { showLobbyErr('Sign-in failed — check your internet and reload.'); return; }
+
   let snap;
   try {
     snap = await _db.ref('rooms/' + code).once('value');
@@ -1124,7 +1148,7 @@ async function joinGame() {
   const _joinSkin2 = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
   let _joinPdc2 = null; try { _joinPdc2 = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
   await roomRef.child('players/' + playerId).set({
-    name: playerName, scores: {}, joined: Date.now(), skin: _joinSkin2, perDieColors: _joinPdc2
+    name: playerName, uid: _authUser2.uid, scores: {}, joined: Date.now(), skin: _joinSkin2, perDieColors: _joinPdc2
   });
   roomRef.child('players/' + playerId).onDisconnect().remove();
   setTimeout(() => { if (typeof window.publishMyDiceSkin === 'function') window.publishMyDiceSkin(); }, 200);
