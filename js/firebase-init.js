@@ -47,5 +47,30 @@
     }
   };
 
+  // Database rules require auth != null for room reads/writes. Sign the user
+  // in anonymously on startup so guests (no Google sign-in) can still play.
+  // If a user is already signed in (e.g. via Google), reuse that session.
+  window.ensureFirebaseAuth = function ensureFirebaseAuth() {
+    if (window.__yumFirebaseAuthReady) return window.__yumFirebaseAuthReady;
+    window.__yumFirebaseAuthReady = (async () => {
+      if (!window.firebase || !firebase.auth) return null;
+      const auth = firebase.auth();
+      const initialUser = await new Promise(resolve => {
+        const unsub = auth.onAuthStateChanged(u => { unsub(); resolve(u); });
+      });
+      if (initialUser) return initialUser;
+      try {
+        const cred = await auth.signInAnonymously();
+        return cred.user;
+      } catch(e) {
+        console.warn('Anonymous sign-in failed:', e);
+        window.__yumFirebaseAuthReady = null;
+        return null;
+      }
+    })();
+    return window.__yumFirebaseAuthReady;
+  };
+
   window.ensureFirebaseDb();
+  window.firebaseAuthReady = window.ensureFirebaseAuth();
 })();
