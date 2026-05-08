@@ -152,6 +152,9 @@
     // Don't stamp host's colours onto the dice when showing an opponent's turn.
     // myDiceUI is false while showOpponentDiceInRoller is active.
     if (typeof myDiceUI !== 'undefined' && !myDiceUI) return;
+    // Same for the single-player bot's turn — leave the bot's classic dice alone.
+    if (typeof botMode !== 'undefined' && botMode &&
+        typeof playerTurn !== 'undefined' && !playerTurn) return;
     keepDiceDots();
     const colors = getColors();
     document.querySelectorAll('.dice-section .die[data-i]').forEach(el => {
