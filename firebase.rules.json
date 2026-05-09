@@ -276,6 +276,7 @@
           "uid":  { ".validate": "newData.isString() && newData.val() === $uid" },
           "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
           "ts":   { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000" },
+          "mode": { ".validate": "newData.isString() && (newData.val() === 'normal' || newData.val() === 'powerup')" },
           "$other": { ".validate": false }
         }
       },
