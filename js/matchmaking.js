@@ -26,6 +26,7 @@
   const READY_START_DELAY_MS = 600;            // brief pause after both accept before kickoff
 
   let mmActive = false;
+  let mmEpoch  = 0;               // bumped each findMatch so stale awaits from a canceled attempt can't corrupt the next one
   let mmRole   = null;            // 'seeker' | 'waiter' | null
   let mmDb     = null;
   let mmUid    = null;
@@ -309,6 +310,7 @@
     mmName   = name;
     mmMode   = chosenMode;
     mmActive = true;
+    mmEpoch  = (mmEpoch + 1) | 0;
     mmRole   = null;
     mmInQueue = false;
     mmClaimInFlight = false;
@@ -424,6 +426,7 @@
 
   async function tryClaimOne(oppUid, oppInfo) {
     if (!mmActive) return false;
+    const myEpoch = mmEpoch;
 
     const offerRef   = mmDb.ref(OFFERS_PATH + '/' + oppUid);
     const placeholder = { from: mmUid, fromName: mmName, ts: Date.now() };
@@ -438,7 +441,12 @@
     } catch (e) {
       won = false;
     }
-    if (!won || !mmActive) return false;
+    if (!won || !mmActive || myEpoch !== mmEpoch) {
+      // If we won the slot but the user canceled before we could use it, free it
+      // so the waiter can be claimed again instead of being orphaned.
+      if (won) { try { await offerRef.remove(); } catch (e) {} }
+      return false;
+    }
 
     setSearchText('MATCH FOUND',
       'Connecting to <b>' + escapeHtml(oppInfo.name || 'Opponent') + '</b>…');
@@ -454,9 +462,14 @@
     try { code = await createSeekerRoom(); }
     catch (e) { console.warn('[matchmaking] room create failed:', e); }
 
-    if (!code || !mmActive) {
+    if (!code || !mmActive || myEpoch !== mmEpoch) {
       // Release the offer so the waiter can be claimed again
       try { await offerRef.remove(); } catch (e) {}
+      // If a stale createGame succeeded after the user canceled, also tear down
+      // the orphan room so we don't leave the seeker stuck in an empty room.
+      if (code && (!mmActive || myEpoch !== mmEpoch)) {
+        try { if (typeof window.leaveGame === 'function') window.leaveGame(); } catch (e) {}
+      }
       mmRole = null;
       return false;
     }
@@ -467,6 +480,13 @@
       try { await offerRef.remove(); } catch (e2) {}
       // Tear the room down — the waiter has no way to join us
       try { if (typeof window.leaveGame === 'function') window.leaveGame(); } catch (e2) {}
+      mmRole = null;
+      return false;
+    }
+
+    if (!mmActive || myEpoch !== mmEpoch) {
+      try { await offerRef.remove(); } catch (e) {}
+      try { if (typeof window.leaveGame === 'function') window.leaveGame(); } catch (e) {}
       mmRole = null;
       return false;
     }
@@ -701,6 +721,7 @@
     if (!offer.from || offer.from === mmUid) return;
     if (!offer.roomCode) return;          // claim placeholder, room not created yet
 
+    const myEpoch = mmEpoch;
     mmRole = 'waiter';
     setSearchText('MATCH FOUND',
       'Joining <b>' + escapeHtml(offer.fromName || 'opponent') + '</b>…');
@@ -723,12 +744,23 @@
     }
 
     Promise.resolve().then(() => window.joinGame()).then(() => {
+      // If the user canceled (or already started a new findMatch) while
+      // joinGame was in flight, don't attach a stale room watcher — it would
+      // fire handleRemoteCancel later and yank the user out of their next match.
+      if (myEpoch !== mmEpoch || !mmActive) {
+        if (typeof window.leaveGame === 'function') {
+          try { window.leaveGame(); } catch (e) {}
+        }
+        return;
+      }
       mmRoomCode = offer.roomCode;
       watchRoomForReady(offer.roomCode, 'waiter');
       if (mmDb && mmUid) {
         mmDb.ref(OFFERS_PATH + '/' + mmUid).remove().catch(() => {});
       }
     }).catch(e => {
+      // Same epoch guard: don't run cleanup against a fresh attempt.
+      if (myEpoch !== mmEpoch) return;
       console.warn('[matchmaking] joinGame failed:', e);
       cleanupMatchmakingState();
       const lobby = el('lobbyOverlay');
