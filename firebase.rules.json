@@ -266,6 +266,31 @@
         "ua":           { ".validate": "newData.isString() && newData.val().length <= 200" },
         "$other":       { ".validate": false }
       }
+    },
+    "matchmaking": {
+      "queue": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "(!newData.exists()) || newData.hasChildren(['uid','name','ts'])",
+          "uid":  { ".validate": "newData.isString() && newData.val() === $uid" },
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+          "ts":   { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000" },
+          "$other": { ".validate": false }
+        }
+      },
+      "offers": {
+        "$uid": {
+          ".read":  "auth != null",
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid) || data.child('from').val() === auth.uid)",
+          ".validate": "(!newData.exists()) || newData.hasChildren(['from','fromName','ts'])",
+          "from":     { ".validate": "newData.isString() && newData.val() === auth.uid && newData.val().length <= 50" },
+          "fromName": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+          "roomCode": { ".validate": "newData.isString() && newData.val().length >= 4 && newData.val().length <= 8" },
+          "ts":       { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000" },
+          "$other":   { ".validate": false }
+        }
+      }
     }
   }
 }

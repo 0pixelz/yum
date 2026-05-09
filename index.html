@@ -97,6 +97,8 @@
   </div>
   <button class="lobby-btn lobby-btn-join" onclick="joinGame()"><i class="icn icn-players"></i> JOIN GAME</button>
   <div class="lobby-divider">— OR —</div>
+  <button class="lobby-btn lobby-btn-find" onclick="findMatch()"><i class="icn icn-players"></i> FIND MATCH (1v1)</button>
+  <div class="lobby-divider">— OR —</div>
   <button class="lobby-btn lobby-btn-bot" onclick="openBotModeChoice()"><i class="icn icn-bot"></i> PLAY VS BOT</button>
 
   <div class="lobby-legal">
@@ -128,6 +130,19 @@
       </button>
     </div>
     <button class="lobby-btn lobby-btn-solo" style="max-width:280px;margin:14px auto 0" onclick="closeBotModeChoice()"><i class="icn icn-close"></i> Cancel</button>
+  </div>
+</div>
+
+<!-- MATCHMAKING SEARCH OVERLAY -->
+<div id="mmSearchOverlay">
+  <div class="mm-search-box">
+    <div class="mm-search-spinner" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="mm-search-title" id="mmSearchTitle">FINDING OPPONENT</div>
+    <div class="mm-search-sub" id="mmSearchSub">Looking for someone to play 1v1<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span></div>
+    <div class="mm-search-meta" id="mmSearchMeta">In queue: <span id="mmQueueCount">…</span></div>
+    <button class="mm-search-cancel" onclick="cancelFindMatch()"><i class="icn icn-close"></i> CANCEL SEARCH</button>
   </div>
 </div>
 
@@ -221,6 +236,7 @@
 <script src="js/multiplayer-fault-fixes.js"></script>
 <script src="js/presence-grace.js"></script>
 <script src="js/multiplayer-rematch.js"></script>
+<script src="js/matchmaking.js"></script>
 <script src="js/first-roll.js"></script>
 <script src="js/rematch-fix.js"></script>
 <script src="js/rematch-final.js"></script>
