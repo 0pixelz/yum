@@ -2207,6 +2207,10 @@ function openOppViewer(targetId, targetName, targetScores, targetScoreDice) {
   document.getElementById('oppHName').textContent = targetName;
   document.getElementById('oppHScore').textContent = total + ' pts';
 
+  window._currentOppViewer = { id: targetId, name: targetName };
+  const modBar = document.getElementById('oppModBar');
+  if (modBar) modBar.style.display = (targetId === 'bot') ? 'none' : 'flex';
+
   const upperIds = ['ones','twos','threes','fours','fives','sixes'];
   const lowerIds = categories.filter(c=>c.section==='lower').map(c=>c.id);
 
