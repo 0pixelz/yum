@@ -898,16 +898,39 @@
     background: linear-gradient(180deg, rgba(245,166,35,0.12), rgba(245,166,35,0.03));
   }
   .mm-card-avatar {
+    position: relative;
     width: 56px; height: 56px;
     border-radius: 50%;
     background: rgba(0,0,0,0.35);
     display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
+    overflow: visible;
   }
   .mm-card-avatar svg { width: 44px; height: 44px; }
   .mm-card-avatar-mystery {
     background: rgba(255,255,255,0.04);
     border: 1px dashed rgba(255,255,255,0.22);
+  }
+  .mm-avatar-status {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--white);
+    font-size: 14px;
+    border: 2px solid #16213e;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+    transform: scale(0);
+    transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+  }
+  .mm-avatar-status.show { transform: scale(1); }
+  .mm-avatar-status.accepted {
+    background: linear-gradient(135deg, var(--green), #2ecc71);
+  }
+  .mm-avatar-status.declined {
+    background: linear-gradient(135deg, var(--accent), #c0392b);
   }
   .mm-q {
     font-family: 'Bebas Neue', cursive;

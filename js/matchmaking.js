@@ -95,9 +95,26 @@
     if (state === 'ready') {
       tag.textContent = 'READY';
       tag.classList.add('mm-tag-ready');
+    } else if (state === 'declined') {
+      tag.textContent = 'DECLINED';
+      tag.classList.add('mm-card-tag-pending');
     } else {
       tag.textContent = 'PENDING';
       tag.classList.add('mm-card-tag-pending');
+    }
+  }
+
+  function setAvatarStatus(side, state) {
+    const badge = el(side === 'me' ? 'mmReadyMeStatus' : 'mmReadyOppStatus');
+    if (!badge) return;
+    badge.classList.remove('accepted', 'declined', 'show');
+    badge.innerHTML = '';
+    if (state === 'accepted') {
+      badge.innerHTML = '<i class="icn icn-arrow-up"></i>';
+      badge.classList.add('accepted', 'show');
+    } else if (state === 'declined') {
+      badge.innerHTML = '<i class="icn icn-close"></i>';
+      badge.classList.add('declined', 'show');
     }
   }
 
@@ -537,8 +554,10 @@
 
       const oppId = activeIds.find(id => id !== mmUid) || null;
       const oppName = (oppId && players[oppId] && players[oppId].name) || 'Opponent';
-      const meReady  = !!(players[mmUid] && players[mmUid].ready);
-      const oppReady = !!(oppId && players[oppId] && players[oppId].ready);
+      const meReady    = !!(players[mmUid] && players[mmUid].ready);
+      const oppReady   = !!(oppId && players[oppId] && players[oppId].ready);
+      const meDeclined  = !!(players[mmUid] && players[mmUid].declined);
+      const oppDeclined = !!(oppId && players[oppId] && players[oppId].declined);
 
       if (!mmReadyShown) {
         mmReadyShown = true;
@@ -550,6 +569,8 @@
         setReadyMode(mmMode);
         setReadyTag('me', 'pending');
         setReadyTag('opp', 'pending');
+        setAvatarStatus('me', null);
+        setAvatarStatus('opp', null);
         setReadyButtonsState('idle');
         setReadySub('Both players must tap <b>Accept</b> within 15 seconds');
         hideSearchOverlay();
@@ -560,11 +581,13 @@
         if (oppNameEl && oppName) oppNameEl.textContent = oppName;
       }
 
-      setReadyTag('me',  meReady  ? 'ready' : 'pending');
-      setReadyTag('opp', oppReady ? 'ready' : 'pending');
+      setReadyTag('me',  meDeclined  ? 'declined' : meReady  ? 'ready' : 'pending');
+      setReadyTag('opp', oppDeclined ? 'declined' : oppReady ? 'ready' : 'pending');
+      setAvatarStatus('me',  meDeclined  ? 'declined' : meReady  ? 'accepted' : null);
+      setAvatarStatus('opp', oppDeclined ? 'declined' : oppReady ? 'accepted' : null);
       if (meReady) {
         setReadyButtonsState('waiting');
-        if (!oppReady) {
+        if (!oppReady && !oppDeclined) {
           setReadySub('Waiting for <b>' + escapeHtml(oppName) + '</b><span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
         }
       }
@@ -588,12 +611,14 @@
     if (!mmReadyShown || mmReadyHandled || !mmDb || !mmUid || !mmRoomCode) return;
     setReadyButtonsState('waiting');
     setReadyTag('me', 'ready');
+    setAvatarStatus('me', 'accepted');
     try {
       await mmDb.ref('rooms/' + mmRoomCode + '/players/' + mmUid + '/ready').set(true);
     } catch (e) {
       console.warn('[matchmaking] accept failed:', e);
       setReadyButtonsState('idle');
       setReadyTag('me', 'pending');
+      setAvatarStatus('me', null);
       setReadySub('Could not send accept — try again.');
     }
   }
@@ -601,8 +626,18 @@
   async function mmDeclineMatch() {
     if (mmReadyHandled) return;
     mmReadyHandled = true;
-    await cancelFindMatch();
-    lobbyErr('You declined the match.');
+    setReadyButtonsState('waiting');
+    setReadyTag('me', 'declined');
+    setAvatarStatus('me', 'declined');
+    stopReadyCountdown();
+    if (mmDb && mmUid && mmRoomCode) {
+      try { await mmDb.ref('rooms/' + mmRoomCode + '/players/' + mmUid + '/declined').set(true); } catch (e) {}
+    }
+    setTimeout(() => {
+      cancelFindMatch().then(() => {
+        lobbyErr('You declined the match.');
+      });
+    }, 1200);
   }
 
   function handleReadyTimeout() {
