@@ -207,6 +207,54 @@
   </div>
 </div>
 
+<!-- MATCHMAKING READY CHECK — both players must accept before the game starts -->
+<div id="mmReadyOverlay">
+  <div class="mm-search-box mm-ready-box">
+    <div class="mm-search-header">
+      <div class="mm-search-title">MATCH FOUND</div>
+      <div class="mm-search-sub" id="mmReadySub">Both players must accept to start</div>
+      <div class="mm-mode-badge" id="mmReadyModeBadge"><i class="icn icn-gamepad"></i> <span id="mmReadyModeText">CLASSIC 1V1</span></div>
+    </div>
+
+    <div class="mm-vs">
+      <div class="mm-card mm-card-me" id="mmReadyMeCard">
+        <div class="mm-card-avatar"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#yum-mark"/></svg></div>
+        <div class="mm-card-name" id="mmReadyMeName">You</div>
+        <div class="mm-card-tag mm-card-tag-pending" id="mmReadyMeTag">PENDING</div>
+      </div>
+
+      <div class="mm-vs-mid">
+        <div class="mm-radar" aria-hidden="true">
+          <span class="mm-radar-ring"></span>
+          <span class="mm-radar-ring"></span>
+          <span class="mm-radar-ring"></span>
+          <span class="mm-radar-core">VS</span>
+        </div>
+      </div>
+
+      <div class="mm-card mm-card-opp mm-found" id="mmReadyOppCard">
+        <div class="mm-card-avatar"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#yum-mark"/></svg></div>
+        <div class="mm-card-name" id="mmReadyOppName">Opponent</div>
+        <div class="mm-card-tag mm-card-tag-pending" id="mmReadyOppTag">PENDING</div>
+      </div>
+    </div>
+
+    <div class="mm-search-stats">
+      <div class="mm-stat">
+        <div class="mm-stat-label">ACCEPT IN</div>
+        <div class="mm-stat-val" id="mmReadyCountdown">0:15</div>
+      </div>
+    </div>
+
+    <div class="mm-progress" aria-hidden="true"><div class="mm-progress-bar mm-progress-countdown" id="mmReadyProgressBar"></div></div>
+
+    <div class="mm-ready-actions" id="mmReadyActions">
+      <button class="mm-ready-btn mm-ready-decline" id="mmReadyDeclineBtn" onclick="mmDeclineMatch()"><i class="icn icn-close"></i> DECLINE</button>
+      <button class="mm-ready-btn mm-ready-accept" id="mmReadyAcceptBtn" onclick="mmAcceptMatch()"><i class="icn icn-check"></i> ACCEPT</button>
+    </div>
+  </div>
+</div>
+
 <div id="waitingOverlay" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px">
   <div style="font-family:'Bebas Neue',cursive;font-size:1.6rem;color:var(--muted);letter-spacing:3px;margin-bottom:16px">WAITING FOR PLAYERS</div>
   <div class="room-code-box"><div class="room-code-label">ROOM CODE</div><div class="room-code" id="displayCode">----</div><div style="font-size:0.72rem;color:var(--muted);margin-top:6px">Share this code with friends</div></div>
