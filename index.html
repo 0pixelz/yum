@@ -99,6 +99,11 @@
   <div class="lobby-divider">— OR —</div>
   <button class="lobby-btn lobby-btn-bot" onclick="openBotModeChoice()"><i class="icn icn-bot"></i> PLAY VS BOT</button>
 
+  <div class="lobby-legal">
+    <a href="privacy.html">Privacy Policy</a>
+    <span class="lobby-legal-sep">·</span>
+    <a href="deleteaccount.html">Delete account</a>
+  </div>
 </div>
 
 <!-- BOT GAME MODE CHOICE MODAL -->
@@ -185,7 +190,7 @@
 
 <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)"><div class="modal"><h3 id="modalTitle">Score</h3><div class="modal-hint" id="modalHint"></div><div class="quick-scores" id="quickScores"></div><div class="modal-actions"><button class="btn btn-confirm btn" onclick="confirmScore()"><i class="icn icn-check"></i> CONFIRM</button><button class="btn-skip" onclick="closeModalEl()">Cancel</button></div></div></div>
 <div class="reaction-picker" id="reactionPicker"><div class="reaction-picker-title">SEND REACTION</div><div class="reaction-grid" id="reactionGrid"></div><button class="reaction-close" onclick="closeReactionPicker()"><i class="icn icn-close"></i> Close</button></div><div id="reactionBubbleContainer"></div>
-<div id="oppViewer" onclick="closeOppViewer(event)"><div class="opp-sheet" id="oppSheet"><div class="opp-header"><div class="opp-avatar" id="oppAvatar"><i class="icn icn-bot"></i></div><div><div class="opp-hname" id="oppHName">Opponent</div><div class="opp-hscore" id="oppHScore">0 pts</div></div><button class="opp-close" onclick="closeOppViewerBtn()"><i class="icn icn-close"></i></button></div><div id="oppSheetContent"></div></div></div>
+<div id="oppViewer" onclick="closeOppViewer(event)"><div class="opp-sheet" id="oppSheet"><div class="opp-header"><div class="opp-avatar" id="oppAvatar"><i class="icn icn-bot"></i></div><div><div class="opp-hname" id="oppHName">Opponent</div><div class="opp-hscore" id="oppHScore">0 pts</div></div><button class="opp-close" onclick="closeOppViewerBtn()"><i class="icn icn-close"></i></button></div><div class="opp-mod-bar" id="oppModBar"><button class="opp-mod-btn opp-mod-report" onclick="reportCurrentOpponent()" title="Report this player"><i class="icn icn-flag"></i> Report</button><button class="opp-mod-btn opp-mod-block" onclick="blockCurrentOpponent()" title="Hide this player's name and reactions for this device"><i class="icn icn-close"></i> Block</button></div><div id="oppSheetContent"></div></div></div>
 
 <div id="gameOverlay"><div class="gameover-box"><span class="gameover-trophy" id="goTrophy"><i class="icn icn-trophy icn-gold"></i></span><div class="gameover-title" id="goTitle">GAME OVER</div><div class="gameover-winner" id="goWinner">—</div><div class="gameover-scores" id="goScores"></div><div class="gameover-btns"><button class="gameover-btn gameover-btn-rematch" onclick="rematch()"><i class="icn icn-refresh"></i> REMATCH</button><button class="gameover-btn" onclick="openSession()" style="background:rgba(245,166,35,0.12);color:var(--gold);border:1px solid rgba(245,166,35,0.3)"><i class="icn icn-clipboard"></i> VIEW SCORESHEETS</button><button class="gameover-btn gameover-btn-quit" onclick="quitGame()"><i class="icn icn-close"></i> QUIT</button></div></div></div>
 
@@ -239,5 +244,6 @@
 <script src="js/bot-powerups.js"></script>
 <script src="js/powerup-history.js"></script>
 <script src="js/turn-timeout.js"></script>
+<script src="js/report-block.js"></script>
 </body>
 </html>

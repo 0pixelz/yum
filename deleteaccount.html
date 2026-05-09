@@ -55,25 +55,38 @@
 <h1>Delete Your Yamio Account</h1>
 <div class="updated">Last Updated: May 8, 2026</div>
 
-<p>This page describes how to request deletion of your Yamio account and the data associated with it.</p>
+<p>You can delete your Yamio account and all associated data right here on this page. No app install or email is required.</p>
 
 <hr>
 
-<h2>How to Request Account Deletion</h2>
+<h2>Option 1 — Delete now from this page (recommended)</h2>
 
-<p>To delete your Yamio account and all associated data, please send an email to our support address with the following information:</p>
+<p>Click the button below to sign in with the Google account you use for Yamio and delete your data immediately. This permanently removes your account, credits, skins, achievements, and stats.</p>
 
-<a href="mailto:support@yamio.io?subject=Delete%20My%20Account&body=I%20would%20like%20to%20delete%20my%20Yamio%20account%20and%20all%20associated%20data.%0A%0AAccount%20email%3A%20%5Byour%20email%20here%5D%0AUsername%20(if%20known)%3A%20%5Byour%20username%20here%5D" class="cta">📧 Request Account Deletion</a>
-
-<p>Or send an email manually to <a href="mailto:support@yamio.io">support@yamio.io</a> with:</p>
-<ul>
-  <li><strong>Subject:</strong> Delete My Account</li>
-  <li><strong>Email address</strong> associated with your Yamio account (Google or Apple sign-in email)</li>
-  <li><strong>Username</strong> (if known)</li>
-</ul>
+<button id="webDeleteBtn" class="cta" type="button">🗑️ Sign in &amp; delete my account</button>
+<div id="webDeleteStatus" style="text-align:center;margin:-12px 0 16px;color:#0f3460;font-weight:bold;min-height:22px"></div>
 
 <div class="info-box">
-  <strong>Processing time:</strong> Account deletion requests are processed within 30 days of receipt. You will receive a confirmation email once the deletion is complete.
+  <strong>What this does:</strong> Signs you in with Google, removes your record from our database, and permanently deletes your Firebase Authentication account. The page will confirm when deletion is complete.
+</div>
+
+<h2>Option 2 — Delete from inside the app</h2>
+
+<ol>
+  <li>Open Yamio</li>
+  <li>Sign in with Google</li>
+  <li>Tap your profile, then <strong>Delete account</strong></li>
+  <li>Confirm — your data is removed immediately</li>
+</ol>
+
+<h2>Option 3 — Email request</h2>
+
+<p>If neither option works for you, email us with the subject "Delete My Account":</p>
+
+<a href="mailto:support@yamio.io?subject=Delete%20My%20Account&body=I%20would%20like%20to%20delete%20my%20Yamio%20account%20and%20all%20associated%20data.%0A%0AAccount%20email%3A%20%5Byour%20email%20here%5D%0AUsername%20(if%20known)%3A%20%5Byour%20username%20here%5D" class="cta" style="background:rgba(15,52,96,0.85)">📧 Email support@yamio.io</a>
+
+<div class="info-box">
+  <strong>Processing time:</strong> Email requests are processed within 30 days of receipt. You will receive a confirmation email once the deletion is complete. Options 1 and 2 are immediate.
 </div>
 
 <hr>
@@ -128,6 +141,94 @@
 <div class="footer">
   <p>This page describes the account deletion process for the Yamio mobile and web applications.</p>
 </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+(function() {
+  const firebaseConfig = {
+    apiKey: "AIzaSyBl1XezlXttwyQLBsEJJV0nkxomzL0uhZw",
+    authDomain: "yum-game.firebaseapp.com",
+    databaseURL: "https://yum-game-default-rtdb.firebaseio.com",
+    projectId: "yum-game",
+    storageBucket: "yum-game.firebasestorage.app",
+    messagingSenderId: "418931435506",
+    appId: "1:418931435506:web:1f37261a6bf89c596b2d6b"
+  };
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.database();
+
+  const btn = document.getElementById('webDeleteBtn');
+  const status = document.getElementById('webDeleteStatus');
+
+  function setStatus(msg, color) {
+    status.textContent = msg;
+    status.style.color = color || '#0f3460';
+  }
+
+  async function signInWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    try {
+      return await auth.signInWithPopup(provider);
+    } catch (e) {
+      if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) {
+        await auth.signInWithRedirect(provider);
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  async function deleteAccount() {
+    btn.disabled = true;
+    setStatus('Signing in…');
+    try {
+      let user = auth.currentUser;
+      if (!user || user.isAnonymous) {
+        const result = await signInWithGoogle();
+        if (!result) return;
+        user = result.user;
+      }
+      if (!user || user.isAnonymous) {
+        setStatus('Sign-in required to delete your account.', '#c0392b');
+        btn.disabled = false;
+        return;
+      }
+
+      setStatus('Deleting your data…');
+      try { await db.ref('users/' + user.uid).remove(); } catch (e) {}
+
+      try {
+        await user.delete();
+      } catch (e) {
+        if (e && e.code === 'auth/requires-recent-login') {
+          const result = await signInWithGoogle();
+          if (!result) return;
+          await result.user.delete();
+        } else {
+          throw e;
+        }
+      }
+
+      setStatus('Your account and data have been deleted.', '#1a7f3c');
+      btn.style.display = 'none';
+    } catch (e) {
+      console.warn('Web delete failed:', e);
+      setStatus('Delete failed: ' + ((e && (e.code || e.message)) || 'unknown error') + '. Try Option 3 below.', '#c0392b');
+      btn.disabled = false;
+    }
+  }
+
+  btn.addEventListener('click', deleteAccount);
+
+  auth.getRedirectResult().then(result => {
+    if (result && result.user) deleteAccount();
+  }).catch(() => {});
+})();
+</script>
 
 </body>
 </html>
