@@ -30,8 +30,10 @@
   let mmOfferListener = null;
   let mmRoomRef = null;
   let mmRoomListener = null;
-  let mmQueueCountRef = null;
-  let mmQueueCountListener = null;
+  let mmQueueRef = null;
+  let mmQueueWatcher = null;
+  let mmInQueue = false;
+  let mmClaimInFlight = false;
   let mmAutoStartScheduled = false;
   let mmStartTs = 0;
   let mmElapsedTimer = null;
@@ -201,6 +203,8 @@
     mmMode   = chosenMode;
     mmActive = true;
     mmRole   = null;
+    mmInQueue = false;
+    mmClaimInFlight = false;
     mmAutoStartScheduled = false;
 
     const modeLabel = chosenMode === 'powerup' ? 'Power-Up' : 'Classic';
@@ -223,7 +227,7 @@
     mmOfferRef = db.ref(OFFERS_PATH + '/' + mmUid);
     mmOfferListener = mmOfferRef.on('value', onMyOfferChanged, () => {});
 
-    attachQueueCounter();
+    attachQueueWatcher();
 
     // Try to claim someone already waiting; if no claim succeeds, queue ourselves.
     const claimed = await tryClaimAny();
@@ -231,32 +235,59 @@
     if (!claimed) await joinQueue();
   }
 
-  function attachQueueCounter() {
-    const c = el('mmQueueCount');
-    if (!c || !mmDb) return;
-    detachQueueCounter();
-    mmQueueCountRef = mmDb.ref(QUEUE_PATH);
-    mmQueueCountListener = mmQueueCountRef.on('value', snap => {
-      if (!snap.exists()) { c.textContent = '0'; return; }
-      const all = snap.val() || {};
-      const now = Date.now();
-      const live = Object.entries(all).filter(([uid, info]) =>
+  // Listen on the queue so we re-attempt claiming whenever entries change.
+  // This handles the race where two players hit Find Match at the same time:
+  // both see an empty queue, both joinQueue, then this listener fires for
+  // each side with the other's fresh entry. A UID tie-break ensures only one
+  // side actually performs the claim.
+  function attachQueueWatcher() {
+    if (!mmDb) return;
+    detachQueueWatcher();
+    mmQueueRef = mmDb.ref(QUEUE_PATH);
+    mmQueueWatcher = mmQueueRef.on('value', onQueueChange, () => {});
+  }
+
+  function detachQueueWatcher() {
+    if (mmQueueRef && mmQueueWatcher) {
+      try { mmQueueRef.off('value', mmQueueWatcher); } catch (e) {}
+    }
+    mmQueueRef = null;
+    mmQueueWatcher = null;
+  }
+
+  async function onQueueChange(snap) {
+    if (!mmActive || mmRole) return;
+    if (!mmInQueue) return;            // only re-claim once our own entry is committed
+    if (mmClaimInFlight) return;
+    if (!snap || !snap.exists()) return;
+
+    const all = snap.val() || {};
+    const now = Date.now();
+    const candidates = Object.entries(all)
+      .filter(([uid, info]) =>
         uid !== mmUid &&
+        // Tie-break: only the player with the smaller UID claims, so when
+        // both players see each other in the queue we don't both become host.
+        uid > mmUid &&
         info &&
         typeof info.ts === 'number' &&
         (now - info.ts) < STALE_MS &&
         ((info.mode || 'normal') === mmMode)
-      ).length;
-      c.textContent = String(live);
-    }, () => { c.textContent = '0'; });
-  }
+      )
+      .sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
 
-  function detachQueueCounter() {
-    if (mmQueueCountRef && mmQueueCountListener) {
-      try { mmQueueCountRef.off('value', mmQueueCountListener); } catch (e) {}
+    if (candidates.length === 0) return;
+
+    mmClaimInFlight = true;
+    try {
+      for (const [oppUid, oppInfo] of candidates) {
+        if (!mmActive || mmRole) break;
+        const claimed = await tryClaimOne(oppUid, oppInfo);
+        if (claimed) break;
+      }
+    } finally {
+      mmClaimInFlight = false;
     }
-    mmQueueCountRef = null;
-    mmQueueCountListener = null;
   }
 
   async function tryClaimAny() {
@@ -426,9 +457,21 @@
       return;
     }
 
+    mmInQueue = true;
+
     try { await queueRef.onDisconnect().remove(); } catch (e) {}
     if (mmOfferRef) {
       try { await mmOfferRef.onDisconnect().remove(); } catch (e) {}
+    }
+
+    // The queue watcher may have fired with our snapshot before mmInQueue
+    // flipped — kick off one explicit re-scan so we don't miss the
+    // simultaneous-join race in that timing window.
+    if (mmActive && !mmRole) {
+      try {
+        const snap = await mmDb.ref(QUEUE_PATH).once('value');
+        if (mmActive && !mmRole) await onQueueChange(snap);
+      } catch (e) {}
     }
   }
 
@@ -501,7 +544,7 @@
     mmActive = false;
     detachOfferListener();
     detachRoomListener();
-    detachQueueCounter();
+    detachQueueWatcher();
     stopElapsedTicker();
 
     if (mmDb && mmUid) {
@@ -529,7 +572,7 @@
     mmActive = false;
     detachOfferListener();
     detachRoomListener();
-    detachQueueCounter();
+    detachQueueWatcher();
     stopElapsedTicker();
     hideSearchOverlay();
     if (mmDb && mmUid) {
@@ -548,6 +591,8 @@
     mmName   = null;
     mmMode   = 'normal';
     mmOfferRef = null;
+    mmInQueue = false;
+    mmClaimInFlight = false;
     mmAutoStartScheduled = false;
   }
 
