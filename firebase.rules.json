@@ -161,7 +161,7 @@
             "livePowerups": {
               ".validate": "(!newData.exists()) || newData.hasChildren()",
               "inventory": {
-                ".validate": "(!newData.exists()) || (newData.hasChildren() && newData.numChildren() <= 8)",
+                ".validate": "(!newData.exists()) || (newData.hasChildren() && !newData.child('8').exists())",
                 "$idx": {
                   ".validate": "newData.isString() && (newData.val() === 'extraRoll' || newData.val() === 'freezeDie' || newData.val() === 'doublePoints' || newData.val() === 'luckyDice' || newData.val() === 'undoMove')"
                 }
