@@ -10,7 +10,11 @@
 //      then the room code is written into the offer.
 //   3. The waiter is listening on /matchmaking/offers/$myUid; once roomCode
 //      appears it calls joinGame().
-//   4. Host auto-starts the match when the second player is in the room.
+//   4. Once both are in the room, watchRoomForReady() shows a ready-check
+//      overlay and waits for both players to set players/$uid/ready=true.
+//   5. The host calls startGame() once both have accepted. Decline / timeout /
+//      disconnect writes rooms/$id/status='matchCanceled', which both clients
+//      pick up to leave the room and return to the lobby.
 
 (function () {
   'use strict';
@@ -18,7 +22,8 @@
   const QUEUE_PATH         = 'matchmaking/queue';
   const OFFERS_PATH        = 'matchmaking/offers';
   const STALE_MS           = 90 * 1000;        // queue entries older than this are ignored
-  const AUTO_START_DELAY_MS = 1500;            // small delay so opponent UI settles
+  const READY_TIMEOUT_MS   = 15000;            // both players must accept within this window
+  const READY_START_DELAY_MS = 600;            // brief pause after both accept before kickoff
 
   let mmActive = false;
   let mmRole   = null;            // 'seeker' | 'waiter' | null
@@ -30,6 +35,7 @@
   let mmOfferListener = null;
   let mmRoomRef = null;
   let mmRoomListener = null;
+  let mmRoomCode = null;
   let mmQueueRef = null;
   let mmQueueWatcher = null;
   let mmInQueue = false;
@@ -37,6 +43,10 @@
   let mmAutoStartScheduled = false;
   let mmStartTs = 0;
   let mmElapsedTimer = null;
+  let mmReadyShown = false;
+  let mmReadyHandled = false;
+  let mmReadyDeadline = 0;
+  let mmReadyTickTimer = null;
 
   function el(id) { return document.getElementById(id); }
 
@@ -54,6 +64,86 @@
   function hideSearchOverlay() {
     const o = el('mmSearchOverlay');
     if (o) o.classList.remove('mm-show');
+  }
+
+  function showReadyOverlay() {
+    const o = el('mmReadyOverlay');
+    if (o) o.classList.add('mm-show');
+  }
+
+  function hideReadyOverlay() {
+    const o = el('mmReadyOverlay');
+    if (o) o.classList.remove('mm-show');
+  }
+
+  function setReadyMode(mode) {
+    const badge = el('mmReadyModeBadge');
+    if (!badge) return;
+    if (mode === 'powerup') {
+      badge.classList.add('mm-mode-powerup');
+      badge.innerHTML = '<i class="icn icn-bolt"></i> <span id="mmReadyModeText">POWER-UP 1V1</span>';
+    } else {
+      badge.classList.remove('mm-mode-powerup');
+      badge.innerHTML = '<i class="icn icn-gamepad"></i> <span id="mmReadyModeText">CLASSIC 1V1</span>';
+    }
+  }
+
+  function setReadyTag(side, state) {
+    const tag = el(side === 'me' ? 'mmReadyMeTag' : 'mmReadyOppTag');
+    if (!tag) return;
+    tag.classList.remove('mm-card-tag-pending', 'mm-tag-ready');
+    if (state === 'ready') {
+      tag.textContent = 'READY';
+      tag.classList.add('mm-tag-ready');
+    } else {
+      tag.textContent = 'PENDING';
+      tag.classList.add('mm-card-tag-pending');
+    }
+  }
+
+  function setReadySub(html) {
+    const s = el('mmReadySub');
+    if (s) s.innerHTML = html;
+  }
+
+  function setReadyButtonsState(state) {
+    const acceptBtn  = el('mmReadyAcceptBtn');
+    const declineBtn = el('mmReadyDeclineBtn');
+    if (state === 'waiting') {
+      if (acceptBtn) acceptBtn.disabled = true;
+    } else {
+      if (acceptBtn) acceptBtn.disabled = false;
+      if (declineBtn) declineBtn.disabled = false;
+    }
+  }
+
+  function startReadyCountdown() {
+    stopReadyCountdown();
+    mmReadyDeadline = Date.now() + READY_TIMEOUT_MS;
+    const tick = () => {
+      if (!mmReadyShown) return;
+      const left = Math.max(0, mmReadyDeadline - Date.now());
+      const cd = el('mmReadyCountdown');
+      if (cd) {
+        const s = Math.ceil(left / 1000);
+        cd.textContent = '0:' + (s < 10 ? '0' : '') + s;
+      }
+      const bar = el('mmReadyProgressBar');
+      if (bar) {
+        const frac = Math.max(0, Math.min(1, left / READY_TIMEOUT_MS));
+        bar.style.transform = 'scaleX(' + frac + ')';
+      }
+      if (left <= 0) {
+        stopReadyCountdown();
+        handleReadyTimeout();
+      }
+    };
+    tick();
+    mmReadyTickTimer = setInterval(tick, 250);
+  }
+
+  function stopReadyCountdown() {
+    if (mmReadyTickTimer) { clearInterval(mmReadyTickTimer); mmReadyTickTimer = null; }
   }
 
   function setSearchText(title, subHtml) {
@@ -376,7 +466,8 @@
     // Make sure no stray queue entry survives for the seeker.
     try { await mmDb.ref(QUEUE_PATH + '/' + mmUid).remove(); } catch (e) {}
 
-    watchRoomForAutoStart(code);
+    mmRoomCode = code;
+    watchRoomForReady(code, 'seeker');
     return true;
   }
 
@@ -401,40 +492,131 @@
     return code;
   }
 
-  function watchRoomForAutoStart(code) {
+  // Unified room watcher used by both seeker and waiter once they share a room.
+  // Shows the ready-check overlay when both players are present, then:
+  //   - host (seeker) calls startGame() when both have set ready=true
+  //   - any side that declines / times out / disconnects writes status='matchCanceled',
+  //     which the listener picks up and tears the match down
+  function watchRoomForReady(code, role) {
     detachRoomListener();
+    mmReadyShown = false;
+    mmReadyHandled = false;
     mmRoomRef = mmDb.ref('rooms/' + code);
+
     mmRoomListener = mmRoomRef.on('value', snap => {
-      if (!snap.exists()) return;
+      if (!mmActive) return;
+
+      if (!snap.exists()) {
+        if (mmReadyShown && !mmReadyHandled) {
+          mmReadyHandled = true;
+          handleRemoteCancel('Match canceled — opponent left.');
+        }
+        return;
+      }
       const data = snap.val();
 
       if (data.started) { finishMatchmaking(); return; }
 
-      const players = data.players || {};
-      const ids = Object.keys(players).filter(id => !players[id]?.disconnectedAt);
-      const isMeHost = data.host === mmUid;
+      if (data.status === 'matchCanceled') {
+        if (mmReadyHandled) return;
+        mmReadyHandled = true;
+        handleRemoteCancel('Match canceled by opponent.');
+        return;
+      }
 
-      if (isMeHost && ids.length >= 2 && !mmAutoStartScheduled) {
-        mmAutoStartScheduled = true;
-        setSearchText('MATCH FOUND',
-          'Starting match<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
-        setTimeout(() => {
-          if (typeof window.startGame === 'function') {
-            try { window.startGame(); } catch (e) { console.warn('startGame failed:', e); }
-          }
-        }, AUTO_START_DELAY_MS);
+      const players = data.players || {};
+      const activeIds = Object.keys(players).filter(id => !players[id] || !players[id].disconnectedAt);
+
+      if (activeIds.length < 2) {
+        if (mmReadyShown && !mmReadyHandled) {
+          mmReadyHandled = true;
+          handleRemoteCancel('Match canceled — opponent disconnected.');
+        }
+        return;
+      }
+
+      const oppId = activeIds.find(id => id !== mmUid) || null;
+      const oppName = (oppId && players[oppId] && players[oppId].name) || 'Opponent';
+      const meReady  = !!(players[mmUid] && players[mmUid].ready);
+      const oppReady = !!(oppId && players[oppId] && players[oppId].ready);
+
+      if (!mmReadyShown) {
+        mmReadyShown = true;
+
+        const meNameEl  = el('mmReadyMeName');
+        const oppNameEl = el('mmReadyOppName');
+        if (meNameEl)  meNameEl.textContent  = mmName || 'You';
+        if (oppNameEl) oppNameEl.textContent = oppName;
+        setReadyMode(mmMode);
+        setReadyTag('me', 'pending');
+        setReadyTag('opp', 'pending');
+        setReadyButtonsState('idle');
+        setReadySub('Both players must tap <b>Accept</b> within 15 seconds');
+        hideSearchOverlay();
+        showReadyOverlay();
+        startReadyCountdown();
+      } else {
+        const oppNameEl = el('mmReadyOppName');
+        if (oppNameEl && oppName) oppNameEl.textContent = oppName;
+      }
+
+      setReadyTag('me',  meReady  ? 'ready' : 'pending');
+      setReadyTag('opp', oppReady ? 'ready' : 'pending');
+      if (meReady) {
+        setReadyButtonsState('waiting');
+        if (!oppReady) {
+          setReadySub('Waiting for <b>' + escapeHtml(oppName) + '</b><span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
+        }
+      }
+
+      if (meReady && oppReady && !mmAutoStartScheduled) {
+        stopReadyCountdown();
+        setReadySub('Starting match<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
+        if (role === 'seeker') {
+          mmAutoStartScheduled = true;
+          setTimeout(() => {
+            if (typeof window.startGame === 'function') {
+              try { window.startGame(); } catch (e) { console.warn('startGame failed:', e); }
+            }
+          }, READY_START_DELAY_MS);
+        }
       }
     }, () => {});
   }
 
-  function watchRoomForGameStart(code) {
-    detachRoomListener();
-    mmRoomRef = mmDb.ref('rooms/' + code);
-    mmRoomListener = mmRoomRef.on('value', snap => {
-      if (!snap.exists()) return;
-      const data = snap.val();
-      if (data.started) finishMatchmaking();
-    }, () => {});
+  async function mmAcceptMatch() {
+    if (!mmReadyShown || mmReadyHandled || !mmDb || !mmUid || !mmRoomCode) return;
+    setReadyButtonsState('waiting');
+    setReadyTag('me', 'ready');
+    try {
+      await mmDb.ref('rooms/' + mmRoomCode + '/players/' + mmUid + '/ready').set(true);
+    } catch (e) {
+      console.warn('[matchmaking] accept failed:', e);
+      setReadyButtonsState('idle');
+      setReadyTag('me', 'pending');
+      setReadySub('Could not send accept — try again.');
+    }
+  }
+
+  async function mmDeclineMatch() {
+    if (mmReadyHandled) return;
+    mmReadyHandled = true;
+    await cancelFindMatch();
+    lobbyErr('You declined the match.');
+  }
+
+  function handleReadyTimeout() {
+    if (mmReadyHandled) return;
+    mmReadyHandled = true;
+    cancelFindMatch().then(() => {
+      lobbyErr('Match canceled — accept timed out.');
+    });
+  }
+
+  function handleRemoteCancel(message) {
+    cancelFindMatch().then(() => {
+      if (message) lobbyErr(message);
+    });
   }
 
   async function joinQueue() {
@@ -506,7 +688,8 @@
     }
 
     Promise.resolve().then(() => window.joinGame()).then(() => {
-      watchRoomForGameStart(offer.roomCode);
+      mmRoomCode = offer.roomCode;
+      watchRoomForReady(offer.roomCode, 'waiter');
       if (mmDb && mmUid) {
         mmDb.ref(OFFERS_PATH + '/' + mmUid).remove().catch(() => {});
       }
@@ -537,15 +720,27 @@
   async function cancelFindMatch() {
     if (!mmActive) {
       hideSearchOverlay();
+      hideReadyOverlay();
+      stopReadyCountdown();
       return;
     }
     const wasSeeker = mmRole === 'seeker';
+    const wasInRoom = wasSeeker || mmRole === 'waiter';
+    const code = mmRoomCode;
 
     mmActive = false;
+    mmReadyHandled = true;
+    mmReadyShown = false;
     detachOfferListener();
     detachRoomListener();
     detachQueueWatcher();
     stopElapsedTicker();
+    stopReadyCountdown();
+
+    // Signal the opponent that the match is off so they leave the room too.
+    if (wasInRoom && code && mmDb) {
+      try { await mmDb.ref('rooms/' + code + '/status').set('matchCanceled'); } catch (e) {}
+    }
 
     if (mmDb && mmUid) {
       try { await mmDb.ref(QUEUE_PATH  + '/' + mmUid).remove(); } catch (e) {}
@@ -555,10 +750,10 @@
     }
 
     hideSearchOverlay();
+    hideReadyOverlay();
 
-    // If we already created a room as the seeker, leaveGame tears it down
-    // and returns the user to the lobby for us.
-    if (wasSeeker && typeof window.leaveGame === 'function') {
+    // leaveGame tears down the room slot and returns to the lobby for us.
+    if (wasInRoom && typeof window.leaveGame === 'function') {
       try { window.leaveGame(); } catch (e) {}
     } else {
       const lobby = el('lobbyOverlay');
@@ -570,11 +765,15 @@
 
   function finishMatchmaking() {
     mmActive = false;
+    mmReadyHandled = true;
+    mmReadyShown = false;
     detachOfferListener();
     detachRoomListener();
     detachQueueWatcher();
     stopElapsedTicker();
+    stopReadyCountdown();
     hideSearchOverlay();
+    hideReadyOverlay();
     if (mmDb && mmUid) {
       mmDb.ref(QUEUE_PATH  + '/' + mmUid).remove().catch(() => {});
       mmDb.ref(OFFERS_PATH + '/' + mmUid).remove().catch(() => {});
@@ -591,9 +790,12 @@
     mmName   = null;
     mmMode   = 'normal';
     mmOfferRef = null;
+    mmRoomCode = null;
     mmInQueue = false;
     mmClaimInFlight = false;
     mmAutoStartScheduled = false;
+    mmReadyShown = false;
+    mmReadyHandled = false;
   }
 
   function openFindMatchModeChoice() {
@@ -628,4 +830,6 @@
   window.openFindMatchModeChoice   = openFindMatchModeChoice;
   window.closeFindMatchModeChoice  = closeFindMatchModeChoice;
   window.chooseFindMatchMode       = chooseFindMatchMode;
+  window.mmAcceptMatch             = mmAcceptMatch;
+  window.mmDeclineMatch            = mmDeclineMatch;
 })();
