@@ -97,7 +97,7 @@
   </div>
   <button class="lobby-btn lobby-btn-join" onclick="joinGame()"><i class="icn icn-players"></i> JOIN GAME</button>
   <div class="lobby-divider">— OR —</div>
-  <button class="lobby-btn lobby-btn-find" onclick="findMatch()"><i class="icn icn-players"></i> FIND MATCH (1v1)</button>
+  <button class="lobby-btn lobby-btn-find" onclick="openFindMatchModeChoice()"><i class="icn icn-players"></i> FIND MATCH (1v1)</button>
   <div class="lobby-divider">— OR —</div>
   <button class="lobby-btn lobby-btn-bot" onclick="openBotModeChoice()"><i class="icn icn-bot"></i> PLAY VS BOT</button>
 
@@ -133,15 +133,81 @@
   </div>
 </div>
 
-<!-- MATCHMAKING SEARCH OVERLAY -->
+<!-- FIND MATCH MODE CHOICE MODAL -->
+<div id="findMatchModeModal" onclick="closeFindMatchModeChoice(event)">
+  <div class="pup-picker-sheet" onclick="event.stopPropagation()">
+    <div class="pup-picker-title"><i class="icn icn-players"></i> CHOOSE MATCH TYPE</div>
+    <div class="pup-picker-sub">Which mode should we look for?</div>
+    <div class="pup-picker-grid">
+      <button class="pup-pick-btn" onclick="chooseFindMatchMode('normal')" style="--pup-col:#4ecdc4">
+        <div class="pup-pick-icon"><i class="icn icn-gamepad"></i></div>
+        <div class="pup-pick-info">
+          <div class="pup-pick-name">Classic 1v1</div>
+          <div class="pup-pick-desc">Standard rules, no power-ups</div>
+        </div>
+      </button>
+      <button class="pup-pick-btn" onclick="chooseFindMatchMode('powerup')" style="--pup-col:#f5a623">
+        <div class="pup-pick-icon"><i class="icn icn-bolt"></i></div>
+        <div class="pup-pick-info">
+          <div class="pup-pick-name">Power-Up 1v1</div>
+          <div class="pup-pick-desc">Earn and use power-ups during your match</div>
+        </div>
+      </button>
+    </div>
+    <button class="lobby-btn lobby-btn-solo" style="max-width:280px;margin:14px auto 0" onclick="closeFindMatchModeChoice()"><i class="icn icn-close"></i> Cancel</button>
+  </div>
+</div>
+
+<!-- MATCHMAKING SEARCH OVERLAY — "Looking for player" -->
 <div id="mmSearchOverlay">
   <div class="mm-search-box">
-    <div class="mm-search-spinner" aria-hidden="true">
-      <span></span><span></span><span></span><span></span><span></span>
+    <div class="mm-search-header">
+      <div class="mm-search-title" id="mmSearchTitle">LOOKING FOR PLAYER</div>
+      <div class="mm-search-sub" id="mmSearchSub">Searching the queue<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span></div>
+      <div class="mm-mode-badge" id="mmModeBadge"><i class="icn icn-gamepad"></i> <span id="mmModeBadgeText">CLASSIC 1v1</span></div>
     </div>
-    <div class="mm-search-title" id="mmSearchTitle">FINDING OPPONENT</div>
-    <div class="mm-search-sub" id="mmSearchSub">Looking for someone to play 1v1<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span></div>
-    <div class="mm-search-meta" id="mmSearchMeta">In queue: <span id="mmQueueCount">…</span></div>
+
+    <div class="mm-vs">
+      <div class="mm-card mm-card-me">
+        <div class="mm-card-avatar">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><use href="#yum-mark"/></svg>
+        </div>
+        <div class="mm-card-name" id="mmMyName">You</div>
+        <div class="mm-card-tag">READY</div>
+      </div>
+
+      <div class="mm-vs-mid">
+        <div class="mm-radar" aria-hidden="true">
+          <span class="mm-radar-ring"></span>
+          <span class="mm-radar-ring"></span>
+          <span class="mm-radar-ring"></span>
+          <span class="mm-radar-core">VS</span>
+        </div>
+      </div>
+
+      <div class="mm-card mm-card-opp" id="mmOppCard">
+        <div class="mm-card-avatar mm-card-avatar-mystery">
+          <span class="mm-q">?</span>
+        </div>
+        <div class="mm-card-name" id="mmOppName">Searching…</div>
+        <div class="mm-card-tag mm-card-tag-pending">WAITING</div>
+      </div>
+    </div>
+
+    <div class="mm-search-stats">
+      <div class="mm-stat">
+        <div class="mm-stat-label">PLAYERS IN QUEUE</div>
+        <div class="mm-stat-val" id="mmQueueCount">…</div>
+      </div>
+      <div class="mm-stat-sep"></div>
+      <div class="mm-stat">
+        <div class="mm-stat-label">SEARCH TIME</div>
+        <div class="mm-stat-val" id="mmElapsed">0:00</div>
+      </div>
+    </div>
+
+    <div class="mm-progress" aria-hidden="true"><div class="mm-progress-bar"></div></div>
+
     <button class="mm-search-cancel" onclick="cancelFindMatch()"><i class="icn icn-close"></i> CANCEL SEARCH</button>
   </div>
 </div>

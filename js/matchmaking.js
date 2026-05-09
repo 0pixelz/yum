@@ -26,6 +26,7 @@
   let mmDb     = null;
   let mmUid    = null;
   let mmName   = null;
+  let mmMode   = 'normal';        // 'normal' | 'powerup'
   let mmOfferRef = null;
   let mmOfferListener = null;
   let mmRoomRef = null;
@@ -34,6 +35,8 @@
   let mmQueueCountListener = null;
   let mmTimeoutTimer = null;
   let mmAutoStartScheduled = false;
+  let mmStartTs = 0;
+  let mmElapsedTimer = null;
 
   function el(id) { return document.getElementById(id); }
 
@@ -58,6 +61,84 @@
     const s = el('mmSearchSub');
     if (title && t) t.textContent = title;
     if (subHtml != null && s) s.innerHTML = subHtml;
+  }
+
+  function setModeBadge(mode) {
+    const badge = el('mmModeBadge');
+    const text  = el('mmModeBadgeText');
+    if (!badge || !text) return;
+    if (mode === 'powerup') {
+      badge.classList.add('mm-mode-powerup');
+      badge.innerHTML = '<i class="icn icn-bolt"></i> <span id="mmModeBadgeText">POWER-UP 1V1</span>';
+    } else {
+      badge.classList.remove('mm-mode-powerup');
+      badge.innerHTML = '<i class="icn icn-gamepad"></i> <span id="mmModeBadgeText">CLASSIC 1V1</span>';
+    }
+  }
+
+  function setMyName(name) {
+    const n = el('mmMyName');
+    if (n) n.textContent = name || 'You';
+  }
+
+  function resetOpponentCard() {
+    const card = el('mmOppCard');
+    const name = el('mmOppName');
+    if (card) card.classList.remove('mm-found');
+    if (card) {
+      const tag = card.querySelector('.mm-card-tag');
+      if (tag) {
+        tag.textContent = 'WAITING';
+        tag.classList.add('mm-card-tag-pending');
+      }
+      const av = card.querySelector('.mm-card-avatar');
+      if (av) {
+        av.classList.add('mm-card-avatar-mystery');
+        av.innerHTML = '<span class="mm-q">?</span>';
+      }
+    }
+    if (name) name.textContent = 'Searching…';
+  }
+
+  function revealOpponent(oppName) {
+    const card = el('mmOppCard');
+    const name = el('mmOppName');
+    if (card) {
+      card.classList.add('mm-found');
+      const tag = card.querySelector('.mm-card-tag');
+      if (tag) {
+        tag.textContent = 'FOUND';
+        tag.classList.remove('mm-card-tag-pending');
+      }
+      const av = card.querySelector('.mm-card-avatar');
+      if (av) {
+        av.classList.remove('mm-card-avatar-mystery');
+        av.innerHTML = '<svg viewBox="0 0 64 64" aria-hidden="true"><use href="#yum-mark"/></svg>';
+      }
+    }
+    if (name) name.textContent = oppName || 'Opponent';
+  }
+
+  function fmtElapsed(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    return mm + ':' + (ss < 10 ? '0' : '') + ss;
+  }
+
+  function startElapsedTicker() {
+    stopElapsedTicker();
+    mmStartTs = Date.now();
+    const tick = () => {
+      const e = el('mmElapsed');
+      if (e) e.textContent = fmtElapsed(Date.now() - mmStartTs);
+    };
+    tick();
+    mmElapsedTimer = setInterval(tick, 1000);
+  }
+
+  function stopElapsedTicker() {
+    if (mmElapsedTimer) { clearInterval(mmElapsedTimer); mmElapsedTimer = null; }
   }
 
   function lobbyErr(msg) {
@@ -95,11 +176,13 @@
     } catch (e) { return null; }
   }
 
-  async function findMatch() {
+  async function findMatch(mode) {
     if (mmActive) return;
 
     const name = getLobbyName();
     if (!name) return;
+
+    const chosenMode = (mode === 'powerup') ? 'powerup' : 'normal';
 
     lobbyErr('<i class="icn icn-dice"></i> Connecting…');
 
@@ -117,12 +200,18 @@
     mmDb     = db;
     mmUid    = user.uid;
     mmName   = name;
+    mmMode   = chosenMode;
     mmActive = true;
     mmRole   = null;
     mmAutoStartScheduled = false;
 
-    setSearchText('FINDING OPPONENT',
-      'Looking for someone to play 1v1<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
+    const modeLabel = chosenMode === 'powerup' ? 'Power-Up' : 'Classic';
+    setSearchText('LOOKING FOR PLAYER',
+      'Searching for a ' + modeLabel + ' opponent<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
+    setModeBadge(chosenMode);
+    setMyName(name);
+    resetOpponentCard();
+    startElapsedTicker();
     showSearchOverlay();
     lobbyErr('');
 
@@ -166,7 +255,11 @@
       const all = snap.val() || {};
       const now = Date.now();
       const live = Object.entries(all).filter(([uid, info]) =>
-        uid !== mmUid && info && typeof info.ts === 'number' && (now - info.ts) < STALE_MS
+        uid !== mmUid &&
+        info &&
+        typeof info.ts === 'number' &&
+        (now - info.ts) < STALE_MS &&
+        ((info.mode || 'normal') === mmMode)
       ).length;
       c.textContent = String(live);
     }, () => { c.textContent = '0'; });
@@ -192,7 +285,8 @@
         uid !== mmUid &&
         info &&
         typeof info.ts === 'number' &&
-        (now - info.ts) < STALE_MS
+        (now - info.ts) < STALE_MS &&
+        ((info.mode || 'normal') === mmMode)
       )
       .sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
 
@@ -224,6 +318,7 @@
 
     setSearchText('MATCH FOUND',
       'Connecting to <b>' + escapeHtml(oppInfo.name || 'Opponent') + '</b>…');
+    revealOpponent(oppInfo.name);
 
     mmRole = 'seeker';
 
@@ -252,11 +347,12 @@
       return false;
     }
 
-    // Tag the room so reviewers can spot matchmaking-created rooms in Firebase.
+    // Tag the room so reviewers can spot matchmaking-created rooms in Firebase,
+    // and set the agreed-upon gameMode so the joiner gets the right experience.
     try {
       // eslint-disable-next-line no-undef
       if (typeof roomRef !== 'undefined' && roomRef) {
-        await roomRef.update({ mode: 'matchmaking' });
+        await roomRef.update({ mode: 'matchmaking', gameMode: mmMode });
       }
     } catch (e) {}
 
@@ -327,11 +423,12 @@
   async function joinQueue() {
     if (!mmActive) return;
 
-    setSearchText('FINDING OPPONENT',
-      'Waiting for an opponent<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
+    const modeLabel = mmMode === 'powerup' ? 'Power-Up' : 'Classic';
+    setSearchText('LOOKING FOR PLAYER',
+      'Waiting for a ' + modeLabel + ' opponent<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
 
     const queueRef = mmDb.ref(QUEUE_PATH + '/' + mmUid);
-    const entry = { uid: mmUid, name: mmName, ts: Date.now() };
+    const entry = { uid: mmUid, name: mmName, ts: Date.now(), mode: mmMode };
     try {
       await queueRef.set(entry);
     } catch (e) {
@@ -361,6 +458,7 @@
     mmRole = 'waiter';
     setSearchText('MATCH FOUND',
       'Joining <b>' + escapeHtml(offer.fromName || 'opponent') + '</b>…');
+    revealOpponent(offer.fromName);
     detachOfferListener();
 
     if (mmDb && mmUid) {
@@ -419,6 +517,7 @@
     detachRoomListener();
     detachQueueCounter();
     if (mmTimeoutTimer) { clearTimeout(mmTimeoutTimer); mmTimeoutTimer = null; }
+    stopElapsedTicker();
 
     if (mmDb && mmUid) {
       try { await mmDb.ref(QUEUE_PATH  + '/' + mmUid).remove(); } catch (e) {}
@@ -447,6 +546,7 @@
     detachRoomListener();
     detachQueueCounter();
     if (mmTimeoutTimer) { clearTimeout(mmTimeoutTimer); mmTimeoutTimer = null; }
+    stopElapsedTicker();
     hideSearchOverlay();
     if (mmDb && mmUid) {
       mmDb.ref(QUEUE_PATH  + '/' + mmUid).remove().catch(() => {});
@@ -462,10 +562,41 @@
     mmDb     = null;
     mmUid    = null;
     mmName   = null;
+    mmMode   = 'normal';
     mmOfferRef = null;
     mmAutoStartScheduled = false;
   }
 
-  window.findMatch       = findMatch;
-  window.cancelFindMatch = cancelFindMatch;
+  function openFindMatchModeChoice() {
+    const nameEl = el('playerName');
+    const name = (nameEl && nameEl.value && nameEl.value.trim()) || '';
+    if (!name) {
+      lobbyErr('Enter your name first!');
+      return;
+    }
+    if (typeof window.yumValidateUsername === 'function') {
+      const check = window.yumValidateUsername(name);
+      if (!check.ok) { lobbyErr(check.reason); return; }
+    }
+    lobbyErr('');
+    const m = el('findMatchModeModal');
+    if (m) m.classList.add('open');
+  }
+
+  function closeFindMatchModeChoice() {
+    const m = el('findMatchModeModal');
+    if (m) m.classList.remove('open');
+  }
+
+  function chooseFindMatchMode(mode) {
+    const m = el('findMatchModeModal');
+    if (m) m.classList.remove('open');
+    findMatch(mode);
+  }
+
+  window.findMatch                 = findMatch;
+  window.cancelFindMatch           = cancelFindMatch;
+  window.openFindMatchModeChoice   = openFindMatchModeChoice;
+  window.closeFindMatchModeChoice  = closeFindMatchModeChoice;
+  window.chooseFindMatchMode       = chooseFindMatchMode;
 })();
