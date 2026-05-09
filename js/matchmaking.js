@@ -18,7 +18,6 @@
   const QUEUE_PATH         = 'matchmaking/queue';
   const OFFERS_PATH        = 'matchmaking/offers';
   const STALE_MS           = 90 * 1000;        // queue entries older than this are ignored
-  const SEARCH_TIMEOUT_MS  = 5 * 60 * 1000;    // give up after 5 minutes
   const AUTO_START_DELAY_MS = 1500;            // small delay so opponent UI settles
 
   let mmActive = false;
@@ -33,7 +32,6 @@
   let mmRoomListener = null;
   let mmQueueCountRef = null;
   let mmQueueCountListener = null;
-  let mmTimeoutTimer = null;
   let mmAutoStartScheduled = false;
   let mmStartTs = 0;
   let mmElapsedTimer = null;
@@ -226,23 +224,11 @@
     mmOfferListener = mmOfferRef.on('value', onMyOfferChanged, () => {});
 
     attachQueueCounter();
-    armSearchTimeout();
 
     // Try to claim someone already waiting; if no claim succeeds, queue ourselves.
     const claimed = await tryClaimAny();
     if (!mmActive) return;
     if (!claimed) await joinQueue();
-  }
-
-  function armSearchTimeout() {
-    if (mmTimeoutTimer) clearTimeout(mmTimeoutTimer);
-    mmTimeoutTimer = setTimeout(() => {
-      if (!mmActive) return;
-      cancelFindMatch();
-      const lobby = el('lobbyOverlay');
-      if (lobby) lobby.style.display = 'flex';
-      lobbyErr('No opponent found — try again later.');
-    }, SEARCH_TIMEOUT_MS);
   }
 
   function attachQueueCounter() {
@@ -516,7 +502,6 @@
     detachOfferListener();
     detachRoomListener();
     detachQueueCounter();
-    if (mmTimeoutTimer) { clearTimeout(mmTimeoutTimer); mmTimeoutTimer = null; }
     stopElapsedTicker();
 
     if (mmDb && mmUid) {
@@ -545,7 +530,6 @@
     detachOfferListener();
     detachRoomListener();
     detachQueueCounter();
-    if (mmTimeoutTimer) { clearTimeout(mmTimeoutTimer); mmTimeoutTimer = null; }
     stopElapsedTicker();
     hideSearchOverlay();
     if (mmDb && mmUid) {
