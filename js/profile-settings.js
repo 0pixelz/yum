@@ -266,6 +266,11 @@
 
         <div id="psAccountSection" style="display:none">
           <div class="ps-section-label">ACCOUNT</div>
+          <button type="button" class="ps-row" id="psSignOutRow">
+            <span class="ps-row-icon"><i class="icn icn-door"></i></span>
+            <span class="ps-row-label">Sign out</span>
+            <span class="ps-row-chev">›</span>
+          </button>
           <button type="button" class="ps-row ps-danger" id="psDeleteRow">
             <span class="ps-row-icon"><i class="icn icn-close"></i></span>
             <span class="ps-row-label">Delete account</span>
@@ -304,6 +309,13 @@
       if (typeof window.openSession === 'function') {
         ensureLobbyVisibleForOverlay(window.openSession);
       }
+    });
+
+    document.getElementById('psSignOutRow').addEventListener('click', () => {
+      closeSettings();
+      setTimeout(() => {
+        if (typeof window.signOutProfile === 'function') window.signOutProfile();
+      }, 60);
     });
 
     document.getElementById('psDeleteRow').addEventListener('click', () => {
@@ -367,7 +379,7 @@
     btn.type = 'button';
     btn.className = 'profile-settings-btn';
     btn.title = 'Profile settings';
-    btn.innerHTML = '<i class="icn icn-tap"></i><span>Profile settings</span>';
+    btn.innerHTML = '<i class="icn icn-gear"></i><span>Profile settings</span>';
     btn.addEventListener('click', openSettings);
     bar.appendChild(btn);
   }
