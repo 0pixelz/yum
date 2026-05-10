@@ -5,7 +5,7 @@
 
 (function() {
   const PROFILE_KEY = 'yum_google_profile';
-  const CREDIT_KEY = 'yum_credit_wallet_v2';
+  const LEGACY_CREDIT_KEY = 'yum_credit_wallet_v2';
   const DAILY_CHALLENGE_KEY = 'yum_daily_challenge_state_v2';
 
   const CHALLENGES = [
@@ -41,13 +41,113 @@
 
   window.isYumLoggedIn = isLoggedIn;
 
+  function profileId() {
+    const p = getLoginProfile();
+    if (!p) return '';
+    return String(p.uid || p.email || '').trim();
+  }
+
+  // Per-user scope for the credit wallet so multiple Google accounts on one
+  // device don't share a balance. Falls back to the legacy unscoped key if no
+  // profile is loaded yet.
+  function creditKey() {
+    const id = profileId();
+    return id ? `${LEGACY_CREDIT_KEY}__${id}` : LEGACY_CREDIT_KEY;
+  }
+
+  // One-time copy of the unscoped legacy wallet into the current user's
+  // scoped wallet so existing balances aren't lost on first sign-in after
+  // this update.
+  function migrateLegacyCreditKey() {
+    if (!isLoggedIn()) return;
+    const scoped = creditKey();
+    if (scoped === LEGACY_CREDIT_KEY) return;
+    if (localStorage.getItem(scoped)) return;
+    const legacy = localStorage.getItem(LEGACY_CREDIT_KEY);
+    if (legacy) localStorage.setItem(scoped, legacy);
+  }
+
   function creditState() {
-    return loadJSON(CREDIT_KEY, { credits: 0, earned: 0, spent: 0 });
+    return loadJSON(creditKey(), { credits: 0, earned: 0, spent: 0 });
   }
 
   function saveCreditState(state) {
-    saveJSON(CREDIT_KEY, state);
+    saveJSON(creditKey(), state);
   }
+
+  // ── Firebase sync for the credit wallet ───────────────────────────
+  // Mirrors the dailyBonus sync in daily-bonus-challenge-overlay.js so the
+  // wallet survives a localStorage wipe and follows the user across devices.
+  function userCreditRef() {
+    try {
+      if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
+      if (!window.db || !window.firebase || !window.firebase.database) return null;
+      const p = getLoginProfile();
+      if (!p || !p.uid) return null;
+      return window.db.ref('users/' + p.uid + '/creditWallet');
+    } catch(e) { return null; }
+  }
+
+  function applyRemoteCreditState(remote) {
+    if (!remote) return false;
+    const local = creditState();
+    const localEarned = Math.max(0, Number(local.earned) || 0);
+    const localSpent  = Math.max(0, Number(local.spent)  || 0);
+    const remoteEarned = Math.max(0, Number(remote.earned) || 0);
+    const remoteSpent  = Math.max(0, Number(remote.spent)  || 0);
+    // Cumulative counters are monotonic, so take the max from each side.
+    const earned = Math.max(localEarned, remoteEarned);
+    const spent  = Math.max(localSpent, remoteSpent);
+    const credits = Math.max(0, earned - spent);
+    const localCredits = Math.max(0, Number(local.credits) || 0);
+    if (credits === localCredits && earned === localEarned && spent === localSpent) return false;
+    saveCreditState({
+      credits, earned, spent,
+      lastReason: local.lastReason || remote.lastReason || '',
+      updatedAt: Date.now()
+    });
+    return true;
+  }
+
+  function pushCreditState() {
+    const ref = userCreditRef();
+    if (!ref) return;
+    const st = creditState();
+    ref.set({
+      credits: Math.max(0, Number(st.credits) || 0),
+      earned:  Math.max(0, Number(st.earned)  || 0),
+      spent:   Math.max(0, Number(st.spent)   || 0),
+      updatedAt: Date.now()
+    }).catch(() => {});
+  }
+
+  let creditHydratePromise = null;
+  function hydrateCreditsFromFirebase() {
+    if (creditHydratePromise) return creditHydratePromise;
+    const ref = userCreditRef();
+    if (!ref) return Promise.resolve(false);
+    creditHydratePromise = ref.once('value').then(snap => {
+      const remote = snap.val();
+      const before = creditState();
+      const changed = applyRemoteCreditState(remote);
+      const localEarned = Math.max(0, Number(before.earned) || 0);
+      const localSpent  = Math.max(0, Number(before.spent)  || 0);
+      const remoteEarned = Math.max(0, Number((remote && remote.earned)) || 0);
+      const remoteSpent  = Math.max(0, Number((remote && remote.spent))  || 0);
+      // If we have local progress the server hasn't seen yet, push it up.
+      if (localEarned > remoteEarned || localSpent > remoteSpent || !remote) {
+        pushCreditState();
+      }
+      if (changed) {
+        window.dispatchEvent(new CustomEvent('yumCreditsChanged', { detail: creditState() }));
+        refreshChallengeButtonText();
+      }
+      return changed;
+    }).catch(() => false).finally(() => { creditHydratePromise = null; });
+    return creditHydratePromise;
+  }
+
+  window.hydrateYumCreditsFromFirebase = hydrateCreditsFromFirebase;
 
   window.getYumCredits = function getYumCredits() {
     if (!isLoggedIn()) return 0;
@@ -57,6 +157,7 @@
 
   window.addYumCredits = function addYumCredits(amount, reason) {
     if (!isLoggedIn()) return 0;
+    migrateLegacyCreditKey();
     const n = Math.max(0, Number(amount) || 0);
     const st = creditState();
     st.credits = (Number(st.credits) || 0) + n;
@@ -64,6 +165,7 @@
     st.lastReason = reason || '';
     st.updatedAt = Date.now();
     saveCreditState(st);
+    pushCreditState();
     window.dispatchEvent(new CustomEvent('yumCreditsChanged', { detail: st }));
     refreshChallengeButtonText();
     return st.credits;
@@ -71,6 +173,7 @@
 
   window.spendYumCredits = function spendYumCredits(amount, reason) {
     if (!isLoggedIn()) return false;
+    migrateLegacyCreditKey();
     const n = Math.max(0, Number(amount) || 0);
     const st = creditState();
     if ((Number(st.credits) || 0) < n) return false;
@@ -79,6 +182,7 @@
     st.lastReason = reason || '';
     st.updatedAt = Date.now();
     saveCreditState(st);
+    pushCreditState();
     window.dispatchEvent(new CustomEvent('yumCreditsChanged', { detail: st }));
     refreshChallengeButtonText();
     return true;
@@ -281,11 +385,25 @@
     });
   }
 
+  // Pull the wallet from Firebase whenever the signed-in user changes so
+  // that a fresh device or wiped localStorage still sees the correct balance.
+  let lastHydratedUid = null;
+  function watchAuthForCreditHydrate() {
+    if (!isLoggedIn()) return;
+    migrateLegacyCreditKey();
+    const p = getLoginProfile();
+    const uid = p && p.uid ? String(p.uid) : '';
+    if (!uid || uid === lastHydratedUid) return;
+    lastHydratedUid = uid;
+    hydrateCreditsFromFirebase();
+  }
+
   function init() {
     injectStyles();
     ensureChallengeOverlay();
     patchGameHooks();
     refreshChallengeButtonText();
+    watchAuthForCreditHydrate();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
@@ -297,5 +415,6 @@
   setInterval(() => {
     patchGameHooks();
     refreshChallengeButtonText();
+    watchAuthForCreditHydrate();
   }, 800);
 })();
