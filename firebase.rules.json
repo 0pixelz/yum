@@ -270,6 +270,32 @@
         "$other":       { ".validate": false }
       }
     },
+    "presence": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "(!newData.exists()) || newData.hasChildren(['ts'])",
+        "ts":     { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000" },
+        "name":   { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+        "avatar": { ".validate": "(!newData.exists()) || newData.val() === null || (newData.isString() && newData.val().length <= 30)" },
+        "status": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "$other": { ".validate": false }
+      }
+    },
+    "friendInvites": {
+      "$uid": {
+        ".read":  "auth != null",
+        ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid) || data.child('from').val() === auth.uid)",
+        ".validate": "(!newData.exists()) || newData.hasChildren(['from','fromName','roomCode','ts'])",
+        "from":       { ".validate": "newData.isString() && newData.val() === auth.uid && newData.val().length <= 50" },
+        "fromName":   { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+        "fromAvatar": { ".validate": "(!newData.exists()) || newData.val() === null || (newData.isString() && newData.val().length <= 30)" },
+        "roomCode":   { ".validate": "newData.isString() && newData.val().length >= 4 && newData.val().length <= 8" },
+        "mode":       { ".validate": "(!newData.exists()) || (newData.isString() && (newData.val() === 'normal' || newData.val() === 'powerup'))" },
+        "ts":         { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000" },
+        "$other":     { ".validate": false }
+      }
+    },
     "matchmaking": {
       "queue": {
         ".read": "auth != null",
