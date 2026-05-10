@@ -21,7 +21,12 @@
   ];
 
   const DOT_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-  const PREMIUM_SKIN_IDS = ['gold','neon','ice','fire','galaxy'];
+  const PREMIUM_SKIN_IDS = [
+    'gold','neon','ice','fire','galaxy',
+    'emerald','ruby','sapphire','sunset','aurora',
+    'obsidian','phantom','toxic','lava','frost',
+    'royal','cosmic','dragon','mythic','diamond'
+  ];
 
   function getActive() {
     return localStorage.getItem(ACTIVE_KEY) || 'classic';
@@ -103,18 +108,28 @@
       body.skin-ice .dice-section .die { background:linear-gradient(135deg,#e0f7ff,#8fd8ff)!important;color:#06283d!important; }
       body.skin-fire .dice-section .die { background:linear-gradient(135deg,#ffd166,#e94560)!important;color:#180004!important; }
       body.skin-galaxy .dice-section .die { background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%)!important;color:#f8fafc!important;border:1px solid rgba(168,85,247,.7)!important;box-shadow:0 0 20px rgba(168,85,247,.28)!important; }
+      body.skin-emerald .dice-section .die { background:linear-gradient(135deg,#10b981,#064e3b)!important;color:#ecfdf5!important;border:1px solid rgba(16,185,129,.7)!important;box-shadow:0 0 16px rgba(16,185,129,.25)!important; }
+      body.skin-ruby .dice-section .die { background:linear-gradient(135deg,#ff4d6d,#7f1d1d)!important;color:#fff1f3!important;border:1px solid rgba(244,63,94,.7)!important;box-shadow:0 0 16px rgba(244,63,94,.28)!important; }
+      body.skin-sapphire .dice-section .die { background:linear-gradient(135deg,#3b82f6,#1e3a8a)!important;color:#dbeafe!important;border:1px solid rgba(96,165,250,.7)!important;box-shadow:0 0 16px rgba(59,130,246,.28)!important; }
+      body.skin-sunset .dice-section .die { background:linear-gradient(135deg,#f97316,#ec4899)!important;color:#fff7ed!important;box-shadow:0 0 16px rgba(236,72,153,.25)!important; }
+      body.skin-aurora .dice-section .die { background:linear-gradient(135deg,#22d3ee,#a855f7,#10b981)!important;color:#f0fdfa!important;border:1px solid rgba(167,139,250,.6)!important;box-shadow:0 0 18px rgba(34,211,238,.3)!important; }
+      body.skin-obsidian .dice-section .die { background:linear-gradient(135deg,#0f172a,#000)!important;color:#94a3b8!important;border:1px solid rgba(148,163,184,.5)!important;box-shadow:0 0 14px rgba(148,163,184,.25)!important; }
+      body.skin-phantom .dice-section .die { background:radial-gradient(circle,#cbd5e1,#475569 70%)!important;color:#f1f5f9!important;border:1px solid rgba(203,213,225,.5)!important;box-shadow:0 0 18px rgba(203,213,225,.35)!important; }
+      body.skin-toxic .dice-section .die { background:linear-gradient(135deg,#84cc16,#365314)!important;color:#f7fee7!important;border:1px solid rgba(132,204,22,.7)!important;box-shadow:inset 0 0 8px rgba(132,204,22,.5),0 0 16px rgba(132,204,22,.3)!important; }
+      body.skin-lava .dice-section .die { background:radial-gradient(circle at 30% 30%,#fde047,#dc2626 60%,#7f1d1d)!important;color:#fef9c3!important;box-shadow:0 0 20px rgba(220,38,38,.4)!important; }
+      body.skin-frost .dice-section .die { background:linear-gradient(135deg,#f0f9ff,#0ea5e9)!important;color:#082f49!important;border:1px solid rgba(125,211,252,.8)!important;box-shadow:0 0 16px rgba(14,165,233,.35)!important; }
+      body.skin-royal .dice-section .die { background:linear-gradient(135deg,#fbbf24,#7c3aed)!important;color:#fef3c7!important;border:1px solid rgba(251,191,36,.7)!important;box-shadow:0 0 18px rgba(124,58,237,.35)!important; }
+      body.skin-cosmic .dice-section .die { background:radial-gradient(circle at 25% 25%,#fbbf24 0%,#1e1b4b 35%,#000 80%)!important;color:#fef3c7!important;border:1px solid rgba(168,85,247,.6)!important;box-shadow:0 0 20px rgba(168,85,247,.4)!important; }
+      body.skin-dragon .dice-section .die { background:linear-gradient(135deg,#dc2626,#000,#dc2626)!important;color:#fde047!important;border:1px solid rgba(220,38,38,.8)!important;box-shadow:inset 0 0 10px rgba(220,38,38,.4),0 0 18px rgba(220,38,38,.45)!important; }
+      body.skin-mythic .dice-section .die { background:conic-gradient(from 45deg,#a855f7,#22d3ee,#fbbf24,#ec4899,#a855f7)!important;color:#fff!important;border:1px solid rgba(255,255,255,.6)!important;box-shadow:0 0 22px rgba(255,255,255,.4)!important; }
+      body.skin-diamond .dice-section .die { background:linear-gradient(135deg,#e0f7ff,#fff,#fce7f3,#dbeafe,#fff)!important;color:#0f172a!important;border:1px solid rgba(255,255,255,.8)!important;box-shadow:0 0 22px rgba(255,255,255,.7),inset 0 0 12px rgba(186,230,253,.6)!important; }
       body.skin-classic .dice-section .die,
-      body:not(.skin-gold):not(.skin-neon):not(.skin-ice):not(.skin-fire):not(.skin-galaxy) .dice-section .die {
+      body:not(.skin-gold):not(.skin-neon):not(.skin-ice):not(.skin-fire):not(.skin-galaxy):not(.skin-emerald):not(.skin-ruby):not(.skin-sapphire):not(.skin-sunset):not(.skin-aurora):not(.skin-obsidian):not(.skin-phantom):not(.skin-toxic):not(.skin-lava):not(.skin-frost):not(.skin-royal):not(.skin-cosmic):not(.skin-dragon):not(.skin-mythic):not(.skin-diamond) .dice-section .die {
         background: var(--yum-custom-die-bg, #f8f8f8) !important;
         color: var(--yum-custom-die-fg, #111) !important;
       }
-      body.skin-classic .dice-section .die.held,
-      body.skin-gold .dice-section .die.held,
-      body.skin-neon .dice-section .die.held,
-      body.skin-ice .dice-section .die.held,
-      body.skin-fire .dice-section .die.held,
-      body.skin-galaxy .dice-section .die.held,
-      body:not(.skin-gold):not(.skin-neon):not(.skin-ice):not(.skin-fire):not(.skin-galaxy) .dice-section .die.held {
+      body[class*="skin-"] .dice-section .die.held,
+      .dice-section .die.held {
         background: var(--gold) !important;
         color: #111 !important;
         border: none !important;
@@ -127,7 +142,8 @@
   function applySkinAndColor() {
     keepDiceDots();
     const active = getActive();
-    document.body.classList.remove('skin-classic','skin-gold','skin-neon','skin-ice','skin-fire','skin-galaxy');
+    const skinClasses = ['skin-classic', ...PREMIUM_SKIN_IDS.map(id => `skin-${id}`)];
+    document.body.classList.remove(...skinClasses);
     document.body.classList.add(PREMIUM_SKIN_IDS.includes(active) ? `skin-${active}` : 'skin-classic');
     const pair = colorPair();
     document.documentElement.style.setProperty('--yum-custom-die-bg', pair[1]);

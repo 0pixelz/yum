@@ -16,7 +16,22 @@
     { id:'neon', name:'Neon Dice', cost:8, style:'background:#101827;color:#4ecdc4;border:1px solid rgba(78,205,196,.6)' },
     { id:'ice', name:'Ice Dice', cost:10, style:'background:linear-gradient(135deg,#e0f7ff,#8fd8ff);color:#06283d' },
     { id:'fire', name:'Fire Dice', cost:15, style:'background:linear-gradient(135deg,#ffd166,#e94560);color:#180004' },
-    { id:'galaxy', name:'Galaxy Dice', cost:25, style:'background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%);color:#f8fafc;border:1px solid rgba(168,85,247,.7)' }
+    { id:'galaxy', name:'Galaxy Dice', cost:25, style:'background:radial-gradient(circle at 30% 20%,#a855f7,#0f172a 68%);color:#f8fafc;border:1px solid rgba(168,85,247,.7)' },
+    { id:'emerald', name:'Emerald Dice', cost:40, style:'background:linear-gradient(135deg,#10b981,#064e3b);color:#ecfdf5;border:1px solid rgba(16,185,129,.7)' },
+    { id:'ruby', name:'Ruby Dice', cost:60, style:'background:linear-gradient(135deg,#ff4d6d,#7f1d1d);color:#fff1f3;border:1px solid rgba(244,63,94,.7)' },
+    { id:'sapphire', name:'Sapphire Dice', cost:90, style:'background:linear-gradient(135deg,#3b82f6,#1e3a8a);color:#dbeafe;border:1px solid rgba(96,165,250,.7)' },
+    { id:'sunset', name:'Sunset Dice', cost:130, style:'background:linear-gradient(135deg,#f97316,#ec4899);color:#fff7ed' },
+    { id:'aurora', name:'Aurora Dice', cost:175, style:'background:linear-gradient(135deg,#22d3ee,#a855f7,#10b981);color:#f0fdfa;border:1px solid rgba(167,139,250,.6)' },
+    { id:'obsidian', name:'Obsidian Dice', cost:225, style:'background:linear-gradient(135deg,#0f172a,#000);color:#94a3b8;border:1px solid rgba(148,163,184,.5)' },
+    { id:'phantom', name:'Phantom Dice', cost:300, style:'background:radial-gradient(circle,#cbd5e1,#475569 70%);color:#f1f5f9;border:1px solid rgba(203,213,225,.5)' },
+    { id:'toxic', name:'Toxic Dice', cost:400, style:'background:linear-gradient(135deg,#84cc16,#365314);color:#f7fee7;box-shadow:inset 0 0 8px rgba(132,204,22,.5)' },
+    { id:'lava', name:'Lava Dice', cost:525, style:'background:radial-gradient(circle at 30% 30%,#fde047,#dc2626 60%,#7f1d1d);color:#fef9c3' },
+    { id:'frost', name:'Frost Dice', cost:700, style:'background:linear-gradient(135deg,#f0f9ff,#0ea5e9);color:#082f49;border:1px solid rgba(125,211,252,.8)' },
+    { id:'royal', name:'Royal Dice', cost:900, style:'background:linear-gradient(135deg,#fbbf24,#7c3aed);color:#fef3c7;border:1px solid rgba(251,191,36,.7)' },
+    { id:'cosmic', name:'Cosmic Dice', cost:1150, style:'background:radial-gradient(circle at 25% 25%,#fbbf24 0%,#1e1b4b 35%,#000 80%);color:#fef3c7;border:1px solid rgba(168,85,247,.6)' },
+    { id:'dragon', name:'Dragon Dice', cost:1450, style:'background:linear-gradient(135deg,#dc2626,#000,#dc2626);color:#fde047;border:1px solid rgba(220,38,38,.8);box-shadow:inset 0 0 10px rgba(220,38,38,.4)' },
+    { id:'mythic', name:'Mythic Dice', cost:1750, style:'background:conic-gradient(from 45deg,#a855f7,#22d3ee,#fbbf24,#ec4899,#a855f7);color:#fff;border:1px solid rgba(255,255,255,.6)' },
+    { id:'diamond', name:'Diamond Dice', cost:2000, style:'background:linear-gradient(135deg,#e0f7ff,#fff,#fce7f3,#dbeafe,#fff);color:#0f172a;border:1px solid rgba(255,255,255,.8);box-shadow:0 0 18px rgba(255,255,255,.55)' }
   ];
 
   function loadJSON(k, f) { try { return JSON.parse(localStorage.getItem(k) || JSON.stringify(f)); } catch(e) { return f; } }
