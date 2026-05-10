@@ -59,7 +59,10 @@
         font-size: 1.05rem;
         background: linear-gradient(135deg, var(--accent), var(--gold));
         flex: 0 0 auto;
+        overflow: hidden;
       }
+      .lar-avatar svg, .lar-avatar img { width: 100%; height: 100%; display: block; border-radius: inherit; object-fit: cover; }
+      .lar-avatar:has(svg), .lar-avatar:has(img) { background: rgba(0,0,0,0.35); }
       .lar-info { flex: 1; min-width: 0; text-align: left; }
       .lar-name { color: var(--white); font-weight: 1000; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .lar-meta { color: var(--muted); font-size: .72rem; font-weight: 900; margin-top: 2px; }
@@ -230,7 +233,15 @@
         const isHost = id === hId;
         const isMe = id === idMe || id === 'local';
         const ready = !!p.ready;
-        return `<div class="lar-player"><div class="lar-avatar">${initial}</div><div class="lar-info"><div class="lar-name">${name}${isMe ? ' · You' : ''}</div><div class="lar-meta">${isHost ? 'Host' : 'Guest'} · ${ready ? 'Ready' : 'Not ready'}</div></div><div class="lar-badge ${ready ? 'ready' : ''}">${isHost ? 'HOST' : ready ? 'READY' : 'WAIT'}</div></div>`;
+        let avatarHtml = initial;
+        if (window.YumAvatars) {
+          if (isMe) {
+            avatarHtml = window.YumAvatars.markupForProfile();
+          } else if (p.avatar) {
+            avatarHtml = window.YumAvatars.markup(p.avatar, name);
+          }
+        }
+        return `<div class="lar-player"><div class="lar-avatar">${avatarHtml}</div><div class="lar-info"><div class="lar-name">${name}${isMe ? ' · You' : ''}</div><div class="lar-meta">${isHost ? 'Host' : 'Guest'} · ${ready ? 'Ready' : 'Not ready'}</div></div><div class="lar-badge ${ready ? 'ready' : ''}">${isHost ? 'HOST' : ready ? 'READY' : 'WAIT'}</div></div>`;
       }).join('');
 
     card.innerHTML = `<div class="lar-title">LOBBY PLAYERS</div>${rows}<div class="lar-actions"><button class="lar-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '<i class="icn icn-check"></i> Ready' : 'Mark Ready'}</button><button class="lar-btn" onclick="copyRoomCodeUpgrade()"><i class="icn icn-clipboard"></i> Copy Code</button><button class="lar-btn share" onclick="shareLobby()"><i class="icn icn-handshake"></i> Share Lobby</button></div>`;

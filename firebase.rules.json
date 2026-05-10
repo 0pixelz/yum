@@ -120,6 +120,9 @@
             "skin": {
               ".validate": "newData.isString() && newData.val().length <= 30"
             },
+            "avatar": {
+              ".validate": "(!newData.exists()) || (newData.isString() && newData.val().length <= 30)"
+            },
             "perDieColors": {
               ".validate": "(!newData.exists()) || newData.isString() || newData.hasChildren()"
             },
@@ -277,6 +280,7 @@
           "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
           "ts":   { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000" },
           "mode": { ".validate": "newData.isString() && (newData.val() === 'normal' || newData.val() === 'powerup')" },
+          "avatar": { ".validate": "(!newData.exists()) || newData.val() === null || (newData.isString() && newData.val().length <= 30)" },
           "$other": { ".validate": false }
         }
       },
@@ -287,6 +291,7 @@
           ".validate": "(!newData.exists()) || newData.hasChildren(['from','fromName','ts'])",
           "from":     { ".validate": "newData.isString() && newData.val() === auth.uid && newData.val().length <= 50" },
           "fromName": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+          "fromAvatar": { ".validate": "(!newData.exists()) || newData.val() === null || (newData.isString() && newData.val().length <= 30)" },
           "roomCode": { ".validate": "newData.isString() && newData.val().length >= 4 && newData.val().length <= 8" },
           "ts":       { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000" },
           "$other":   { ".validate": false }
