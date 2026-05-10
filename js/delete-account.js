@@ -216,35 +216,22 @@
   }
 
   window.confirmDeleteYumAccount = openModal;
+  window.isYumGoogleSignedIn = isGoogleSignedIn;
 
-  function ensureDeleteButton() {
-    injectStyles();
+  // Strip any legacy standalone delete-account button left over in the
+  // profile bar; the action lives inside the Profile Settings sheet now.
+  function removeLegacyButton() {
     const bar = document.getElementById('profileLoginBar');
     if (!bar) return;
-
     const existing = bar.querySelector('.delete-account-btn');
-    if (!isGoogleSignedIn()) {
-      if (existing) existing.remove();
-      return;
-    }
-    if (existing) return;
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'delete-account-btn';
-    btn.title = 'Delete your Yamio account and all associated data';
-    btn.innerHTML = '<i class="icn icn-close"></i><span>Delete account</span>';
-    btn.addEventListener('click', openModal);
-    bar.appendChild(btn);
+    if (existing) existing.remove();
   }
 
+  injectStyles();
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureDeleteButton);
+    document.addEventListener('DOMContentLoaded', removeLegacyButton);
   } else {
-    ensureDeleteButton();
+    removeLegacyButton();
   }
-
-  // The profile bar is re-rendered on auth state changes and by a watchdog
-  // in profile-login.js, so re-attach the button on the same cadence.
-  setInterval(ensureDeleteButton, 700);
+  setInterval(removeLegacyButton, 1500);
 })();
