@@ -1073,6 +1073,7 @@ async function createGame() {
     playerId = _authUser.uid;
     const _joinSkin = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
     let _joinPdc = null; try { _joinPdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
+    const _joinAvatar = (window.YumAvatars && typeof window.YumAvatars.getCurrentId === 'function') ? window.YumAvatars.getCurrentId() : null;
     // Try up to 6 codes to dodge any in-flight collisions. Each attempt uses a
     // transaction so two clients racing for the same code can't both win.
     const MAX_CODE_ATTEMPTS = 6;
@@ -1087,7 +1088,7 @@ async function createGame() {
         currentTurn: playerId,
         gameMode: 'normal',
         players: {
-          [playerId]: { name: playerName, uid: _authUser.uid, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc }
+          [playerId]: { name: playerName, uid: _authUser.uid, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc, avatar: _joinAvatar }
         }
       };
       try {
@@ -1214,12 +1215,13 @@ async function joinGame() {
   roomRef = _db.ref('rooms/' + code);
   const _joinSkin2 = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
   let _joinPdc2 = null; try { _joinPdc2 = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
+  const _joinAvatar2 = (window.YumAvatars && typeof window.YumAvatars.getCurrentId === 'function') ? window.YumAvatars.getCurrentId() : null;
   if (_existingSlot) {
     // Rejoin: keep scores/joined, just refresh presence + skin/name and clear
     // any prior soft-disconnect marker.
     await roomRef.child('players/' + playerId).update({
       name: playerName, uid: _authUser2.uid, skin: _joinSkin2, perDieColors: _joinPdc2,
-      disconnectedAt: null
+      avatar: _joinAvatar2, disconnectedAt: null
     });
     if (_roomVal.started) {
       mpMode = true;
@@ -1230,7 +1232,7 @@ async function joinGame() {
     }
   } else {
     await roomRef.child('players/' + playerId).set({
-      name: playerName, uid: _authUser2.uid, scores: {}, joined: Date.now(), skin: _joinSkin2, perDieColors: _joinPdc2
+      name: playerName, uid: _authUser2.uid, scores: {}, joined: Date.now(), skin: _joinSkin2, perDieColors: _joinPdc2, avatar: _joinAvatar2
     });
     showWaiting();
   }
@@ -1607,9 +1609,17 @@ function renderLeaderboard() {
       }
     }
 
+    let avatarHtml = '';
+    if (window.YumAvatars) {
+      const av = isMe
+        ? window.YumAvatars.markupForProfile()
+        : (p.avatar ? window.YumAvatars.markup(p.avatar, p.name) : '');
+      if (av) avatarHtml = `<div class="lb-avatar">${av}</div>`;
+    }
     return `<div class="lb-row ${isMe?'me':''}" onclick="${tapAction}" style="cursor:pointer">
       <div class="lb-rank">${i+1}</div>
       ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
+      ${avatarHtml}
       <div class="lb-name-col">
         <div class="lb-name">${p.name}${isMe?' <i class="icn icn-tap"></i>':'<span style="font-size:0.65rem;color:var(--muted)"> <i class="icn icn-eye"></i> view</span>'}</div>
         ${pupHtml}
@@ -1923,10 +1933,15 @@ function renderBotLeaderboard() {
     null
   );
 
+  const myLbAvatar = window.YumAvatars
+    ? `<div class="lb-avatar">${window.YumAvatars.markupForProfile()}</div>`
+    : '';
+  const botLbAvatar = '<div class="lb-avatar lb-avatar-bot"><i class="icn icn-bot"></i></div>';
   document.getElementById('lbRows').innerHTML = `
     <div class="lb-row me" style="cursor:default">
       <div class="lb-rank">${pLeading?'1':'2'}</div>
       <div style="width:8px"></div>
+      ${myLbAvatar}
       <div class="lb-name-col">
         <div class="lb-name">${playerName} ${playerTurn?'<i class="icn icn-dice icn-gold"></i>':''}</div>
         ${playerPupHtml}
@@ -1937,8 +1952,9 @@ function renderBotLeaderboard() {
     <div class="lb-row" style="cursor:pointer;background:rgba(168,85,247,0.07)" onclick="openOppViewer('bot','${botName}',botScores,botScoreDice)">
       <div class="lb-rank">${pLeading?'2':'1'}</div>
       <div style="width:8px"></div>
+      ${botLbAvatar}
       <div class="lb-name-col">
-        <div class="lb-name"><i class="icn icn-bot"></i> ${botName} ${!playerTurn?'<i class="icn icn-dice icn-gold"></i>':''} <span style="font-size:0.65rem;color:var(--muted)"><i class="icn icn-eye"></i> tap</span></div>
+        <div class="lb-name">${botName} ${!playerTurn?'<i class="icn icn-dice icn-gold"></i>':''} <span style="font-size:0.65rem;color:var(--muted)"><i class="icn icn-eye"></i> tap</span></div>
         ${botPupHtml}
       </div>
       <div class="lb-filled">${bFilled}/13</div>
@@ -2201,9 +2217,18 @@ let botScoreDice = {}; // stores dice used per category for bot
 
 function openOppViewer(targetId, targetName, targetScores, targetScoreDice) {
   const total = calcTotal(targetScores);
-  document.getElementById('oppAvatar').innerHTML = targetId === 'bot'
-    ? '<i class="icn icn-bot"></i>'
-    : '<i class="icn icn-players"></i>';
+  let avatarHtml;
+  if (targetId === 'bot') {
+    avatarHtml = '<i class="icn icn-bot"></i>';
+  } else {
+    const oppAvatarId = (typeof allPlayers !== 'undefined' && allPlayers[targetId] && allPlayers[targetId].avatar) || null;
+    if (oppAvatarId && window.YumAvatars) {
+      avatarHtml = window.YumAvatars.markup(oppAvatarId, targetName);
+    } else {
+      avatarHtml = '<i class="icn icn-players"></i>';
+    }
+  }
+  document.getElementById('oppAvatar').innerHTML = avatarHtml;
   document.getElementById('oppHName').textContent = targetName;
   document.getElementById('oppHScore').textContent = total + ' pts';
 

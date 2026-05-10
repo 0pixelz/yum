@@ -111,6 +111,8 @@
         border: 2px solid rgba(255,255,255,0.18);
       }
       .ps-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .ps-avatar svg { width: 100%; height: 100%; display: block; }
+      .ps-avatar:has(svg) { background: rgba(0,0,0,0.35); }
       .ps-name { font-weight: 900; font-size: 1.05rem; }
       .ps-sub { color: var(--muted, #aab); font-size: .78rem; margin-top: 2px; word-break: break-all; }
 
@@ -141,6 +143,16 @@
         align-items: center;
         justify-content: center;
         flex: 0 0 auto;
+      }
+      .ps-row-icon-avatar {
+        background: rgba(255,255,255,0.06);
+        padding: 2px;
+        overflow: hidden;
+      }
+      .ps-row-icon-avatar svg,
+      .ps-row-icon-avatar img {
+        width: 100%; height: 100%; display: block; border-radius: 8px;
+        object-fit: cover;
       }
       .ps-row-label { flex: 1; }
       .ps-row-value {
@@ -173,6 +185,10 @@
   }
 
   function getAvatarMarkup() {
+    if (window.YumAvatars && typeof window.YumAvatars.markupForProfile === 'function') {
+      return window.YumAvatars.markupForProfile();
+    }
+    // Fallback (avatar script missing): keep prior Google-photo / initials behaviour.
     const g = googleProfile();
     if (g && g.photoURL) {
       return `<img src="${g.photoURL}" alt="" referrerpolicy="no-referrer">`;
@@ -180,6 +196,13 @@
     const name = (g && g.name) || (deviceProfile() && deviceProfile().name) || 'Player';
     const initials = String(name).trim().split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || 'P';
     return initials;
+  }
+
+  function activeAvatarName() {
+    if (window.YumAvatars && typeof window.YumAvatars.nameOf === 'function') {
+      return window.YumAvatars.nameOf(window.YumAvatars.getCurrentId());
+    }
+    return 'Classic Gold';
   }
 
   function getDisplayName() {
@@ -237,6 +260,13 @@
 
         <div class="ps-section-label">PREFERENCES</div>
 
+        <button type="button" class="ps-row" id="psAvatarRow">
+          <span class="ps-row-icon ps-row-icon-avatar" id="psAvatarMini"></span>
+          <span class="ps-row-label">Avatar</span>
+          <span class="ps-row-value" id="psAvatarValue">Classic Gold</span>
+          <span class="ps-row-chev">›</span>
+        </button>
+
         <button type="button" class="ps-row" id="psSoundRow">
           <span class="ps-row-icon"><i class="icn icn-sound-on" id="psSoundIcon"></i></span>
           <span class="ps-row-label">Sound</span>
@@ -285,6 +315,12 @@
       if (e.target === ov) closeSettings();
     });
     document.getElementById('psClose').addEventListener('click', closeSettings);
+
+    document.getElementById('psAvatarRow').addEventListener('click', () => {
+      if (window.YumAvatars && typeof window.YumAvatars.openPicker === 'function') {
+        window.YumAvatars.openPicker();
+      }
+    });
 
     document.getElementById('psSoundRow').addEventListener('click', () => {
       if (typeof window.toggleSound === 'function') window.toggleSound();
@@ -348,6 +384,11 @@
     const skinVal = document.getElementById('psSkinValue');
     if (skinVal) skinVal.textContent = activeSkinName();
 
+    const avMini = document.getElementById('psAvatarMini');
+    if (avMini && window.YumAvatars) avMini.innerHTML = window.YumAvatars.markupForProfile();
+    const avVal = document.getElementById('psAvatarValue');
+    if (avVal) avVal.textContent = activeAvatarName();
+
     const acct = document.getElementById('psAccountSection');
     if (acct) acct.style.display = isGoogleSignedIn() ? '' : 'none';
   }
@@ -367,6 +408,10 @@
 
   window.openYumProfileSettings = openSettings;
   window.closeYumProfileSettings = closeSettings;
+
+  // Re-render the identity avatar + the row preview the moment the user
+  // picks a new avatar in the picker.
+  document.addEventListener('yum-avatar-changed', () => refreshSettings());
 
   function ensureSettingsButton() {
     injectStyles();

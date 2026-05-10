@@ -63,7 +63,9 @@
       .waiting-upgrade-card{width:min(420px,92vw);border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);border-radius:18px;padding:12px;margin:12px 0 8px}
       .waiting-upgrade-title{color:var(--gold);font-family:'Bebas Neue',cursive;letter-spacing:2px;font-size:1.1rem;margin-bottom:8px;text-align:left}
       .wup-player{display:flex;align-items:center;gap:9px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:9px 10px;margin-top:7px}
-      .wup-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--gold));color:#111;font-weight:1000}
+      .wup-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--gold));color:#111;font-weight:1000;overflow:hidden}
+      .wup-avatar svg, .wup-avatar img{width:100%;height:100%;display:block;border-radius:inherit;object-fit:cover}
+      .wup-avatar:has(svg), .wup-avatar:has(img){background:rgba(0,0,0,0.35)}
       .wup-info{flex:1;min-width:0;text-align:left}.wup-name{color:var(--white);font-weight:1000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wup-meta{color:var(--muted);font-size:.64rem;font-weight:900;margin-top:1px}
       .wup-badge{border-radius:999px;padding:4px 8px;font-size:.6rem;font-weight:1000;letter-spacing:.6px;border:1px solid rgba(245,166,35,.36);color:var(--gold);background:rgba(245,166,35,.10)}
       .wup-badge.ready{border-color:rgba(78,205,196,.4);color:var(--green);background:rgba(78,205,196,.10)}
@@ -222,7 +224,15 @@
       const isHost = id === hId;
       const isMe = id === myId();
       const ready = !!p.ready;
-      return `<div class="wup-player"><div class="wup-avatar">${initial}</div><div class="wup-info"><div class="wup-name">${p.name || 'Player'}${isMe ? ' · You' : ''}</div><div class="wup-meta">${isHost ? 'Host' : 'Guest'} · ${ready ? 'Ready' : 'Not ready'}</div></div><div class="wup-badge ${ready ? 'ready' : ''}">${isHost ? 'HOST' : ready ? 'READY' : 'WAIT'}</div></div>`;
+      let avatarHtml = initial;
+      if (window.YumAvatars) {
+        if (isMe) {
+          avatarHtml = window.YumAvatars.markupForProfile();
+        } else if (p.avatar) {
+          avatarHtml = window.YumAvatars.markup(p.avatar, p.name);
+        }
+      }
+      return `<div class="wup-player"><div class="wup-avatar">${avatarHtml}</div><div class="wup-info"><div class="wup-name">${p.name || 'Player'}${isMe ? ' · You' : ''}</div><div class="wup-meta">${isHost ? 'Host' : 'Guest'} · ${ready ? 'Ready' : 'Not ready'}</div></div><div class="wup-badge ${ready ? 'ready' : ''}">${isHost ? 'HOST' : ready ? 'READY' : 'WAIT'}</div></div>`;
     }).join('') || '<div class="ssu-small">Waiting for players…</div>';
     card.innerHTML = `<div class="waiting-upgrade-title">LOBBY PLAYERS</div>${rows}<div class="wup-actions"><button class="wup-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '<i class="icn icn-check"></i> Ready' : 'Mark Ready'}</button><button class="wup-btn" onclick="copyRoomCodeUpgrade()"><i class="icn icn-clipboard"></i> Copy Code</button><button class="wup-btn share" onclick="shareLobby()"><i class="icn icn-handshake"></i> Share Lobby</button></div>`;
   }

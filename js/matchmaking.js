@@ -186,6 +186,29 @@
   function setMyName(name) {
     const n = el('mmMyName');
     if (n) n.textContent = name || 'You';
+    paintMyMatchmakingAvatars();
+  }
+
+  function paintMyMatchmakingAvatars() {
+    if (!window.YumAvatars) return;
+    const myMarkup = window.YumAvatars.markupForProfile();
+    document.querySelectorAll('.mm-card-me .mm-card-avatar').forEach(av => {
+      // Preserve any status badge (the small accept/decline pill).
+      const status = av.querySelector('.mm-avatar-status');
+      av.innerHTML = myMarkup;
+      if (status) av.appendChild(status);
+    });
+  }
+
+  function setOppMatchmakingAvatar(avatarId, oppName) {
+    if (!avatarId || !window.YumAvatars) return;
+    const oppMarkup = window.YumAvatars.markup(avatarId, oppName);
+    document.querySelectorAll('.mm-card-opp .mm-card-avatar').forEach(av => {
+      const status = av.querySelector('.mm-avatar-status');
+      av.classList.remove('mm-card-avatar-mystery');
+      av.innerHTML = oppMarkup;
+      if (status) av.appendChild(status);
+    });
   }
 
   function resetOpponentCard() {
@@ -207,7 +230,7 @@
     if (name) name.textContent = 'Searching…';
   }
 
-  function revealOpponent(oppName) {
+  function revealOpponent(oppName, oppAvatar) {
     const card = el('mmOppCard');
     const name = el('mmOppName');
     if (card) {
@@ -220,10 +243,15 @@
       const av = card.querySelector('.mm-card-avatar');
       if (av) {
         av.classList.remove('mm-card-avatar-mystery');
-        av.innerHTML = '<svg viewBox="0 0 64 64" aria-hidden="true"><use href="#yum-mark"/></svg>';
+        if (oppAvatar && window.YumAvatars) {
+          av.innerHTML = window.YumAvatars.markup(oppAvatar, oppName);
+        } else {
+          av.innerHTML = '<svg viewBox="0 0 64 64" aria-hidden="true"><use href="#yum-mark"/></svg>';
+        }
       }
     }
     if (name) name.textContent = oppName || 'Opponent';
+    if (oppAvatar) setOppMatchmakingAvatar(oppAvatar, oppName);
   }
 
   function fmtElapsed(ms) {
@@ -261,6 +289,15 @@
     if (typeof window.getLobbyName === 'function') return window.getLobbyName();
     const v = el('playerName');
     return (v && v.value && v.value.trim()) || null;
+  }
+
+  function myAvatarId() {
+    try {
+      if (window.YumAvatars && typeof window.YumAvatars.getCurrentId === 'function') {
+        return window.YumAvatars.getCurrentId();
+      }
+    } catch(e) {}
+    return null;
   }
 
   async function ensureDb() {
@@ -426,7 +463,7 @@
     if (!mmActive) return false;
 
     const offerRef   = mmDb.ref(OFFERS_PATH + '/' + oppUid);
-    const placeholder = { from: mmUid, fromName: mmName, ts: Date.now() };
+    const placeholder = { from: mmUid, fromName: mmName, fromAvatar: myAvatarId() || null, ts: Date.now() };
 
     let won = false;
     try {
@@ -442,7 +479,7 @@
 
     setSearchText('MATCH FOUND',
       'Connecting to <b>' + escapeHtml(oppInfo.name || 'Opponent') + '</b>…');
-    revealOpponent(oppInfo.name);
+    revealOpponent(oppInfo.name, oppInfo.avatar || null);
 
     mmRole = 'seeker';
 
@@ -554,6 +591,8 @@
 
       const oppId = activeIds.find(id => id !== mmUid) || null;
       const oppName = (oppId && players[oppId] && players[oppId].name) || 'Opponent';
+      const oppAvatar = (oppId && players[oppId] && players[oppId].avatar) || null;
+      if (oppAvatar) setOppMatchmakingAvatar(oppAvatar, oppName);
       const meReady    = !!(players[mmUid] && players[mmUid].ready);
       const oppReady   = !!(oppId && players[oppId] && players[oppId].ready);
       const meDeclined  = !!(players[mmUid] && players[mmUid].declined);
@@ -662,7 +701,7 @@
       'Waiting for a ' + modeLabel + ' opponent<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
 
     const queueRef = mmDb.ref(QUEUE_PATH + '/' + mmUid);
-    const entry = { uid: mmUid, name: mmName, ts: Date.now(), mode: mmMode };
+    const entry = { uid: mmUid, name: mmName, ts: Date.now(), mode: mmMode, avatar: myAvatarId() || null };
     try {
       await queueRef.set(entry);
     } catch (e) {
@@ -704,7 +743,7 @@
     mmRole = 'waiter';
     setSearchText('MATCH FOUND',
       'Joining <b>' + escapeHtml(offer.fromName || 'opponent') + '</b>…');
-    revealOpponent(offer.fromName);
+    revealOpponent(offer.fromName, offer.fromAvatar || null);
     detachOfferListener();
 
     if (mmDb && mmUid) {
