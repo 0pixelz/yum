@@ -23,7 +23,7 @@
   const OFFERS_PATH        = 'matchmaking/offers';
   const STALE_MS           = 90 * 1000;        // queue entries older than this are ignored
   const READY_TIMEOUT_MS   = 15000;            // both players must accept within this window
-  const READY_START_DELAY_MS = 600;            // brief pause after both accept before kickoff
+  const READY_START_DELAY_MS = 3000;           // brief pause after both accept before kickoff
 
   let mmActive = false;
   let mmRole   = null;            // 'seeker' | 'waiter' | null
@@ -637,7 +637,7 @@
       cancelFindMatch().then(() => {
         lobbyErr('You declined the match.');
       });
-    }, 1200);
+    }, 3000);
   }
 
   function handleReadyTimeout() {
