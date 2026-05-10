@@ -2462,6 +2462,31 @@ function saveGameToSession(players) {
   updateSessionBtn();
 }
 
+function sessionVsLabel(game, opts) {
+  // Returns "you vs Bob" / "you vs Bob & Alice" / "you vs Bob +2".
+  // opts.short=true returns a tab-friendly form like "vs Bob" or "vs Bob+".
+  const short = !!(opts && opts.short);
+  const me = game.players.find(p => p.isMe);
+  const opps = game.players.filter(p => !p.isMe);
+  const trunc = (n) => n && n.length > 10 ? n.substr(0,9) + '…' : n;
+  if (opps.length === 0) {
+    return short ? 'solo' : 'solo game';
+  }
+  if (!me) {
+    const first = trunc(game.players[0].name);
+    const rest = game.players.slice(1).map(p=>trunc(p.name));
+    if (short) return `vs ${rest[0] || first}${rest.length>1?'+':''}`;
+    return rest.length === 1 ? `${first} vs ${rest[0]}` : `${first} vs ${rest.join(', ')}`;
+  }
+  const oppNames = opps.map(p=>trunc(p.name));
+  if (short) {
+    return opps.length === 1 ? `vs ${oppNames[0]}` : `vs ${oppNames[0]}+`;
+  }
+  if (opps.length === 1) return `you vs ${oppNames[0]}`;
+  if (opps.length === 2) return `you vs ${oppNames[0]} & ${oppNames[1]}`;
+  return `you vs ${oppNames[0]} +${opps.length-1}`;
+}
+
 function updateSessionBtn() {
   const btn = document.getElementById('sessionBtn');
   btn.style.display = sessionGames.length > 0 ? 'flex' : 'none';
@@ -2492,7 +2517,7 @@ function renderSessionContent() {
     + sessionGames.map((g,i) =>
         `<button class="session-tab ${sessionTab==='game'+g.gameNum?'active':''}"
           onclick="setSessionTab('game${g.gameNum}')">
-          Game ${g.gameNum}${g.winnerId==='me'?' <i class="icn icn-trophy icn-gold"></i>':''}
+          G${g.gameNum} ${sessionVsLabel(g, {short:true})}${g.winnerId==='me'?' <i class="icn icn-trophy icn-gold"></i>':''}
         </button>`
       ).join('');
 
@@ -2551,15 +2576,18 @@ function renderSessionSummary(cont) {
     <div style="font-family:'Bebas Neue',cursive;font-size:0.9rem;letter-spacing:3px;color:var(--muted);margin-bottom:8px">RESULTS</div>`;
   sessionGames.forEach(g => {
     const sorted = g.players.slice().sort((a,b)=>b.score-a.score);
-    html += `<div style="background:var(--card);border-radius:10px;padding:10px 14px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.06);cursor:pointer" onclick="setSessionTab('game${g.gameNum}')">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+    const vsLabel = sessionVsLabel(g);
+    html += `<div class="session-result-card" onclick="setSessionTab('game${g.gameNum}')">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;gap:8px">
         <span style="font-family:'Bebas Neue',cursive;letter-spacing:2px;color:var(--muted)">GAME ${g.gameNum}</span>
         <span style="font-size:0.75rem;color:var(--gold);font-weight:700"><i class="icn icn-trophy"></i> ${g.winner}</span>
       </div>
+      <div style="font-size:0.72rem;color:var(--muted);letter-spacing:0.4px;margin-bottom:6px;text-transform:uppercase">${vsLabel}</div>
       ${sorted.map(p=>`<div style="display:flex;justify-content:space-between;font-size:0.85rem">
-        <span style="font-weight:700">${p.name}</span>
+        <span style="font-weight:700">${p.name}${p.isMe?' (you)':''}</span>
         <span style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:${p.name===g.winner?'var(--gold)':'var(--muted)'}">${p.score}</span>
       </div>`).join('')}
+      <div class="session-result-tap"><i class="icn icn-clipboard"></i> Tap for scorecard ›</div>
     </div>`;
   });
   html += '</div>';
@@ -2575,7 +2603,10 @@ function renderSessionGame(cont, game) {
   // Build table: rows=categories, cols=players
   let html = `<div class="session-game-card">
     <div class="sgc-header">
-      <div class="sgc-title">GAME ${game.gameNum}</div>
+      <div>
+        <div class="sgc-title">GAME ${game.gameNum}</div>
+        <div class="sgc-subtitle">${sessionVsLabel(game)}</div>
+      </div>
       <div class="sgc-winner"><i class="icn icn-trophy icn-gold"></i> ${game.winner}</div>
     </div>
     <table class="sgc-table">

@@ -1738,7 +1738,39 @@
     background: rgba(255,255,255,0.03);
   }
   .sgc-title { font-family:'Bebas Neue',cursive; font-size:1rem; letter-spacing:2px; color:var(--muted); }
+  .sgc-subtitle {
+    font-size: 0.72rem; letter-spacing: 0.5px;
+    color: var(--muted); text-transform: uppercase;
+    margin-top: 2px; opacity: 0.85;
+  }
   .sgc-winner { font-size:0.8rem; font-weight:800; color:var(--gold); }
+
+  /* Tappable game-result card in session summary */
+  .session-result-card {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .session-result-card:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(245,166,35,0.3);
+  }
+  .session-result-card:active { transform: scale(0.99); }
+  .session-result-tap {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(255,255,255,0.08);
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    color: var(--gold);
+    opacity: 0.75;
+    text-transform: uppercase;
+    text-align: right;
+  }
   .sgc-table { width:100%; border-collapse:collapse; }
   .sgc-table th {
     padding: 6px 10px; font-size:0.7rem; letter-spacing:1px;
