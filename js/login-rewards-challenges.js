@@ -13,7 +13,9 @@
     { id: 'one_win', title: 'Win 1 game today', target: 1, reward: 3, stat: 'wins' },
     { id: 'three_games', title: 'Play 3 games today', target: 3, reward: 3, stat: 'games' },
     { id: 'score_200', title: 'Score 200+ once today', target: 1, reward: 4, stat: 'score200' },
-    { id: 'five_scores', title: 'Fill 5 score boxes today', target: 5, reward: 2, stat: 'scores' }
+    { id: 'five_scores', title: 'Fill 5 score boxes today', target: 5, reward: 2, stat: 'scores' },
+    { id: 'five_classic_wins', title: 'Win 5 games in Classic mode today', target: 5, reward: 20, stat: 'classic_wins' },
+    { id: 'score_300', title: 'Score 300+ once today', target: 1, reward: 15, stat: 'score300' }
   ];
 
   function todayKey() {
@@ -364,6 +366,7 @@
           try {
             const total = Number(calculateTotal(scores)) || beforeTotal;
             if (total >= 200) addChallengeProgress('score200', 1);
+            if (total >= 300) addChallengeProgress('score300', 1);
           } catch(e) {}
         }, 200);
         return result;
@@ -383,6 +386,24 @@
         window[name] = patched;
       }
     });
+
+    const showOver = window.showGameOver;
+    if (typeof showOver === 'function' && !showOver.__dailyChallengeCreditPatched) {
+      const patchedOver = function(players, ...rest) {
+        try {
+          const list = Array.isArray(players) ? players : [];
+          const top = list[0];
+          const tied = list.length > 1 && top && list[1] && top.score === list[1].score;
+          if (top && top.isMe && !tied) {
+            addChallengeProgress('wins', 1);
+            if (!window.powerupMode) addChallengeProgress('classic_wins', 1);
+          }
+        } catch(e) {}
+        return showOver.apply(this, [players, ...rest]);
+      };
+      patchedOver.__dailyChallengeCreditPatched = true;
+      window.showGameOver = patchedOver;
+    }
   }
 
   // Pull the wallet from Firebase whenever the signed-in user changes so
