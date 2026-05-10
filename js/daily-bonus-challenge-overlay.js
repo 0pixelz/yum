@@ -487,9 +487,14 @@
     renderBonusOverlay();
     requestAnimationFrame(() => ensureBonusOverlay().classList.add('open'));
     // Pull the latest server-side state (in case the user claimed on another
-    // device) and re-render once it lands.
-    hydrateFromFirebase().then(changed => {
-      if (changed && document.getElementById('dboBonusOverlay')?.classList.contains('open')) {
+    // device) and re-render once it lands. Also pull the credit wallet so
+    // the header pill is correct on a fresh device.
+    const hydrateBonus = hydrateFromFirebase();
+    const hydrateCredits = typeof window.hydrateYumCreditsFromFirebase === 'function'
+      ? window.hydrateYumCreditsFromFirebase()
+      : Promise.resolve(false);
+    Promise.all([hydrateBonus, hydrateCredits]).then(([bonusChanged, creditsChanged]) => {
+      if ((bonusChanged || creditsChanged) && document.getElementById('dboBonusOverlay')?.classList.contains('open')) {
         renderBonusOverlay();
       }
     });
@@ -521,8 +526,13 @@
     migrateLegacyKeys();
     // Make sure we have the latest server-side state before deciding what
     // streak day this claim belongs to. Otherwise a fresh device or a wiped
-    // localStorage would always award day 1.
-    hydrateFromFirebase().then(() => doClaim());
+    // localStorage would always award day 1. Also pull the latest credit
+    // wallet so we don't double-claim into a stale balance.
+    const hydrateBonus = hydrateFromFirebase();
+    const hydrateCredits = typeof window.hydrateYumCreditsFromFirebase === 'function'
+      ? window.hydrateYumCreditsFromFirebase()
+      : Promise.resolve(false);
+    Promise.all([hydrateBonus, hydrateCredits]).then(() => doClaim());
   }
 
   window.dboCloseBonus = closeBonus;
