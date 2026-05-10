@@ -276,6 +276,23 @@
     if (mmElapsedTimer) { clearInterval(mmElapsedTimer); mmElapsedTimer = null; }
   }
 
+  function updateOnlineCount(snap) {
+    const out = el('mmOnline');
+    if (!out) return;
+    let count = 0;
+    if (snap && snap.exists()) {
+      const all = snap.val() || {};
+      const now = Date.now();
+      for (const uid in all) {
+        const info = all[uid];
+        if (info && typeof info.ts === 'number' && (now - info.ts) < STALE_MS) {
+          count++;
+        }
+      }
+    }
+    out.textContent = String(count);
+  }
+
   function lobbyErr(msg) {
     if (typeof window.showLobbyErr === 'function') {
       window.showLobbyErr(msg);
@@ -357,6 +374,8 @@
     setModeBadge(chosenMode);
     setMyName(name);
     resetOpponentCard();
+    const onlineEl = el('mmOnline');
+    if (onlineEl) onlineEl.textContent = '…';
     startElapsedTicker();
     showSearchOverlay();
     lobbyErr('');
@@ -400,6 +419,7 @@
   }
 
   async function onQueueChange(snap) {
+    updateOnlineCount(snap);
     if (!mmActive || mmRole) return;
     if (!mmInQueue) return;            // only re-claim once our own entry is committed
     if (mmClaimInFlight) return;
