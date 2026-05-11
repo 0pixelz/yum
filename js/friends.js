@@ -94,6 +94,28 @@
         50%     { transform: scale(1.35); opacity: .55; }
       }
 
+      /* In-header friends button (shown only while playing) */
+      .friends-hdr-btn {
+        position: absolute; top: 14px; left: 60px;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 8px; color: var(--white);
+        font-size: 1.1rem; cursor: pointer;
+        padding: 4px 9px; line-height: 1;
+        transition: background 0.15s;
+        display: none; align-items: center; justify-content: center;
+        gap: 4px;
+      }
+      .friends-hdr-btn:hover { background: rgba(255,255,255,0.22); }
+      .friends-hdr-btn .fmb-dot {
+        display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+        background: var(--accent); box-shadow: 0 0 8px var(--accent);
+        margin-left: 2px; animation: fmDotPulse 1.4s infinite;
+      }
+      /* While playing: swap floating button for the in-header one */
+      body.yum-in-game .friends-menu-btn { display: none !important; }
+      body.yum-in-game .friends-hdr-btn  { display: inline-flex; }
+
       #friendsScrim {
         position: fixed; inset: 0; z-index: 1099;
         background: rgba(0,0,0,0.55);
@@ -423,6 +445,21 @@
       btn.innerHTML = '<i class="icn icn-players"></i><span class="fmb-dot" id="friendsMenuDot" style="display:none"></span>';
       btn.onclick = () => openFriendsMenu();
       document.body.appendChild(btn);
+    }
+
+    // In-game header button, placed next to the trophy button so it doesn't
+    // float over the gameplay UI. Visibility is toggled via the
+    // `body.yum-in-game` class set by watchLobbyState().
+    const header = document.querySelector('header');
+    if (header && !el('friendsHdrBtn')) {
+      const hBtn = document.createElement('button');
+      hBtn.id = 'friendsHdrBtn';
+      hBtn.className = 'friends-hdr-btn';
+      hBtn.title = 'Friends';
+      hBtn.setAttribute('aria-label', 'Open friends menu');
+      hBtn.innerHTML = '<i class="icn icn-players"></i><span class="fmb-dot" id="friendsHdrDot" style="display:none"></span>';
+      hBtn.onclick = () => openFriendsMenu();
+      header.appendChild(hBtn);
     }
 
     if (!el('friendsScrim')) {
@@ -1088,8 +1125,9 @@
 
   function pulseMenuDot(on) {
     const dot = el('friendsMenuDot');
-    if (!dot) return;
-    dot.style.display = on ? 'inline-block' : 'none';
+    if (dot) dot.style.display = on ? 'inline-block' : 'none';
+    const hDot = el('friendsHdrDot');
+    if (hDot) hDot.style.display = on ? 'inline-block' : 'none';
   }
 
   async function copyMyCode() {
@@ -1127,10 +1165,27 @@
     console.log('[friends]', msg);
   }
 
+  // Toggle body.yum-in-game whenever the lobby overlay shows/hides, so the
+  // CSS can swap the floating friends button for the in-header one.
+  function watchLobbyState() {
+    const lobby = el('lobbyOverlay');
+    if (!lobby) return;
+    const sync = () => {
+      const hidden = getComputedStyle(lobby).display === 'none';
+      document.body.classList.toggle('yum-in-game', hidden);
+    };
+    sync();
+    new MutationObserver(sync).observe(lobby, {
+      attributes: true,
+      attributeFilter: ['style', 'class']
+    });
+  }
+
   // ─── Init ──────────────────────────────────────────────────────────
   function init() {
     injectStyles();
     injectMarkup();
+    watchLobbyState();
     renderFriendList();
     startPresence();
   }
