@@ -72,7 +72,7 @@
     style.id = 'friendsMenuStyles';
     style.textContent = `
       .friends-menu-btn {
-        position: fixed; top: 14px; left: 44px;
+        position: fixed; top: 14px; left: 64px;
         z-index: 600;
         background: rgba(255,255,255,0.1);
         border: 1px solid rgba(255,255,255,0.15);
