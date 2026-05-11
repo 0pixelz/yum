@@ -864,12 +864,26 @@
   }
 
   // ─── Add / remove friends ──────────────────────────────────────────
+  // Resolve our own uid even if startPresence() hasn't finished yet, so the
+  // self-add guard still fires when the user opens the menu the instant the
+  // page loads.
+  function getMyUid() {
+    if (myUid) return myUid;
+    try {
+      if (window.firebase && firebase.auth && firebase.auth().currentUser) {
+        return firebase.auth().currentUser.uid;
+      }
+    } catch(e) {}
+    return null;
+  }
+
   function addFromInput() {
     const inp = el('frAddInput');
     if (!inp) return;
     const code = (inp.value || '').trim();
     if (!code) { showToast('Paste a friend code first.'); return; }
-    if (myUid && code === myUid) { showToast("That's your own code!"); return; }
+    const mine = getMyUid();
+    if (mine && code === mine) { showToast("That's your own code!"); return; }
     if (code.length < 6 || code.length > 64) { showToast('That code looks wrong.'); return; }
 
     const friends = loadFriends();

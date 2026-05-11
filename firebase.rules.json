@@ -279,6 +279,7 @@
         "name":   { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
         "avatar": { ".validate": "(!newData.exists()) || newData.val() === null || (newData.isString() && newData.val().length <= 30)" },
         "status": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "mode":   { ".validate": "(!newData.exists()) || newData.val() === null || (newData.isString() && newData.val().length <= 30)" },
         "$other": { ".validate": false }
       }
     },
