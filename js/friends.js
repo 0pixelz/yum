@@ -3,8 +3,15 @@
 // ability to send a 1v1 game invite to any friend who is online.
 //
 // Firebase paths used (see firebase.rules.json):
-//   /presence/$uid         — heartbeat (ts, name, avatar, status). Cleared
-//                            via onDisconnect, refreshed every 45s while open.
+//   /presence/$uid         — heartbeat (ts, name, avatar, status). Refreshed
+//                            every 45s while the tab is open; readers treat a
+//                            ts older than ONLINE_FRESH_MS as offline. We
+//                            deliberately do NOT use onDisconnect().remove()
+//                            because /presence/$uid is shared across every
+//                            tab/browser for the same uid — one tab closing
+//                            would otherwise wipe the node while another tab
+//                            is still live, making the user appear offline to
+//                            friends until the survivor's next heartbeat.
 //   /friendInvites/$uid    — pending invite addressed to $uid. Sender writes
 //                            { from, fromName, fromAvatar, roomCode, mode, ts }.
 //
@@ -596,7 +603,10 @@
     myAvatar = getMyAvatarId();
 
     presenceRef = db.ref(PRESENCE_PATH + '/' + myUid);
-    try { await presenceRef.onDisconnect().remove(); } catch(e) {}
+    // Cancel any onDisconnect handler an earlier session may have left
+    // registered on this connection. We intentionally do not register a new
+    // remove() handler — see the file header for why.
+    try { await presenceRef.onDisconnect().cancel(); } catch(e) {}
     await writePresence();
 
     if (heartbeatTimer) clearInterval(heartbeatTimer);
