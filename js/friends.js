@@ -592,6 +592,20 @@
     return 'idle';
   }
 
+  // Returns 'bot-classic' | 'bot-powerup' | 'mp-classic' | 'mp-powerup' | null.
+  // The globals live in app.js / powerup-mode.js as classic-script `let`s,
+  // so we guard with typeof in case a script failed to load.
+  function gameModeLabel() {
+    try {
+      const mp  = (typeof mpMode      !== 'undefined') && mpMode;
+      const bot = (typeof botMode     !== 'undefined') && botMode;
+      const pup = (typeof powerupMode !== 'undefined') && powerupMode;
+      if (bot) return pup ? 'bot-powerup' : 'bot-classic';
+      if (mp)  return pup ? 'mp-powerup'  : 'mp-classic';
+    } catch(e) {}
+    return null;
+  }
+
   async function startPresence() {
     const db = await ensureDb();
     if (!db) return;
@@ -629,12 +643,17 @@
     if (!presenceRef) return;
     myName   = getMyProfileName();
     myAvatar = getMyAvatarId();
+    const status = gameStatusLabel();
     const payload = {
       ts: Date.now(),
       name: myName,
-      status: gameStatusLabel()
+      status: status
     };
     if (myAvatar) payload.avatar = myAvatar;
+    if (status === 'in-game') {
+      const mode = gameModeLabel();
+      if (mode) payload.mode = mode;
+    }
     try { await presenceRef.set(payload); } catch(e) {}
   }
 
@@ -782,9 +801,18 @@
     return (Date.now() - info.ts) < ONLINE_FRESH_MS;
   }
 
+  const MODE_LABELS = {
+    'bot-classic':  'vs Bot · Classic',
+    'bot-powerup':  'vs Bot · Power-Ups',
+    'mp-classic':   '1v1 · Classic',
+    'mp-powerup':   '1v1 · Power-Ups'
+  };
+
   function statusText(info) {
     if (!isOnline(info)) return 'Offline';
-    if (info.status === 'in-game') return 'In a game';
+    if (info.status === 'in-game') {
+      return MODE_LABELS[info.mode] || 'In a game';
+    }
     return 'Online';
   }
 
