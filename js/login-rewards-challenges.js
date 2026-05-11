@@ -17,6 +17,7 @@
     { id: 'five_classic_wins', title: 'Win 5 games in Classic mode today', target: 5, reward: 20, stat: 'classic_wins' },
     { id: 'score_300', title: 'Score 300+ once today', target: 1, reward: 15, stat: 'score300' }
   ];
+  const DAILY_CHALLENGES_PER_DAY = 3;
 
   function todayKey() {
     const d = new Date();
@@ -192,17 +193,43 @@
 
   window.getYumCreditState = creditState;
 
+  function todayChallengeIds() {
+    const d = new Date();
+    const dayIndex = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+    // Step by DAILY_CHALLENGES_PER_DAY each day so consecutive days don't
+    // share challenges. With 7 challenges and step 3, GCD is 1, so the daily
+    // mix cycles through all 7 starting offsets before repeating.
+    const start = (((dayIndex * DAILY_CHALLENGES_PER_DAY) % CHALLENGES.length) + CHALLENGES.length) % CHALLENGES.length;
+    const ids = [];
+    for (let i = 0; i < DAILY_CHALLENGES_PER_DAY && i < CHALLENGES.length; i++) {
+      ids.push(CHALLENGES[(start + i) % CHALLENGES.length].id);
+    }
+    return ids;
+  }
+
   function challengeState() {
     const today = todayKey();
     let st = loadJSON(DAILY_CHALLENGE_KEY, null);
-    if (!st || st.date !== today) {
-      // Sequential rotation by local day so every challenge cycles in turn.
-      // The char-code-sum hash we used before clustered nearby dates into a
-      // narrow band, so newly added challenges only landed on rare days.
-      const d = new Date();
-      const dayIndex = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
-      const index = ((dayIndex % CHALLENGES.length) + CHALLENGES.length) % CHALLENGES.length;
-      st = { date: today, challengeId: CHALLENGES[index].id, progress: 0, claimed: false };
+    if (!st || st.date !== today || !Array.isArray(st.items)) {
+      const ids = todayChallengeIds();
+      // If today's stored state is the legacy single-challenge schema, carry
+      // forward its progress so a mid-day upgrade doesn't wipe what the player
+      // already earned on the matching challenge.
+      const carry = {};
+      if (st && st.date === today && st.challengeId) {
+        carry[st.challengeId] = {
+          progress: Math.max(0, Number(st.progress) || 0),
+          claimed: !!st.claimed
+        };
+      }
+      st = {
+        date: today,
+        items: ids.map(id => ({
+          id,
+          progress: carry[id] ? carry[id].progress : 0,
+          claimed: carry[id] ? carry[id].claimed : false
+        }))
+      };
       saveJSON(DAILY_CHALLENGE_KEY, st);
     }
     return st;
@@ -210,28 +237,36 @@
 
   function saveChallengeState(st) {
     saveJSON(DAILY_CHALLENGE_KEY, st);
-    window.dispatchEvent(new CustomEvent('yumChallengeChanged', { detail: window.getYumDailyChallengeStatus() }));
+    window.dispatchEvent(new CustomEvent('yumChallengeChanged', { detail: window.getYumDailyChallengeStatuses() }));
     refreshChallengeButtonText();
   }
 
-  function currentChallenge() {
-    const st = challengeState();
-    return CHALLENGES.find(c => c.id === st.challengeId) || CHALLENGES[0];
+  function statusForItem(item) {
+    const def = CHALLENGES.find(c => c.id === item.id) || CHALLENGES[0];
+    const progress = Math.min(def.target, Math.max(0, Number(item.progress) || 0));
+    return {
+      id: def.id,
+      title: def.title,
+      target: def.target,
+      reward: def.reward,
+      progress,
+      claimed: !!item.claimed,
+      complete: progress >= def.target
+    };
   }
 
+  window.getYumDailyChallengeStatuses = function getYumDailyChallengeStatuses() {
+    return challengeState().items.map(statusForItem);
+  };
+
+  // Backwards-compatible single-status accessor: prefer a claimable challenge,
+  // then the next in-progress one, then the first.
   window.getYumDailyChallengeStatus = function getYumDailyChallengeStatus() {
-    const ch = currentChallenge();
-    const st = challengeState();
-    const progress = Math.min(ch.target, Number(st.progress) || 0);
-    return {
-      id: ch.id,
-      title: ch.title,
-      target: ch.target,
-      reward: ch.reward,
-      progress,
-      claimed: !!st.claimed,
-      complete: progress >= ch.target
-    };
+    const list = window.getYumDailyChallengeStatuses();
+    if (!list.length) return null;
+    return list.find(s => s.complete && !s.claimed)
+      || list.find(s => !s.claimed)
+      || list[0];
   };
 
   function refreshChallengeButtonText() {
@@ -243,7 +278,11 @@
       return;
     }
 
-    const status = window.getYumDailyChallengeStatus();
+    const list = window.getYumDailyChallengeStatuses();
+    const total = list.length;
+    const claimable = list.filter(s => s.complete && !s.claimed).length;
+    const claimed = list.filter(s => s.claimed).length;
+
     btn.className = 'yum-login-feature-btn challenge';
     btn.style.minHeight = '44px';
     btn.style.color = 'var(--gold)';
@@ -251,43 +290,73 @@
     btn.style.background = 'rgba(245,166,35,.12)';
     btn.onclick = window.openDailyChallenge;
 
-    btn.innerHTML = status.claimed
-      ? `<i class="icn icn-target"></i> Daily Challenge Claimed · +${status.reward} credits`
-      : `<i class="icn icn-target"></i> Daily Challenge · ${status.progress}/${status.target} · +${status.reward} credits`;
+    let label;
+    if (claimable > 0) {
+      label = `${claimable} ready to claim`;
+    } else if (claimed === total && total > 0) {
+      label = `All ${total} claimed`;
+    } else {
+      label = `${claimed}/${total} done`;
+    }
+    btn.innerHTML = `<i class="icn icn-target"></i> Daily Challenges · ${label}`;
   }
 
   function addChallengeProgress(stat, amount) {
     if (!isLoggedIn()) return;
-    const ch = currentChallenge();
-    if (ch.stat !== stat) return;
     const st = challengeState();
-    if (st.claimed) return;
-    const before = Number(st.progress) || 0;
-    st.progress = Math.min(ch.target, before + (Number(amount) || 1));
+    let changed = false;
+    const completedRewards = [];
+    for (const item of st.items) {
+      const def = CHALLENGES.find(c => c.id === item.id);
+      if (!def || def.stat !== stat || item.claimed) continue;
+      const before = Math.max(0, Number(item.progress) || 0);
+      const after = Math.min(def.target, before + (Number(amount) || 1));
+      if (after === before) continue;
+      item.progress = after;
+      changed = true;
+      if (before < def.target && after >= def.target) completedRewards.push(def.reward);
+    }
+    if (!changed) return;
     saveChallengeState(st);
-    if (before < ch.target && st.progress >= ch.target && window.showToast) {
-      showToast(`Daily challenge complete: +${ch.reward} credits ready`);
+    if (completedRewards.length && window.showToast) {
+      const total = completedRewards.reduce((a, b) => a + b, 0);
+      showToast(completedRewards.length === 1
+        ? `Daily challenge complete: +${total} credits ready`
+        : `${completedRewards.length} challenges complete: +${total} credits ready`);
     }
   }
 
-  window.claimDailyChallenge = function claimDailyChallenge() {
+  window.claimDailyChallenge = function claimDailyChallenge(id) {
     if (!isLoggedIn()) {
       if (window.showToast) showToast('Sign in with Google to earn credits');
       return;
     }
-    const ch = currentChallenge();
     const st = challengeState();
-    if (st.claimed) return;
-    if ((Number(st.progress) || 0) < ch.target) {
+    const targets = id ? st.items.filter(it => it.id === id) : st.items.slice();
+    let totalReward = 0;
+    let claimedCount = 0;
+    for (const item of targets) {
+      if (item.claimed) continue;
+      const def = CHALLENGES.find(c => c.id === item.id);
+      if (!def) continue;
+      if ((Math.max(0, Number(item.progress) || 0)) < def.target) continue;
+      item.claimed = true;
+      totalReward += def.reward;
+      claimedCount++;
+    }
+    if (claimedCount === 0) {
       if (window.showToast) showToast('Challenge not completed yet');
       return;
     }
-    st.claimed = true;
     saveChallengeState(st);
-    window.addYumCredits(ch.reward, 'daily_challenge');
+    window.addYumCredits(totalReward, 'daily_challenge');
     renderDailyChallengeOverlay();
     refreshChallengeButtonText();
-    if (window.showToast) showToast(`Challenge reward claimed: +${ch.reward} credits`);
+    if (window.showToast) {
+      showToast(claimedCount === 1
+        ? `Challenge reward claimed: +${totalReward} credits`
+        : `${claimedCount} rewards claimed: +${totalReward} credits`);
+    }
   };
 
   function injectStyles() {
@@ -326,10 +395,16 @@
 
   function renderDailyChallengeOverlay() {
     const overlay = ensureChallengeOverlay();
-    const status = window.getYumDailyChallengeStatus();
-    const pct = Math.round((status.progress / status.target) * 100);
-    const canClaim = status.complete && !status.claimed;
-    overlay.innerHTML = `<div class="dc-card"><div class="dc-title"><i class="icn icn-target"></i> DAILY CHALLENGE</div><div class="dc-sub">Complete today mission to earn Skin Store credits.</div><div class="dc-mission"><div class="dc-name">${status.title}</div><div class="dc-progress"><div class="dc-fill" style="width:${pct}%"></div></div><div class="dc-sub">${status.progress} / ${status.target} · Reward: +${status.reward} credits</div></div><button class="dc-btn" onclick="claimDailyChallenge()" ${canClaim ? '' : 'disabled'}>${status.claimed ? '<i class="icn icn-check"></i> REWARD CLAIMED' : canClaim ? 'CLAIM CREDITS' : 'KEEP PLAYING'}</button><button class="dc-close" onclick="closeDailyChallenge()">Close</button></div>`;
+    const list = window.getYumDailyChallengeStatuses();
+    const missions = list.map(status => {
+      const pct = Math.round((status.progress / status.target) * 100);
+      const canClaim = status.complete && !status.claimed;
+      const btnLabel = status.claimed
+        ? '<i class="icn icn-check"></i> CLAIMED'
+        : canClaim ? `CLAIM +${status.reward}` : 'KEEP PLAYING';
+      return `<div class="dc-mission"><div class="dc-name">${status.title}</div><div class="dc-progress"><div class="dc-fill" style="width:${pct}%"></div></div><div class="dc-sub">${status.progress} / ${status.target} · Reward: +${status.reward} credits</div><button class="dc-btn" onclick="claimDailyChallenge('${status.id}')" ${canClaim ? '' : 'disabled'}>${btnLabel}</button></div>`;
+    }).join('');
+    overlay.innerHTML = `<div class="dc-card"><div class="dc-title"><i class="icn icn-target"></i> DAILY CHALLENGES</div><div class="dc-sub">Complete today's missions to earn Skin Store credits.</div>${missions}<button class="dc-close" onclick="closeDailyChallenge()">Close</button></div>`;
   }
 
   window.openDailyChallenge = function openDailyChallenge() {

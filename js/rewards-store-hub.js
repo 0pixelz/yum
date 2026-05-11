@@ -205,12 +205,15 @@
         color: #051818;
         box-shadow: 0 6px 20px rgba(78,205,196,.32);
       }
-      .rh-mission-row {
-        display: flex; align-items: center; gap: 12px;
+      .rh-mission-list { display: flex; flex-direction: column; gap: 12px; }
+      .rh-mission-card {
         background: var(--card);
         border: 1px solid rgba(245,166,35,.32);
         border-radius: 14px;
         padding: 12px;
+      }
+      .rh-mission-row {
+        display: flex; align-items: center; gap: 12px;
       }
       .rh-mission-icon {
         width: 44px; height: 44px;
@@ -332,42 +335,49 @@
   }
 
   function renderChallengeSection() {
-    const status = typeof window.getYumDailyChallengeStatus === 'function'
-      ? window.getYumDailyChallengeStatus()
-      : null;
-    if (!status) {
+    const list = typeof window.getYumDailyChallengeStatuses === 'function'
+      ? window.getYumDailyChallengeStatuses()
+      : (typeof window.getYumDailyChallengeStatus === 'function'
+        ? [window.getYumDailyChallengeStatus()].filter(Boolean)
+        : []);
+    if (!list.length) {
       return `<div class="rh-section">
-        <div class="rh-section-title"><i class="icn icn-target icn-gold"></i> DAILY CHALLENGE</div>
-        <div class="rh-empty">Daily challenge not available right now</div>
+        <div class="rh-section-title"><i class="icn icn-target icn-gold"></i> DAILY CHALLENGES</div>
+        <div class="rh-empty">Daily challenges not available right now</div>
       </div>`;
     }
-    const pct = Math.round((status.progress / status.target) * 100);
-    const claimBtn = status.claimed
-      ? `<button class="rh-claim-btn green" disabled><i class="icn icn-check"></i> REWARD CLAIMED</button>`
-      : status.complete
-        ? `<button class="rh-claim-btn" onclick="window.rhClaimChallenge()"><i class="icn icn-flag"></i> CLAIM +${status.reward} CREDITS</button>`
-        : `<button class="rh-claim-btn" disabled>KEEP PLAYING · ${status.progress} / ${status.target}</button>`;
-    const subtitle = status.claimed
-      ? 'Reward claimed. New mission tomorrow.'
-      : status.complete
-        ? 'Mission complete! Tap to collect your credits.'
-        : 'Complete today to earn Skin Store credits.';
+    const cards = list.map(status => {
+      const pct = Math.round((status.progress / status.target) * 100);
+      const claimBtn = status.claimed
+        ? `<button class="rh-claim-btn green" disabled><i class="icn icn-check"></i> REWARD CLAIMED</button>`
+        : status.complete
+          ? `<button class="rh-claim-btn" onclick="window.rhClaimChallenge('${status.id}')"><i class="icn icn-flag"></i> CLAIM +${status.reward} CREDITS</button>`
+          : `<button class="rh-claim-btn" disabled>KEEP PLAYING · ${status.progress} / ${status.target}</button>`;
+      const subtitle = status.claimed
+        ? 'Reward claimed.'
+        : status.complete
+          ? 'Mission complete! Tap to collect.'
+          : 'Complete today to earn credits.';
+      return `<div class="rh-mission-card">
+        <div class="rh-mission-row">
+          <div class="rh-mission-icon"><i class="icn icn-target"></i></div>
+          <div class="rh-mission-info">
+            <div class="rh-mission-name">${status.title}</div>
+            <div class="rh-mission-desc">${subtitle}</div>
+          </div>
+          <div class="rh-mission-reward">
+            <div class="rh-mission-reward-amt">+${status.reward}</div>
+            <div class="rh-mission-reward-lbl">CREDITS</div>
+          </div>
+        </div>
+        <div class="rh-progress-bar"><div class="rh-progress-fill" style="width:${pct}%"></div></div>
+        <div class="rh-progress-lbl">${status.progress} / ${status.target} · ${pct}%</div>
+        ${claimBtn}
+      </div>`;
+    }).join('');
     return `<div class="rh-section">
-      <div class="rh-section-title"><i class="icn icn-target icn-gold"></i> DAILY CHALLENGE</div>
-      <div class="rh-mission-row">
-        <div class="rh-mission-icon"><i class="icn icn-target"></i></div>
-        <div class="rh-mission-info">
-          <div class="rh-mission-name">${status.title}</div>
-          <div class="rh-mission-desc">${subtitle}</div>
-        </div>
-        <div class="rh-mission-reward">
-          <div class="rh-mission-reward-amt">+${status.reward}</div>
-          <div class="rh-mission-reward-lbl">CREDITS</div>
-        </div>
-      </div>
-      <div class="rh-progress-bar"><div class="rh-progress-fill" style="width:${pct}%"></div></div>
-      <div class="rh-progress-lbl">${status.progress} / ${status.target} · ${pct}%</div>
-      ${claimBtn}
+      <div class="rh-section-title"><i class="icn icn-target icn-gold"></i> DAILY CHALLENGES</div>
+      <div class="rh-mission-list">${cards}</div>
     </div>`;
   }
 
@@ -454,9 +464,9 @@
     setTimeout(render, 60);
   }
 
-  function claimChallengeFromHub() {
+  function claimChallengeFromHub(id) {
     if (typeof window.claimDailyChallenge === 'function') {
-      window.claimDailyChallenge();
+      window.claimDailyChallenge(id);
     }
     setTimeout(render, 60);
   }
