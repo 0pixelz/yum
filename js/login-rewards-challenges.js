@@ -364,12 +364,12 @@
     const confirm = window.confirmScore;
     if (typeof confirm === 'function' && !confirm.__dailyChallengeCreditPatched) {
       const patchedConfirm = function(...args) {
-        const beforeTotal = (() => { try { return Number(calculateTotal(scores)) || 0; } catch(e) { return 0; } })();
+        const beforeTotal = (() => { try { return Number(calcTotal(scores)) || 0; } catch(e) { return 0; } })();
         const result = confirm.apply(this, args);
         setTimeout(() => {
           addChallengeProgress('scores', 1);
           try {
-            const total = Number(calculateTotal(scores)) || beforeTotal;
+            const total = Number(calcTotal(scores)) || beforeTotal;
             if (total >= 200) addChallengeProgress('score200', 1);
             if (total >= 300) addChallengeProgress('score300', 1);
           } catch(e) {}
@@ -401,7 +401,8 @@
           const tied = list.length > 1 && top && list[1] && top.score === list[1].score;
           if (top && top.isMe && !tied) {
             addChallengeProgress('wins', 1);
-            if (!window.powerupMode) addChallengeProgress('classic_wins', 1);
+            const isPowerup = (typeof powerupMode !== 'undefined' && powerupMode);
+            if (!isPowerup) addChallengeProgress('classic_wins', 1);
           }
         } catch(e) {}
         return showOver.apply(this, [players, ...rest]);
