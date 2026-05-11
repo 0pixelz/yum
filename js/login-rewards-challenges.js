@@ -6,7 +6,7 @@
 (function() {
   const PROFILE_KEY = 'yum_google_profile';
   const LEGACY_CREDIT_KEY = 'yum_credit_wallet_v2';
-  const DAILY_CHALLENGE_KEY = 'yum_daily_challenge_state_v2';
+  const DAILY_CHALLENGE_KEY = 'yum_daily_challenge_state_v3';
 
   const CHALLENGES = [
     { id: 'two_yums', title: 'Roll 2 YAM today', target: 2, reward: 5, stat: 'yums' },
@@ -196,7 +196,12 @@
     const today = todayKey();
     let st = loadJSON(DAILY_CHALLENGE_KEY, null);
     if (!st || st.date !== today) {
-      const index = Math.abs(today.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % CHALLENGES.length;
+      // Sequential rotation by local day so every challenge cycles in turn.
+      // The char-code-sum hash we used before clustered nearby dates into a
+      // narrow band, so newly added challenges only landed on rare days.
+      const d = new Date();
+      const dayIndex = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+      const index = ((dayIndex % CHALLENGES.length) + CHALLENGES.length) % CHALLENGES.length;
       st = { date: today, challengeId: CHALLENGES[index].id, progress: 0, claimed: false };
       saveJSON(DAILY_CHALLENGE_KEY, st);
     }
