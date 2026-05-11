@@ -551,54 +551,62 @@
 
   function renderChallengeOverlay() {
     const ov = ensureChallengeOverlay();
-    const status = typeof window.getYumDailyChallengeStatus === 'function'
-      ? window.getYumDailyChallengeStatus()
-      : null;
-    if (!status) {
-      ov.innerHTML = `<div class="dbo-sheet"><div class="dbo-header"><div class="dbo-header-title"><i class="icn icn-target"></i> DAILY CHALLENGE</div><button class="dbo-close" onclick="window.dboCloseChallenge()"><i class="icn icn-close"></i></button></div><div class="dbo-foot-note">Daily challenge not available right now</div></div>`;
+    const list = typeof window.getYumDailyChallengeStatuses === 'function'
+      ? window.getYumDailyChallengeStatuses()
+      : (typeof window.getYumDailyChallengeStatus === 'function'
+        ? [window.getYumDailyChallengeStatus()].filter(Boolean)
+        : []);
+    if (!list.length) {
+      ov.innerHTML = `<div class="dbo-sheet"><div class="dbo-header"><div class="dbo-header-title"><i class="icn icn-target"></i> DAILY CHALLENGES</div><button class="dbo-close" onclick="window.dboCloseChallenge()"><i class="icn icn-close"></i></button></div><div class="dbo-foot-note">Daily challenges not available right now</div></div>`;
       return;
     }
 
-    const pct = Math.round((status.progress / status.target) * 100);
-    const claimBtn = status.claimed
-      ? `<button class="dbo-claim-btn green" disabled><i class="icn icn-check"></i> REWARD CLAIMED</button>`
-      : status.complete
-        ? `<button class="dbo-claim-btn" onclick="claimDailyChallenge()"><i class="icn icn-flag"></i> CLAIM +${status.reward} CREDITS</button>`
-        : `<button class="dbo-claim-btn" disabled>KEEP PLAYING · ${status.progress} / ${status.target}</button>`;
+    const totalProgress = list.reduce((sum, s) => sum + s.progress, 0);
+    const totalTarget = list.reduce((sum, s) => sum + s.target, 0);
+    const overallPct = totalTarget > 0 ? Math.round((totalProgress / totalTarget) * 100) : 0;
+    const claimedCount = list.filter(s => s.claimed).length;
 
-    const subtitle = status.claimed
-      ? 'Reward claimed. New mission tomorrow.'
-      : status.complete
-        ? 'Mission complete! Tap to collect your credits.'
-        : 'Complete today to earn Skin Store credits.';
+    const missions = list.map(status => {
+      const pct = Math.round((status.progress / status.target) * 100);
+      const claimBtn = status.claimed
+        ? `<button class="dbo-claim-btn green" disabled><i class="icn icn-check"></i> REWARD CLAIMED</button>`
+        : status.complete
+          ? `<button class="dbo-claim-btn" onclick="claimDailyChallenge('${status.id}')"><i class="icn icn-flag"></i> CLAIM +${status.reward} CREDITS</button>`
+          : `<button class="dbo-claim-btn" disabled>KEEP PLAYING · ${status.progress} / ${status.target}</button>`;
+      const subtitle = status.claimed
+        ? 'Reward claimed.'
+        : status.complete
+          ? 'Mission complete! Tap to collect.'
+          : 'Complete today to earn credits.';
+      return `<div class="dbo-mission">
+        <div class="dbo-mission-row">
+          <div class="dbo-mission-icon"><i class="icn icn-target"></i></div>
+          <div class="dbo-mission-info">
+            <div class="dbo-mission-name">${status.title}</div>
+            <div class="dbo-mission-desc">${subtitle}</div>
+          </div>
+          <div class="dbo-mission-reward">
+            <div class="dbo-mission-reward-amt">+${status.reward}</div>
+            <div class="dbo-mission-reward-lbl">CREDITS</div>
+          </div>
+        </div>
+        <div class="dbo-mission-prog"><div class="dbo-mission-prog-fill" style="width:${pct}%"></div></div>
+        <div class="dbo-mission-prog-lbl">${status.progress} / ${status.target}</div>
+        ${claimBtn}
+      </div>`;
+    }).join('');
 
     ov.innerHTML = `
       <div class="dbo-sheet">
         <div class="dbo-header">
-          <div class="dbo-header-title"><i class="icn icn-target"></i> DAILY CHALLENGE</div>
+          <div class="dbo-header-title"><i class="icn icn-target"></i> DAILY CHALLENGES</div>
           <span class="dbo-wallet"><i class="icn icn-coin"></i> ${credits()}</span>
           <button class="dbo-close" onclick="window.dboCloseChallenge()"><i class="icn icn-close"></i></button>
         </div>
-        <div class="dbo-progress-bar"><div class="dbo-progress-fill" style="width:${pct}%"></div></div>
-        <div class="dbo-progress-label">${status.progress} / ${status.target} · ${pct}% complete</div>
-        <div class="dbo-mission">
-          <div class="dbo-mission-row">
-            <div class="dbo-mission-icon"><i class="icn icn-target"></i></div>
-            <div class="dbo-mission-info">
-              <div class="dbo-mission-label">TODAY'S MISSION</div>
-              <div class="dbo-mission-name">${status.title}</div>
-              <div class="dbo-mission-desc">${subtitle}</div>
-            </div>
-            <div class="dbo-mission-reward">
-              <div class="dbo-mission-reward-amt">+${status.reward}</div>
-              <div class="dbo-mission-reward-lbl">CREDITS</div>
-            </div>
-          </div>
-          <div class="dbo-mission-prog"><div class="dbo-mission-prog-fill" style="width:${pct}%"></div></div>
-          <div class="dbo-mission-prog-lbl">${status.progress} / ${status.target}</div>
-        </div>
-        ${claimBtn}
-        <div class="dbo-foot-note">A new challenge unlocks every day at midnight</div>
+        <div class="dbo-progress-bar"><div class="dbo-progress-fill" style="width:${overallPct}%"></div></div>
+        <div class="dbo-progress-label">${claimedCount} / ${list.length} claimed · ${overallPct}% overall</div>
+        ${missions}
+        <div class="dbo-foot-note">New challenges unlock every day at midnight</div>
       </div>
     `;
   }
