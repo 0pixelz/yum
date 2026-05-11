@@ -72,8 +72,8 @@
     style.id = 'friendsMenuStyles';
     style.textContent = `
       .friends-menu-btn {
-        position: absolute; top: 14px; left: 64px;
-        z-index: 2;
+        position: fixed; top: 14px; left: 64px;
+        z-index: 600;
         background: rgba(255,255,255,0.1);
         border: 1px solid rgba(255,255,255,0.15);
         border-radius: 8px; color: var(--white);
@@ -411,9 +411,9 @@
   }
 
   function injectMarkup() {
-    // Side menu button — lives inside the in-game <header> beside the
-    // achievements/trophy button so it sticks with the header instead of
-    // floating over content.
+    // Side menu button — fixed-position so it floats above the lobby overlay
+    // (z-index 500) as well as the in-game header. Appended to body so it
+    // isn't trapped in the header's stacking context.
     if (!el('friendsMenuBtn')) {
       const btn = document.createElement('button');
       btn.id = 'friendsMenuBtn';
@@ -422,15 +422,7 @@
       btn.setAttribute('aria-label', 'Open friends menu');
       btn.innerHTML = '<i class="icn icn-players"></i><span class="fmb-dot" id="friendsMenuDot" style="display:none"></span>';
       btn.onclick = () => openFriendsMenu();
-      const header = document.querySelector('header');
-      const achBtn = document.querySelector('.ach-btn');
-      if (header && achBtn) {
-        achBtn.insertAdjacentElement('afterend', btn);
-      } else if (header) {
-        header.appendChild(btn);
-      } else {
-        document.body.appendChild(btn);
-      }
+      document.body.appendChild(btn);
     }
 
     if (!el('friendsScrim')) {
