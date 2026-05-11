@@ -1,7 +1,29 @@
-const CACHE_NAME = 'yamio-pwa-v3';
+const CACHE_NAME = 'yamio-pwa-v4';
+const NAV_TIMEOUT_MS = 4000;
+
+// Files that must be available offline so the PWA splash always resolves to a
+// real page, even when the first launch network fetch fails or hangs. Anything
+// referenced from index.html that isn't in this list is fetched on demand via
+// the runtime cache.
+const PRECACHE_URLS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './css/style.css',
+  './css/icons.css'
+];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache =>
+      // Best-effort precache: one bad asset must not block install, otherwise
+      // the previous (possibly broken) SW keeps serving stuck navigations.
+      Promise.all(PRECACHE_URLS.map(url =>
+        cache.add(new Request(url, { cache: 'reload' })).catch(() => null)
+      ))
+    )
+  );
 });
 
 self.addEventListener('activate', event => {
@@ -13,34 +35,84 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
+  const request = event.request;
+  if (request.method !== 'GET') return;
 
-  const url = new URL(event.request.url);
-  const isNavigation = event.request.mode === 'navigate';
-  const isCodeAsset = /\.(js|css)$/i.test(url.pathname);
+  let url;
+  try { url = new URL(request.url); } catch (e) { return; }
+
+  // Critical: never intercept cross-origin traffic. Firebase Realtime DB,
+  // Firebase Auth, App Check (reCAPTCHA), gstatic SDK scripts, Google Fonts
+  // and the Anthropic API must reach the network directly. A previous version
+  // of this SW cached every cross-origin GET, which corrupted short-lived
+  // Firebase auth/poll URLs and made data fail to load on some Android
+  // devices (browser shell visible, no data).
+  if (url.origin !== self.location.origin) return;
+
+  // Don't try to cache or intercept the service worker file itself.
+  if (url.pathname.endsWith('/sw.js')) return;
+
+  const isNavigation = request.mode === 'navigate';
+  const isCodeAsset = /\.(js|css|html)$/i.test(url.pathname);
 
   if (isNavigation || isCodeAsset) {
-    // Network-first for HTML/JS/CSS so fixes appear immediately in the PWA.
-    event.respondWith(
-      fetch(event.request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)).catch(() => null);
-        return response;
-      }).catch(() => caches.match(event.request).then(cached => cached || caches.match('./index.html')))
-    );
+    event.respondWith(networkFirstWithTimeout(request));
     return;
   }
 
-  // Cache-first for images/fonts/assets.
-  event.respondWith(
-    caches.open(CACHE_NAME).then(cache =>
-      cache.match(event.request).then(cached => {
-        const networkFetch = fetch(event.request).then(response => {
-          cache.put(event.request, response.clone()).catch(() => null);
-          return response;
-        }).catch(() => null);
-        return cached || networkFetch;
-      })
-    )
-  );
+  event.respondWith(staleWhileRevalidate(request));
 });
+
+function networkFirstWithTimeout(request) {
+  // Race the network against a timeout. On slow Android mobile networks the
+  // first navigation fetch can hang for tens of seconds; without a timeout
+  // the PWA system splash never goes away (reported on S21 Ultra / Android 15).
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = response => {
+      if (settled) return;
+      settled = true;
+      resolve(response);
+    };
+
+    const fallbackToCache = () => caches.match(request).then(cached => {
+      if (cached) return cached;
+      if (request.mode === 'navigate') {
+        return caches.match('./index.html').then(idx => idx || Response.error());
+      }
+      return Response.error();
+    });
+
+    const timer = setTimeout(() => {
+      fallbackToCache().then(res => { if (res) finish(res); });
+    }, NAV_TIMEOUT_MS);
+
+    fetch(request).then(response => {
+      clearTimeout(timer);
+      if (response && response.ok && response.type === 'basic') {
+        const copy = response.clone();
+        caches.open(CACHE_NAME)
+          .then(cache => cache.put(request, copy))
+          .catch(() => null);
+      }
+      finish(response);
+    }).catch(() => {
+      clearTimeout(timer);
+      fallbackToCache().then(finish);
+    });
+  });
+}
+
+function staleWhileRevalidate(request) {
+  return caches.open(CACHE_NAME).then(cache =>
+    cache.match(request).then(cached => {
+      const networkFetch = fetch(request).then(response => {
+        if (response && response.ok && response.type === 'basic') {
+          cache.put(request, response.clone()).catch(() => null);
+        }
+        return response;
+      }).catch(() => null);
+      return cached || networkFetch.then(res => res || Response.error());
+    })
+  );
+}
