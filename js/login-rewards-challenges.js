@@ -15,7 +15,7 @@
     { id: 'score_200', title: 'Score 200+ once today', target: 1, reward: 4, stat: 'score200' },
     { id: 'five_scores', title: 'Fill 5 score boxes today', target: 5, reward: 2, stat: 'scores' },
     { id: 'five_classic_wins', title: 'Win 5 games in Classic mode today', target: 5, reward: 20, stat: 'classic_wins' },
-    { id: 'score_300', title: 'Score 300+ once today', target: 1, reward: 15, stat: 'score300' }
+    { id: 'score_250', title: 'Score 250+ once today', target: 1, reward: 15, stat: 'score250' }
   ];
   const DAILY_CHALLENGES_PER_DAY = 3;
 
@@ -446,7 +446,7 @@
           try {
             const total = Number(calcTotal(scores)) || beforeTotal;
             if (total >= 200) addChallengeProgress('score200', 1);
-            if (total >= 300) addChallengeProgress('score300', 1);
+            if (total >= 250) addChallengeProgress('score250', 1);
           } catch(e) {}
         }, 200);
         return result;
