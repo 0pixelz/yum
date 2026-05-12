@@ -1752,6 +1752,9 @@ function renderLeaderboard() {
         : (p.avatar ? window.YumAvatars.markup(p.avatar, p.name) : '');
       if (av) avatarHtml = `<div class="lb-avatar">${av}</div>`;
     }
+    const reactBtnHtml = !isMe
+      ? `<button class="lb-react-btn" onclick="event.stopPropagation(); openReactionPicker('${id}')" aria-label="Send reaction to ${p.name}" title="Send reaction"><i class="icn icn-sparkle icn-gold"></i></button>`
+      : '';
     return `<div class="lb-row ${isMe?'me':''}" onclick="${tapAction}" style="cursor:pointer">
       <div class="lb-rank">${i+1}</div>
       ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
@@ -1760,6 +1763,7 @@ function renderLeaderboard() {
         <div class="lb-name">${p.name}<span style="font-size:0.65rem;color:var(--muted)"> <i class="icn icn-eye"></i> ${isMe?'tap':'view'}</span></div>
         ${pupHtml}
       </div>
+      ${reactBtnHtml}
       <div class="lb-filled">${filled}/13</div>
       <div class="lb-score">${total}</div>
     </div>`;
