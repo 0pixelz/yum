@@ -293,6 +293,12 @@ function renderAchievements() {
     const panel = ensurePossibilitiesPanel();
     if (!panel) return;
 
+    // Yam or Strike power-up locks the turn to Yum — no other category is scorable.
+    if (typeof yamOrStrikeActive !== 'undefined' && yamOrStrikeActive) {
+      panel.innerHTML = '<div class="dp-empty">YAM OR STRIKE — only Yum can be scored this turn</div>';
+      return;
+    }
+
     const hasDice = Array.isArray(dice) && dice.every(v => v > 0);
     if (!hasDice) {
       panel.innerHTML = '<div class="dp-empty">Roll all dice to see possible scores left</div>';
