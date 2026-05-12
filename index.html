@@ -266,7 +266,7 @@
   </div>
 </div>
 
-<div id="waitingOverlay" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+<div id="waitingOverlay" style="display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))">
   <div style="font-family:'Bebas Neue',cursive;font-size:1.6rem;color:var(--muted);letter-spacing:3px;margin-bottom:16px">WAITING FOR PLAYERS</div>
   <div class="room-code-box"><div class="room-code-label">ROOM CODE</div><div class="room-code" id="displayCode">----</div><div style="font-size:0.72rem;color:var(--muted);margin-top:6px">Share this code with friends</div></div>
   <div style="text-align:center"><div class="qr-wrap"><div id="qrCode"></div></div><div class="qr-hint">Friends scan this to join instantly</div></div>
