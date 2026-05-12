@@ -184,6 +184,9 @@
     patchRollDice();
   }
 
+  // Expose for power-ups (Yam or Strike) so a forced 5×1 fires the same splash.
+  window.yumCheckCelebrate = celebrateIfNeeded;
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 

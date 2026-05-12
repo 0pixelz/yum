@@ -21,7 +21,7 @@ const POWERUPS = [
     desc:'Reroll ALL dice — next positive score doubles, no more rolls this turn',
     color:'#9b59b6', gradient:'linear-gradient(135deg,#9b59b6,#8e44ad)' },
   { id:'yamOrStrike', name:'Yam or Strike', icon:'<i class="icn icn-skull"></i>',
-    desc:'Force 4×1 + 2 chances on last die — YAM or strike Yum!',
+    desc:'First roll only: 4×1 + 2 rerolls on last dice — YAM or strike Yum!',
     color:'#e74c3c', gradient:'linear-gradient(135deg,#e74c3c,#c0392b)' },
 ];
 
@@ -272,10 +272,10 @@ function activatePowerup(id) {
     }
 
     case 'yamOrStrike': {
-      if (yamOrStrikeActive) { showToast('Already active — roll the last die!'); return; }
-      // First-roll only: rollsLeft is 3 before any roll, 2 right after the first roll.
-      // Once a reroll has happened (rollsLeft < 2), Yam or Strike is locked out.
-      if (rollsLeft < 2) {
+      if (yamOrStrikeActive) { showToast('Already active — roll the last dice!'); return; }
+      // First-roll only: rollsLeft is 3 before any roll has happened.
+      // Once any roll has happened (rollsLeft < 3), Yam or Strike is locked out.
+      if (rollsLeft < 3) {
         showToast('You can only use Yam or Strike on your first roll!');
         return;
       }
@@ -286,7 +286,7 @@ function activatePowerup(id) {
       }
       consumePowerup('yamOrStrike');
       yamOrStrikeActive   = true;
-      yamOrStrikeAttempts = 1; // the initial forced roll counts as attempt 1
+      yamOrStrikeAttempts = 1; // the initial forced roll counts as attempt 1 of 3
       // Force 4 dice to 1, last die rolled
       dice[0] = 1; dice[1] = 1; dice[2] = 1; dice[3] = 1;
       dice[4] = Math.floor(Math.random() * 6) + 1;
@@ -294,11 +294,11 @@ function activatePowerup(id) {
       // Freeze carry-overs are no longer meaningful for this turn
       freezeDieIndex = -1; frozenDieValue = 0;
       rolled = true;
-      rollsLeft = 1; // exactly 1 more attempt allowed
+      rollsLeft = 2; // 2 more rerolls allowed (3/3 total)
       renderDice(true);
       renderScores();
       const rc2 = document.getElementById('rollCount');
-      if (rc2) rc2.textContent = 'YAM OR STRIKE — 1 chance left';
+      if (rc2) rc2.textContent = 'YAM OR STRIKE — 2 chances left';
       if (window.SFX && SFX.roll) { try { SFX.roll(); } catch(e){} }
       renderPowerupBar();
       // MP sync
@@ -312,7 +312,7 @@ function activatePowerup(id) {
       if (dice[4] === 1) {
         resolveYamOrStrike(true);
       } else {
-        showToast(`Rolled ${dice[4]} — need a 1! Roll once more`);
+        showToast(`Rolled ${dice[4]} — need a 1! 2 rerolls left`);
       }
       syncPowerupsToDb();
       break;
@@ -334,6 +334,10 @@ function resolveYamOrStrike(success) {
     showToast(`YAM! +${yumPts} pts (no power-up bonus)`);
     activeModal    = 'yum';
     selectedScore  = yumPts;
+    // Trigger the same YAM splash effect as a natural 5-of-a-kind
+    if (typeof window.yumCheckCelebrate === 'function') {
+      try { window.yumCheckCelebrate(); } catch(e) {}
+    }
   } else {
     showToast('No 1 — YAM struck!');
     activeModal    = 'yum';
@@ -762,7 +766,7 @@ rollDice = function() {
   if (powerupMode && yamOrStrikeActive) {
     if (typeof mpMode !== 'undefined' && mpMode && typeof currentTurnId !== 'undefined' && currentTurnId !== playerId) return;
     if (typeof botMode !== 'undefined' && botMode && typeof playerTurn !== 'undefined' && !playerTurn) return;
-    if (yamOrStrikeAttempts >= 2) return;
+    if (yamOrStrikeAttempts >= 3) return;
     if (window.SFX && SFX.roll) { try { SFX.roll(); } catch(e){} }
     dice[4] = Math.floor(Math.random() * 6) + 1;
     rolled = true;
@@ -773,17 +777,17 @@ rollDice = function() {
     const el = document.getElementById('diceRow') && document.getElementById('diceRow').querySelector(`[data-i="4"]`);
     if (el) { el.classList.remove('die-spin'); void el.offsetWidth; el.classList.add('die-spin'); }
     const rc = document.getElementById('rollCount');
-    if (rc) rc.textContent = `YAM OR STRIKE — ${2 - yamOrStrikeAttempts} chance${2 - yamOrStrikeAttempts === 1 ? '' : 's'} left`;
+    if (rc) rc.textContent = `YAM OR STRIKE — ${3 - yamOrStrikeAttempts} chance${3 - yamOrStrikeAttempts === 1 ? '' : 's'} left`;
     if (typeof mpMode !== 'undefined' && mpMode && typeof roomRef !== 'undefined' && roomRef) {
       const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
       let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
       roomRef.child('players/' + playerId + '/liveDice').set({
-        dice: dice, held: held, roll: 2, skin: _skinId, perDieColors: _pdc, ts: Date.now()
+        dice: dice, held: held, roll: yamOrStrikeAttempts, skin: _skinId, perDieColors: _pdc, ts: Date.now()
       });
     }
     if (dice[4] === 1) {
       resolveYamOrStrike(true);
-    } else if (yamOrStrikeAttempts >= 2) {
+    } else if (yamOrStrikeAttempts >= 3) {
       resolveYamOrStrike(false);
     } else {
       showToast(`Rolled ${dice[4]} — need a 1!`);
