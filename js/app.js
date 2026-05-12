@@ -2353,7 +2353,7 @@ function openOppViewer(targetId, targetName, targetScores, targetScoreDice) {
 
   window._currentOppViewer = { id: targetId, name: targetName };
   const modBar = document.getElementById('oppModBar');
-  if (modBar) modBar.style.display = (targetId === 'bot') ? 'none' : 'flex';
+  if (modBar) modBar.style.display = (targetId === 'bot' || targetId === 'me') ? 'none' : 'flex';
 
   const upperIds = ['ones','twos','threes','fours','fives','sixes'];
   const lowerIds = categories.filter(c=>c.section==='lower').map(c=>c.id);
