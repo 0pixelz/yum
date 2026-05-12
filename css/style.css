@@ -1297,6 +1297,21 @@
   .lb-filled { font-size: 0.72rem; color: var(--muted); }
   .lb-score { font-family: 'Bebas Neue', cursive; font-size: 1.5rem; color: var(--gold); }
   .lb-turn-dot { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); }
+  .lb-react-btn {
+    flex: 0 0 auto;
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0;
+    background: rgba(245, 166, 35, 0.10);
+    border: 1px solid rgba(245, 166, 35, 0.32);
+    border-radius: 50%;
+    color: var(--gold);
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s, border-color 0.2s;
+  }
+  .lb-react-btn:hover { background: rgba(245, 166, 35, 0.18); border-color: rgba(245, 166, 35, 0.55); }
+  .lb-react-btn:active { transform: scale(0.88); background: rgba(245, 166, 35, 0.26); }
+  .lb-react-btn .icn { width: 16px; height: 16px; }
 
   /* TOAST */
   #mpToast {
