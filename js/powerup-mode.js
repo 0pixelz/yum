@@ -35,6 +35,7 @@ let frozenDieValue = 0;
 let yamOrStrikeActive   = false;
 let yamOrStrikeAttempts = 0;     // number of attempts used (max 2)
 let suppressNextYumEarn = false; // forced YAM via yamOrStrike shouldn't earn another power-up
+let upperBonusPowerupAwarded = false; // upper-bonus reward fires once per game
 
 // ─── START ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ function startPowerupMode() {
   yamOrStrikeActive  = false;
   yamOrStrikeAttempts = 0;
   suppressNextYumEarn = false;
+  upperBonusPowerupAwarded = false;
   scores             = {};
 
   clearDice();
@@ -73,14 +75,19 @@ function startPowerupMode() {
 // ─── PICKER MODAL ────────────────────────────────────────────────────────────
 
 function openPowerupPickerModal(context) {
-  document.getElementById('powerupPickerTitle').innerHTML =
-    context === 'start'
-      ? '<i class="icn icn-bolt"></i> CHOOSE YOUR POWER-UP!'
-      : '<i class="icn icn-dice"></i> YAM! EARN A POWER-UP!';
-  document.getElementById('powerupPickerSub').textContent =
-    context === 'start'
-      ? 'Pick one power-up to start your game with'
-      : 'You rolled 5-of-a-kind! Pick a power-up to add to your arsenal';
+  let titleHtml, subText;
+  if (context === 'start') {
+    titleHtml = '<i class="icn icn-bolt"></i> CHOOSE YOUR POWER-UP!';
+    subText   = 'Pick one power-up to start your game with';
+  } else if (context === 'bonus') {
+    titleHtml = '<i class="icn icn-gift"></i> UPPER BONUS! EARN A POWER-UP!';
+    subText   = 'You reached 63 in the upper section — pick a power-up reward';
+  } else {
+    titleHtml = '<i class="icn icn-dice"></i> YAM! EARN A POWER-UP!';
+    subText   = 'You rolled 5-of-a-kind! Pick a power-up to add to your arsenal';
+  }
+  document.getElementById('powerupPickerTitle').innerHTML = titleHtml;
+  document.getElementById('powerupPickerSub').textContent = subText;
 
   document.getElementById('powerupPickerGrid').innerHTML = POWERUPS.map(p => `
     <button class="pup-pick-btn" onclick="selectPowerup('${p.id}','${context}')"
@@ -266,6 +273,12 @@ function activatePowerup(id) {
 
     case 'yamOrStrike': {
       if (yamOrStrikeActive) { showToast('Already active — roll the last die!'); return; }
+      // First-roll only: rollsLeft is 3 before any roll, 2 right after the first roll.
+      // Once a reroll has happened (rollsLeft < 2), Yam or Strike is locked out.
+      if (rollsLeft < 2) {
+        showToast('You can only use Yam or Strike on your first roll!');
+        return;
+      }
       // Block if Yum slot is already filled
       if (scores && scores.yum !== undefined) {
         showToast('Yum slot already taken — can\'t use Yam or Strike!');
@@ -420,6 +433,18 @@ function checkPowerupYumEarn(savedDice, scoreVal) {
   }
 }
 
+function checkPowerupUpperBonusEarn() {
+  if (!powerupMode) return;
+  if (upperBonusPowerupAwarded) return;
+  const ids = (typeof UPPER_IDS !== 'undefined') ? UPPER_IDS : ['ones','twos','threes','fours','fives','sixes'];
+  const target = (typeof BONUS_TARGET !== 'undefined') ? BONUS_TARGET : 63;
+  const upperTotal = ids.reduce((s, id) => s + (Number(scores[id]) || 0), 0);
+  if (upperTotal >= target) {
+    upperBonusPowerupAwarded = true;
+    setTimeout(() => openPowerupPickerModal('bonus'), 900);
+  }
+}
+
 // ─── MONKEY-PATCHES ──────────────────────────────────────────────────────────
 
 // Patch cycleDie — intercept die clicks for pending powerups
@@ -461,6 +486,8 @@ confirmScore = function() {
 
   // Check for YUM earn
   checkPowerupYumEarn(savedDice, baseScore);
+  // Check for Upper Bonus earn (first time crossing 63 in upper section)
+  checkPowerupUpperBonusEarn();
 };
 
 // Pending freeze carry-over — survives across bot's / opponent's turn so the
@@ -545,6 +572,7 @@ confirmNewGame = function() {
     yamOrStrikeActive   = false;
     yamOrStrikeAttempts = 0;
     suppressNextYumEarn = false;
+    upperBonusPowerupAwarded = false;
     scores             = {};
     clearDice();
     renderScores();
@@ -602,6 +630,7 @@ rematch = function() {
     yamOrStrikeActive   = false;
     yamOrStrikeAttempts = 0;
     suppressNextYumEarn = false;
+    upperBonusPowerupAwarded = false;
     _pupGameOverPending = false;
     renderPowerupBar();
     _pupOrigRematch();
@@ -618,6 +647,7 @@ rematch = function() {
   frozenDieValue     = 0;
   pendingFreezeIdx   = -1;
   pendingFreezeVal   = 0;
+  upperBonusPowerupAwarded = false;
   _pupGameOverPending = false;
   scores             = {};
   clearDice();
@@ -644,6 +674,7 @@ quitGame = function() {
     yamOrStrikeActive   = false;
     yamOrStrikeAttempts = 0;
     suppressNextYumEarn = false;
+    upperBonusPowerupAwarded = false;
     document.getElementById('powerupBar').style.display = 'none';
     _pupOrigQuitGame();
     return;
@@ -659,6 +690,7 @@ quitGame = function() {
   frozenDieValue      = 0;
   pendingFreezeIdx    = -1;
   pendingFreezeVal    = 0;
+  upperBonusPowerupAwarded = false;
   scores              = {};
   clearDice();
   renderScores();
@@ -689,6 +721,7 @@ doMpRematch = function() {
     frozenDieValue     = 0;
     pendingFreezeIdx   = -1;
     pendingFreezeVal   = 0;
+    upperBonusPowerupAwarded = false;
     _pupGameOverPending = false;
     renderPowerupBar();
     if (roomRef) roomRef.child('players/' + playerId + '/livePowerups').remove();
@@ -713,6 +746,7 @@ leaveGame = function() {
     yamOrStrikeActive   = false;
     yamOrStrikeAttempts = 0;
     suppressNextYumEarn = false;
+    upperBonusPowerupAwarded = false;
     document.getElementById('powerupBar').style.display = 'none';
   }
   _pupOrigLeaveGame();
