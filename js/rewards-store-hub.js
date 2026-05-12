@@ -88,18 +88,21 @@
     s.id = 'rewardsStoreHubStyles';
     s.textContent = `
       .main-rewards-hub-btn {
-        width: min(520px, 100%);
+        width: auto;
+        max-width: 320px;
         border: 1px solid rgba(245,166,35,.42);
         background: linear-gradient(135deg, rgba(245,166,35,.16), rgba(78,205,196,.08));
         color: var(--gold);
         border-radius: 999px;
-        padding: 12px 14px;
+        padding: 7px 14px;
         font-family: Nunito, sans-serif;
-        font-weight: 1000;
-        letter-spacing: 1.2px;
+        font-weight: 900;
+        font-size: .78rem;
+        letter-spacing: .8px;
         cursor: pointer;
-        box-shadow: 0 8px 28px rgba(245,166,35,.14);
-        margin-top: 8px;
+        box-shadow: 0 4px 14px rgba(245,166,35,.12);
+        margin: 4px auto 10px;
+        display: block;
       }
       #rewardsHubOverlay {
         position: fixed; inset: 0; z-index: 990;
