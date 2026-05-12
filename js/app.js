@@ -1009,15 +1009,48 @@ function genCode() {
 
 function promptForUsername() {
   const input = document.getElementById('playerName');
-  if (input) {
-    try { input.focus({ preventScroll: false }); } catch(e) { input.focus(); }
-    try { input.click(); } catch(e) {}
-    input.classList.remove('lobby-input--flash');
-    void input.offsetWidth;
-    input.classList.add('lobby-input--flash');
-    setTimeout(() => input.classList.remove('lobby-input--flash'), 1900);
-  }
-  if (typeof showToast === 'function') showToast('Enter username first');
+  if (!input) return;
+  try { input.focus({ preventScroll: false }); } catch(e) { input.focus(); }
+  try { input.click(); } catch(e) {}
+  input.classList.remove('lobby-input--flash');
+  void input.offsetWidth;
+  input.classList.add('lobby-input--flash');
+  setTimeout(() => input.classList.remove('lobby-input--flash'), 1900);
+
+  const state = window.__yumNamePlaceholder || (window.__yumNamePlaceholder = {
+    original: input.getAttribute('placeholder') || 'Username',
+    timer: null,
+  });
+  if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+
+  const target = 'Enter username';
+  input.setAttribute('placeholder', '');
+
+  let i = 0;
+  const typeNext = () => {
+    i++;
+    input.setAttribute('placeholder', target.slice(0, i));
+    if (i < target.length) {
+      state.timer = setTimeout(typeNext, 55);
+    } else {
+      state.timer = setTimeout(eraseStart, 1100);
+    }
+  };
+  const eraseStart = () => {
+    let j = target.length;
+    const eraseNext = () => {
+      j--;
+      if (j > 0) {
+        input.setAttribute('placeholder', target.slice(0, j));
+        state.timer = setTimeout(eraseNext, 30);
+      } else {
+        input.setAttribute('placeholder', state.original);
+        state.timer = null;
+      }
+    };
+    eraseNext();
+  };
+  state.timer = setTimeout(typeNext, 55);
 }
 window.promptForUsername = promptForUsername;
 
