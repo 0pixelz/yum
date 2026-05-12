@@ -1721,7 +1721,7 @@ function renderLeaderboard() {
     const isMe = id === playerId;
     const isTurn = id === currentTurnId;
     const tapAction = isMe
-      ? `openReactionPicker('${id}')`
+      ? `viewMpSelf()`
       : `viewMpOpponent('${id}')`;
 
     // Power-up inventory icons (only in powerup mode)
@@ -1757,7 +1757,7 @@ function renderLeaderboard() {
       ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
       ${avatarHtml}
       <div class="lb-name-col">
-        <div class="lb-name">${p.name}${isMe?' <i class="icn icn-tap"></i>':'<span style="font-size:0.65rem;color:var(--muted)"> <i class="icn icn-eye"></i> view</span>'}</div>
+        <div class="lb-name">${p.name}<span style="font-size:0.65rem;color:var(--muted)"> <i class="icn icn-eye"></i> ${isMe?'tap':'view'}</span></div>
         ${pupHtml}
       </div>
       <div class="lb-filled">${filled}/13</div>
@@ -2074,12 +2074,12 @@ function renderBotLeaderboard() {
     : '';
   const botLbAvatar = '<div class="lb-avatar lb-avatar-bot"><i class="icn icn-bot"></i></div>';
   document.getElementById('lbRows').innerHTML = `
-    <div class="lb-row me" style="cursor:default">
+    <div class="lb-row me" style="cursor:pointer" onclick="openOppViewer('me', playerName, scores, playerScoreDice)">
       <div class="lb-rank">${pLeading?'1':'2'}</div>
       <div style="width:8px"></div>
       ${myLbAvatar}
       <div class="lb-name-col">
-        <div class="lb-name">${playerName} ${playerTurn?'<i class="icn icn-dice icn-gold"></i>':''}</div>
+        <div class="lb-name">${playerName} ${playerTurn?'<i class="icn icn-dice icn-gold"></i>':''} <span class="lb-self-tap-hint" style="font-size:0.65rem;color:var(--muted)"><i class="icn icn-eye"></i> tap</span></div>
         ${playerPupHtml}
       </div>
       <div class="lb-filled">${pFilled}/13</div>
@@ -2908,6 +2908,10 @@ function viewMpOpponent(id) {
   const p = allPlayers[id];
   if(!p) return;
   openOppViewer(id, p.name, p.scores || {}, {});
+}
+
+function viewMpSelf() {
+  openOppViewer('me', playerName, scores, playerScoreDice);
 }
 
 
