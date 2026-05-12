@@ -41,7 +41,7 @@ let upperBonusPowerupAwarded = false; // upper-bonus reward fires once per game
 
 function startPowerupMode() {
   const name = document.getElementById('playerName').value.trim();
-  if (!name) { showLobbyErr('Enter your name first!'); return; }
+  if (!name) { (window.promptForUsername || showLobbyErr.bind(null, 'Enter your name first!'))(); return; }
   if (typeof window.yumValidateUsername === 'function') {
     const check = window.yumValidateUsername(name);
     if (!check.ok) { showLobbyErr(check.reason); return; }
