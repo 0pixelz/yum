@@ -323,13 +323,16 @@ confirmScore = function() {
   const baseScore  = selectedScore;
   const savedDice  = dice.slice();
 
-  // Apply double points modifier
+  // Apply double points modifier — only consume when it actually doubles
+  // a positive score. Striking a category (baseScore === 0) keeps the
+  // power-up active for the next scoring play, otherwise an accidental
+  // or strategic strike would silently burn the power-up.
   if (doublePointsActive && baseScore > 0) {
     selectedScore      = baseScore * 2;
     doublePointsActive = false;
     showToast(`Double Points! ${baseScore} → ${selectedScore} pts`);
   } else if (doublePointsActive && baseScore === 0) {
-    doublePointsActive = false; // used up, nothing to double on 0
+    showToast('Strike — Double Points still active for your next score');
   }
 
   // Track undo target
