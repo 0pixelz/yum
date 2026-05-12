@@ -2211,7 +2211,7 @@
 
   /* ACHIEVEMENTS */
   .ach-btn {
-    position: absolute; top: 14px; left: 14px;
+    position: absolute; top: 14px; left: 64px;
     background: rgba(255,255,255,0.1);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 8px; color: var(--white);

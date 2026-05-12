@@ -72,7 +72,7 @@
     style.id = 'friendsMenuStyles';
     style.textContent = `
       .friends-menu-btn {
-        position: fixed; top: 14px; left: 64px;
+        position: fixed; top: 14px; left: 14px;
         z-index: 600;
         background: rgba(255,255,255,0.1);
         border: 1px solid rgba(255,255,255,0.15);
@@ -96,7 +96,7 @@
 
       /* In-header friends button (shown only while playing) */
       .friends-hdr-btn {
-        position: absolute; top: 14px; left: 60px;
+        position: absolute; top: 14px; left: 14px;
         background: rgba(255,255,255,0.1);
         border: 1px solid rgba(255,255,255,0.15);
         border-radius: 8px; color: var(--white);
