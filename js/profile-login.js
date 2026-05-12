@@ -88,6 +88,9 @@
 
   function applyProfileToLobby(profile) {
     renderProfileBar();
+    if (window.YumAvatars && typeof window.YumAvatars.refreshLobbyAvatar === 'function') {
+      window.YumAvatars.refreshLobbyAvatar();
+    }
     prefillPlayerNameIfEmpty();
   }
 
@@ -112,8 +115,9 @@
 
     bar.innerHTML = `
       <div style="width:100%;text-align:center;color:var(--muted);font-size:.72rem;font-weight:800;margin-bottom:2px">${label}</div>
-      <button type="button" onclick="signInWithGoogle()" class="social-login-btn">${GOOGLE_ICON_SVG}<span>Continue with Google</span></button>
-      ${google ? '<button type="button" onclick="signOutProfile()" style="border:1px solid rgba(233,69,96,.25);background:rgba(233,69,96,.08);color:var(--accent);border-radius:999px;padding:8px 14px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.6px;cursor:pointer">Sign out</button>' : ''}
+      ${google
+        ? '<button type="button" onclick="signOutProfile()" style="border:1px solid rgba(233,69,96,.25);background:rgba(233,69,96,.08);color:var(--accent);border-radius:999px;padding:8px 14px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.6px;cursor:pointer">Sign out</button>'
+        : `<button type="button" onclick="signInWithGoogle()" class="social-login-btn">${GOOGLE_ICON_SVG}<span>Continue with Google</span></button>`}
     `;
   }
 
@@ -289,8 +293,12 @@
     const input = document.getElementById('playerName');
     if (!input) return;
     const bar = document.getElementById('profileLoginBar');
-    const hasGoogleBtn = bar && bar.querySelector('button[onclick*="signInWithGoogle"]');
-    if (!bar || !hasGoogleBtn) {
+    const signedIn = !!loadJSON(GOOGLE_PROFILE_KEY, null);
+    const expectedSelector = signedIn
+      ? 'button[onclick*="signOutProfile"]'
+      : 'button[onclick*="signInWithGoogle"]';
+    const hasExpectedBtn = bar && bar.querySelector(expectedSelector);
+    if (!bar || !hasExpectedBtn) {
       renderProfileBar();
     }
   }, 700);

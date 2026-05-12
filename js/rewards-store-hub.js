@@ -88,21 +88,25 @@
     s.id = 'rewardsStoreHubStyles';
     s.textContent = `
       .main-rewards-hub-btn {
+        position: fixed; top: 14px; right: 14px;
+        z-index: 600;
         width: auto;
         border: 1px solid rgba(245,166,35,.42);
         background: linear-gradient(135deg, rgba(245,166,35,.16), rgba(78,205,196,.08));
         color: var(--gold);
-        border-radius: 999px;
-        padding: 6px 14px;
+        border-radius: 8px;
+        padding: 4px 10px;
         font-family: Nunito, sans-serif;
         font-weight: 900;
         font-size: .85rem;
         letter-spacing: .8px;
         cursor: pointer;
+        line-height: 1;
         box-shadow: 0 4px 14px rgba(245,166,35,.12);
-        margin: 6px auto 10px;
+        margin: 0;
         display: inline-flex; align-items: center; gap: 6px;
       }
+      body.yum-in-game .main-rewards-hub-btn { display: none !important; }
       #rewardsHubOverlay {
         position: fixed; inset: 0; z-index: 990;
         background: rgba(0,0,0,.85);
@@ -512,7 +516,7 @@
       btn.className = 'main-rewards-hub-btn';
       btn.type = 'button';
       btn.onclick = openHub;
-      profileBar.insertAdjacentElement('afterend', btn);
+      document.body.appendChild(btn);
     }
     btn.innerHTML = `<i class="icn icn-gift"></i> ${credits()}`;
   }
