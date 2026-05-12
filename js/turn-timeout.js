@@ -52,12 +52,13 @@
 
   // Multiplayer rooms can opt out of the timer via the lobby toggle
   // (window.__yumTurnTimerEnabled is mirrored from the room's turnTimer field).
-  // Bot games always use the timer.
+  // Bot games never use the timer — solo play against the bot is untimed.
   function timerEnabled() {
+    if (typeof botMode !== 'undefined' && botMode) return false;
     if (typeof mpMode !== 'undefined' && mpMode) {
       return window.__yumTurnTimerEnabled !== false;
     }
-    return true;
+    return false;
   }
 
   function updateUI() {
