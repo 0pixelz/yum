@@ -1021,6 +1021,61 @@ function promptForUsername() {
 }
 window.promptForUsername = promptForUsername;
 
+function promptForRoomCode() {
+  const input = document.getElementById('joinCode');
+  if (!input) return;
+  const wrap = input.closest('.room-code-input-wrap') || input;
+
+  try { input.focus({ preventScroll: false }); } catch(e) { input.focus(); }
+
+  wrap.classList.remove('lobby-input--flash');
+  void wrap.offsetWidth;
+  wrap.classList.add('lobby-input--flash');
+  setTimeout(() => wrap.classList.remove('lobby-input--flash'), 1900);
+
+  const state = window.__yumJoinPlaceholder || (window.__yumJoinPlaceholder = {
+    original: input.getAttribute('placeholder') || 'Room Code',
+    origLetterSpacing: input.style.letterSpacing,
+    origFontSize: input.style.fontSize,
+    timer: null,
+  });
+  if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+
+  const target = 'Enter 4 digit code';
+  input.style.letterSpacing = '1.5px';
+  input.style.fontSize = '1rem';
+  input.setAttribute('placeholder', '');
+
+  let i = 0;
+  const typeNext = () => {
+    i++;
+    input.setAttribute('placeholder', target.slice(0, i));
+    if (i < target.length) {
+      state.timer = setTimeout(typeNext, 55);
+    } else {
+      state.timer = setTimeout(eraseStart, 1100);
+    }
+  };
+  const eraseStart = () => {
+    let j = target.length;
+    const eraseNext = () => {
+      j--;
+      if (j > 0) {
+        input.setAttribute('placeholder', target.slice(0, j));
+        state.timer = setTimeout(eraseNext, 30);
+      } else {
+        input.style.letterSpacing = state.origLetterSpacing;
+        input.style.fontSize = state.origFontSize;
+        input.setAttribute('placeholder', state.original);
+        state.timer = null;
+      }
+    };
+    eraseNext();
+  };
+  state.timer = setTimeout(typeNext, 55);
+}
+window.promptForRoomCode = promptForRoomCode;
+
 function getLobbyName() {
   const n = document.getElementById('playerName').value.trim();
   if(!n) { promptForUsername(); return null; }
@@ -1182,7 +1237,7 @@ function setMpGameMode(mode) {
 async function joinGame() {
   const name = getLobbyName(); if(!name) return;
   const code = document.getElementById('joinCode').value.trim().toUpperCase();
-  if(code.length !== 4) { showLobbyErr('Enter a 4-letter room code'); return; }
+  if(code.length !== 4) { promptForRoomCode(); return; }
 
   playerName = name;
   roomCode = code;
