@@ -88,30 +88,7 @@
 
   function applyProfileToLobby(profile) {
     renderProfileBar();
-    renderPlayerAvatar();
     prefillPlayerNameIfEmpty();
-  }
-
-  function renderPlayerAvatar() {
-    const btn = document.getElementById('playerAvatarBtn');
-    if (!btn) return;
-    const google = loadJSON(GOOGLE_PROFILE_KEY, null);
-    if (window.YumAvatars && typeof window.YumAvatars.markupForProfile === 'function') {
-      btn.innerHTML = window.YumAvatars.markupForProfile();
-    } else if (google && google.photoURL) {
-      btn.innerHTML = `<img src="${google.photoURL}" alt="" referrerpolicy="no-referrer">`;
-    } else {
-      const name = (google && google.name) || (getDeviceProfile().name || 'P');
-      const initial = String(name).trim().charAt(0).toUpperCase() || 'P';
-      btn.textContent = initial;
-    }
-    btn.onclick = () => {
-      if (window.YumAvatars && typeof window.YumAvatars.openPicker === 'function') {
-        window.YumAvatars.openPicker();
-      } else if (!google) {
-        window.signInWithGoogle();
-      }
-    };
   }
 
   function renderProfileBar() {
@@ -119,15 +96,12 @@
     const input = document.getElementById('playerName');
     if (!input) return;
 
-    const row = document.getElementById('playerNameRow');
-    const anchor = row || input;
-
     let bar = document.getElementById('profileLoginBar');
     if (!bar) {
       bar = document.createElement('div');
       bar.id = 'profileLoginBar';
       bar.style.cssText = 'width:100%;max-width:520px;margin:-4px 0 12px;display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap';
-      anchor.insertAdjacentElement('afterend', bar);
+      input.insertAdjacentElement('afterend', bar);
     }
 
     const google = loadJSON(GOOGLE_PROFILE_KEY, null);
@@ -136,17 +110,10 @@
       ? `<i class="icn icn-check icn-green"></i> ${google.name || google.email}`
       : `<i class="icn icn-tap"></i> Device profile: ${device.name}`;
 
-    const signInBtn = google
-      ? ''
-      : `<button type="button" onclick="signInWithGoogle()" class="social-login-btn">${GOOGLE_ICON_SVG}<span>Continue with Google</span></button>`;
-    const signOutBtn = google
-      ? '<button type="button" onclick="signOutProfile()" style="border:1px solid rgba(233,69,96,.25);background:rgba(233,69,96,.08);color:var(--accent);border-radius:999px;padding:6px 12px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.6px;cursor:pointer;font-size:.75rem">Sign out</button>'
-      : '';
-
     bar.innerHTML = `
       <div style="width:100%;text-align:center;color:var(--muted);font-size:.72rem;font-weight:800;margin-bottom:2px">${label}</div>
-      ${signInBtn}
-      ${signOutBtn}
+      <button type="button" onclick="signInWithGoogle()" class="social-login-btn">${GOOGLE_ICON_SVG}<span>Continue with Google</span></button>
+      ${google ? '<button type="button" onclick="signOutProfile()" style="border:1px solid rgba(233,69,96,.25);background:rgba(233,69,96,.08);color:var(--accent);border-radius:999px;padding:8px 14px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.6px;cursor:pointer">Sign out</button>' : ''}
     `;
   }
 
@@ -316,23 +283,16 @@
     initProfileLogin();
   }
 
-  document.addEventListener('yum-avatar-changed', renderPlayerAvatar);
-
   // Watchdog: re-render the social login bar if anything strips it from the DOM,
-  // or if profile-login.js ran before the lobby input was present. When signed
-  // in, the Google button is intentionally absent — only re-render if the bar
-  // itself is gone or doesn't reflect the current sign-in state.
+  // or if profile-login.js ran before the lobby input was present.
   setInterval(() => {
     const input = document.getElementById('playerName');
     if (!input) return;
     const bar = document.getElementById('profileLoginBar');
-    const signedIn = !!loadJSON(GOOGLE_PROFILE_KEY, null);
-    const hasGoogleBtn = bar && !!bar.querySelector('button[onclick*="signInWithGoogle"]');
-    const hasSignOutBtn = bar && !!bar.querySelector('button[onclick*="signOutProfile"]');
-    if (!bar || (signedIn && !hasSignOutBtn) || (!signedIn && !hasGoogleBtn)) {
+    const hasGoogleBtn = bar && bar.querySelector('button[onclick*="signInWithGoogle"]');
+    if (!bar || !hasGoogleBtn) {
       renderProfileBar();
     }
-    renderPlayerAvatar();
   }, 700);
 })();
 
