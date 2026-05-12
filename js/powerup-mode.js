@@ -397,9 +397,17 @@ function tryPowerupDieClick(i) {
     rolled = true;
     renderScores();
     renderDice(false);
-    // Spin just this one die
+    // Spin just this one die (held dice aren't animated by renderDice(false),
+    // and a same-value reroll wouldn't trigger via faceChanged either).
     const el = document.getElementById('diceRow').querySelector(`[data-i="${i}"]`);
-    if (el) { el.classList.remove('die-spin'); void el.offsetWidth; el.classList.add('die-spin'); }
+    if (el) {
+      el.classList.remove('die-spin', 'die-rolled-same');
+      if (typeof el.getAnimations === 'function') {
+        el.getAnimations().forEach(a => { try { a.cancel(); } catch(e){} });
+      }
+      void el.offsetWidth;
+      el.classList.add('die-spin');
+    }
     refreshDieFreezeVisual();
     renderPowerupBar();
     showToast(`Lucky reroll → ${dice[i]}`);
@@ -774,8 +782,6 @@ rollDice = function() {
     rollsLeft = Math.max(0, rollsLeft - 1);
     renderDice(true);
     renderScores();
-    const el = document.getElementById('diceRow') && document.getElementById('diceRow').querySelector(`[data-i="4"]`);
-    if (el) { el.classList.remove('die-spin'); void el.offsetWidth; el.classList.add('die-spin'); }
     const rc = document.getElementById('rollCount');
     if (rc) rc.textContent = `YAM OR STRIKE — ${3 - yamOrStrikeAttempts} chance${3 - yamOrStrikeAttempts === 1 ? '' : 's'} left`;
     if (typeof mpMode !== 'undefined' && mpMode && typeof roomRef !== 'undefined' && roomRef) {
