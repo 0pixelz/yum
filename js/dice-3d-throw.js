@@ -13,6 +13,7 @@
   let dragging = false;
   let throwing = false;
   let pointerSamples = [];
+  let lastDragP = null; // previous pointer (x,z) on the drag plane, for tumble-on-drag
   let settleStart = 0;
   let dragPlane;
   let raycaster;
@@ -438,14 +439,43 @@
         dieBody.position.set(cx, DRAG_Y, cz);
       }
       pointerSamples.push({ t: performance.now(), x: p.x, z: p.z });
+      lastDragP = { x: p.x, z: p.z };
+    } else {
+      lastDragP = null;
     }
     statusEl.textContent = 'Flick to throw!';
+  }
+
+  // Tumble-on-drag: while the die is being held, finger motion spins it like
+  // it's rolling under your fingertip. Angle = distance × SPIN_GAIN (well above
+  // the natural arc-length-over-radius rate, so the die spins visibly fast).
+  const SPIN_GAIN = 9.0;
+  function applyTumble(dx, dz) {
+    const dist = Math.hypot(dx, dz);
+    if (dist < 0.0005) return;
+    const ax = -dz / dist;        // roll axis = horizontal perpendicular to motion
+    const az =  dx / dist;
+    const angle = dist * SPIN_GAIN;
+    const half = angle * 0.5;
+    const s = Math.sin(half), cw = Math.cos(half);
+    // delta quaternion = rotation by `angle` around (ax, 0, az)
+    const dqx = ax * s, dqy = 0, dqz = az * s, dqw = cw;
+    // new_q = delta * current  (world-space rotation premultiply)
+    const q = dieBody.quaternion;
+    const cx = q.x, cy = q.y, cz = q.z, cw2 = q.w;
+    const nx = dqw * cx + dqx * cw2 + dqy * cz - dqz * cy;
+    const ny = dqw * cy - dqx * cz + dqy * cw2 + dqz * cx;
+    const nz = dqw * cz + dqx * cy - dqy * cx + dqz * cw2;
+    const nw = dqw * cw2 - dqx * cx - dqy * cy - dqz * cz;
+    q.set(nx, ny, nz, nw);
   }
 
   function onPointerMove(ev) {
     if (!dragging) return;
     const p = pointerOnDragPlane(ev);
     if (!p) return;
+    if (lastDragP) applyTumble(p.x - lastDragP.x, p.z - lastDragP.z);
+    lastDragP = { x: p.x, z: p.z };
     const tx = clamp(p.x + pickOffset.x, -DRAG_X_LIMIT, DRAG_X_LIMIT);
     const tz = clamp(p.z + pickOffset.z, DRAG_Z_MIN, DRAG_Z_MAX);
     dieBody.position.set(tx, DRAG_Y, tz);
@@ -459,6 +489,7 @@
   function onPointerUp(ev) {
     if (!dragging) return;
     dragging = false;
+    lastDragP = null;
     try { canvasEl.releasePointerCapture(ev.pointerId); } catch (_) {}
 
     // Velocity from samples in last ~120ms.
