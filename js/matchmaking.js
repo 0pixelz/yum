@@ -47,6 +47,10 @@
   let mmReadyHandled = false;
   let mmReadyDeadline = 0;
   let mmReadyTickTimer = null;
+  // Set true on the waiter side once we observe an addressed-to-us offer.
+  // Used to distinguish "offer never arrived" (no-op) from "offer arrived
+  // then was removed before we got a roomCode" (seeker bailed → notify).
+  let mmOfferSeen = false;
 
   function el(id) { return document.getElementById(id); }
 
@@ -367,6 +371,7 @@
     mmInQueue = false;
     mmClaimInFlight = false;
     mmAutoStartScheduled = false;
+    mmOfferSeen = false;
 
     const modeLabel = chosenMode === 'powerup' ? 'Power-Up' : 'Classic';
     setSearchText('LOOKING FOR PLAYER',
@@ -512,9 +517,18 @@
     catch (e) { console.warn('[matchmaking] room create failed:', e); }
 
     if (!code || !mmActive) {
-      // Release the offer so the waiter can be claimed again
+      // Release the offer so the waiter can be claimed again. Removing the
+      // offer is also the signal the waiter relies on to leave their search
+      // screen (see onMyOfferChanged's snap.exists() branch).
       try { await offerRef.remove(); } catch (e) {}
       mmRole = null;
+      if (mmActive) {
+        // createGame surfaced its own lobby error, but the search overlay
+        // is on top hiding it. Bail back to the lobby so the user actually
+        // sees the failure instead of staring at "MATCH FOUND, Connecting…"
+        // forever.
+        cancelFindMatch();
+      }
       return false;
     }
 
@@ -549,6 +563,12 @@
     if (typeof window.createGame !== 'function') return null;
 
     await window.createGame();
+
+    // createGame leaves roomCode set to the last *attempted* code even when
+    // the transaction failed (e.g. permission_denied, network drop), so the
+    // global by itself isn't enough to know we actually have a room. roomRef
+    // is nulled on failure, so use it as the success signal.
+    if (!window.roomRef) return null;
 
     let code = null;
     try {
@@ -754,10 +774,23 @@
   function onMyOfferChanged(snap) {
     if (!mmActive) return;
     if (mmRole === 'seeker') return;     // already won a claim — ignore inbound offers
-    if (!snap.exists()) return;
+
+    if (!snap.exists()) {
+      // The offer was removed before we got a roomCode. That means the
+      // seeker bailed (their createGame failed, they cancelled, or their
+      // browser crashed). Without this branch the waiter sits on the
+      // "MATCH FOUND, Connecting…" screen forever and the Accept overlay
+      // never appears for either side.
+      if (mmOfferSeen && !mmRole) {
+        mmOfferSeen = false;
+        handleRemoteCancel('Match canceled — opponent dropped.');
+      }
+      return;
+    }
 
     const offer = snap.val() || {};
     if (!offer.from || offer.from === mmUid) return;
+    mmOfferSeen = true;
     if (!offer.roomCode) return;          // claim placeholder, room not created yet
 
     mmRole = 'waiter';
@@ -782,6 +815,14 @@
     }
 
     Promise.resolve().then(() => window.joinGame()).then(() => {
+      // joinGame doesn't throw on a missing room — it just shows a lobby
+      // error and returns. Verify we actually landed in the seeker's room
+      // before attaching the ready-check listener; otherwise we'd silently
+      // watch an empty path and never show the Accept button.
+      if (!window.roomRef || window.roomRef.key !== offer.roomCode) {
+        handleRemoteCancel('Match canceled — opponent room unavailable.');
+        return;
+      }
       mmRoomCode = offer.roomCode;
       watchRoomForReady(offer.roomCode, 'waiter');
       if (mmDb && mmUid) {
@@ -890,6 +931,7 @@
     mmAutoStartScheduled = false;
     mmReadyShown = false;
     mmReadyHandled = false;
+    mmOfferSeen = false;
   }
 
   function openFindMatchModeChoice() {
