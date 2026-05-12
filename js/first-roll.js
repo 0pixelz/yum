@@ -93,8 +93,11 @@ function frPlayerRoll() {
   }
   document.getElementById('frSub').textContent = 'Rolling…';
 
-  setTimeout(() => {
-    const val = Math.floor(Math.random()*6)+1;
+  const rollPromise = (typeof window.throw3DDie === 'function')
+    ? window.throw3DDie()
+    : new Promise(r => setTimeout(() => r(Math.floor(Math.random()*6)+1), 500));
+
+  rollPromise.then(val => {
     frResults[frMyIdx] = val;
     // Push to Firebase for MP
     if(mpMode && roomRef) {
@@ -102,7 +105,7 @@ function frPlayerRoll() {
     }
     frRevealDie(frMyIdx, val);
     frCheckAllRolled();
-  }, 500);
+  });
 }
 
 function frRevealDie(i, val) {
