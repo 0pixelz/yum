@@ -48,56 +48,40 @@
     white:  '#f0f0f0'
   };
 
+  // The 3D die's faces are styled after the brand dice mark:
+  // warm gold radial face, dark-brown pips, brown border. Standard pip layouts 1–6.
   function makeFaceTexture(num) {
     const c = document.createElement('canvas');
     c.width = 256; c.height = 256;
     const ctx = c.getContext('2d');
 
-    // Off-white face with subtle gradient (matches in-game .die background)
-    const faceGrad = ctx.createLinearGradient(0, 0, 256, 256);
-    faceGrad.addColorStop(0, '#ffffff');
-    faceGrad.addColorStop(1, '#e9ecf2');
+    // Warm gold face — matches the #yumDieFace radial gradient from index.html
+    const faceGrad = ctx.createRadialGradient(82, 72, 8, 82, 72, 240);
+    faceGrad.addColorStop(0,    '#fff3d6');
+    faceGrad.addColorStop(0.38, '#ffd28a');
+    faceGrad.addColorStop(0.78, '#f5a23a');
+    faceGrad.addColorStop(1,    '#e07a14');
     ctx.fillStyle = faceGrad;
-    roundRect(ctx, 6, 6, 244, 244, 38);
+    roundRect(ctx, 8, 8, 240, 240, 38);
     ctx.fill();
 
-    // Gold brand border
-    ctx.strokeStyle = BRAND.gold;
-    ctx.lineWidth = 5;
+    // Dark brown brand border
+    ctx.strokeStyle = '#5a2a08';
+    ctx.lineWidth = 4;
     ctx.stroke();
-    // Inner soft outline
-    roundRect(ctx, 12, 12, 232, 232, 32);
-    ctx.strokeStyle = 'rgba(15,52,96,0.18)';
+    // Soft inner highlight
+    roundRect(ctx, 16, 16, 224, 224, 32);
+    ctx.strokeStyle = 'rgba(255,243,214,0.45)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Tiny YAMIO wordmark in the corner — subtle brand tag
-    ctx.save();
-    ctx.font = "800 11px 'Nunito', sans-serif";
-    ctx.fillStyle = 'rgba(15,52,96,0.45)';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('YAMIO', 232, 24);
-    // Small gold dot accent
-    ctx.fillStyle = BRAND.gold;
-    ctx.beginPath(); ctx.arc(238, 24, 2.4, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-
-    // Brand-tinted pips: deep navy core with gold highlight ring
+    // Dark-brown pips (match the brand mark)
     const pip = (x, y) => {
-      const grad = ctx.createRadialGradient(x - 6, y - 6, 2, x, y, 22);
-      grad.addColorStop(0, '#2a3a5c');
-      grad.addColorStop(0.65, BRAND.panel);
-      grad.addColorStop(1, '#070a14');
-      ctx.fillStyle = grad;
+      ctx.fillStyle = '#3a1a05';
       ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); ctx.fill();
-      // Gold highlight ring
-      ctx.strokeStyle = 'rgba(245,166,35,0.55)';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.stroke();
-      // Inner sparkle
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.beginPath(); ctx.arc(x - 7, y - 7, 3, 0, Math.PI * 2); ctx.fill();
+      // subtle inner shine
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.beginPath(); ctx.arc(x - 7, y - 7, 4, 0, Math.PI * 2); ctx.fill();
     };
     const P = {
       1: [[128,128]],
@@ -108,15 +92,6 @@
       6: [[76,68],[180,68],[76,128],[180,128],[76,188],[180,188]]
     };
     P[num].forEach(([x, y]) => pip(x, y));
-
-    // For the "1" face: ring the lone pip with a gold halo so it reads as the brand mark
-    if (num === 1) {
-      ctx.strokeStyle = 'rgba(245,166,35,0.35)';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(128, 128, 36, 0, Math.PI * 2); ctx.stroke();
-      ctx.strokeStyle = 'rgba(245,166,35,0.18)';
-      ctx.beginPath(); ctx.arc(128, 128, 48, 0, Math.PI * 2); ctx.stroke();
-    }
 
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = 8;
@@ -129,79 +104,92 @@
     c.width = S; c.height = S;
     const ctx = c.getContext('2d');
 
-    // Brand gradient — radial from panel center to bg edges
-    const g = ctx.createRadialGradient(S/2, S/2, 80, S/2, S/2, S * 0.72);
-    g.addColorStop(0,    BRAND.panel);
-    g.addColorStop(0.55, BRAND.card);
-    g.addColorStop(1,    BRAND.bg);
+    // Very dark navy — matches the main lobby background (almost black with
+    // a faint blue tint), slightly lifted in the upper-center where the dice sits.
+    const g = ctx.createRadialGradient(S/2, S * 0.42, 60, S/2, S * 0.5, S * 0.7);
+    g.addColorStop(0,    '#1d1f44');
+    g.addColorStop(0.45, BRAND.bg);     // #1a1a2e
+    g.addColorStop(1,    '#06071a');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, S, S);
 
-    // Subtle grid for a "felt table" feel
-    ctx.strokeStyle = 'rgba(245,166,35,0.05)';
-    ctx.lineWidth = 1.5;
-    const step = 128;
-    for (let i = step; i < S; i += step) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, S); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(S, i); ctx.stroke();
-    }
+    // Faint accent ring under the throw area (gold, very subtle)
+    ctx.strokeStyle = 'rgba(245,166,35,0.18)';
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(S/2, S * 0.55, S * 0.36, 0, Math.PI * 2); ctx.stroke();
 
-    // Outer gold accent ring
-    ctx.strokeStyle = 'rgba(245,166,35,0.28)';
-    ctx.lineWidth = 10;
-    ctx.beginPath(); ctx.arc(S/2, S/2, S * 0.45, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = 'rgba(245,166,35,0.12)';
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(S/2, S/2, S * 0.47, 0, Math.PI * 2); ctx.stroke();
-
-    // YAMIO wordmark — big, gold, glowing (matches header brand)
-    ctx.save();
-    ctx.translate(S/2, S/2);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = "900 540px 'Bebas Neue', 'Impact', sans-serif";
+    // ── YAMIO wordmark — matches .yum-brand-text on the main screen ──
+    // Positioned in the upper-middle of the canvas so it lands at world z ≈ -2.6
+    // (behind the dice's resting area, in the upper part of the camera frame).
     const text = 'YAMIO';
-    const letterSpacing = 70;
+    const fontSize = 260;
+    const letterSpacing = fontSize * 0.18; // matches CSS letter-spacing: 0.18em
+    ctx.font = `900 ${fontSize}px 'Bebas Neue', 'Impact', 'Arial Narrow', sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
     const widths = text.split('').map(ch => ctx.measureText(ch).width);
-    const totalW = widths.reduce((a,b)=>a+b, 0) + letterSpacing * (text.length - 1);
-    // Glow pass
+    const totalW = widths.reduce((a, b) => a + b, 0) + letterSpacing * (text.length - 1);
+    const cy = S * 0.34;                 // upper-middle of the floor
+    const startX = (S - totalW) / 2;
+
+    // Gold → red diagonal gradient (matches .yum-brand-text background)
+    const wordGrad = ctx.createLinearGradient(
+      startX, cy - fontSize * 0.5,
+      startX + totalW, cy + fontSize * 0.5
+    );
+    wordGrad.addColorStop(0, BRAND.gold);   // #f5a623
+    wordGrad.addColorStop(1, BRAND.accent); // #e94560
+
+    // Big soft glow behind the wordmark
+    ctx.save();
     ctx.shadowColor = 'rgba(245,166,35,0.55)';
     ctx.shadowBlur = 90;
-    ctx.fillStyle = BRAND.gold;
-    let x = -totalW / 2;
+    ctx.fillStyle = wordGrad;
+    let x = startX;
     for (let i = 0; i < text.length; i++) {
-      ctx.fillText(text[i], x + widths[i] / 2, 0);
-      x += widths[i] + letterSpacing;
-    }
-    // Crisp pass without glow
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = BRAND.gold;
-    x = -totalW / 2;
-    for (let i = 0; i < text.length; i++) {
-      ctx.fillText(text[i], x + widths[i] / 2, 0);
-      x += widths[i] + letterSpacing;
-    }
-    // Dark outline for legibility
-    ctx.strokeStyle = 'rgba(7,10,20,0.55)';
-    ctx.lineWidth = 5;
-    x = -totalW / 2;
-    for (let i = 0; i < text.length; i++) {
-      ctx.strokeText(text[i], x + widths[i] / 2, 0);
+      ctx.fillText(text[i], x, cy);
       x += widths[i] + letterSpacing;
     }
     ctx.restore();
 
-    // Tagline under the wordmark
+    // Crisp gradient fill pass (no shadow)
+    ctx.fillStyle = wordGrad;
+    x = startX;
+    for (let i = 0; i < text.length; i++) {
+      ctx.fillText(text[i], x, cy);
+      x += widths[i] + letterSpacing;
+    }
+    // Dark outline so the letters pop against the dark navy
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.lineWidth = 4;
+    x = startX;
+    for (let i = 0; i < text.length; i++) {
+      ctx.strokeText(text[i], x, cy);
+      x += widths[i] + letterSpacing;
+    }
+
+    // Tiny tagline beneath the wordmark
     ctx.save();
-    ctx.font = "800 70px 'Nunito', sans-serif";
+    ctx.font = "800 44px 'Nunito', sans-serif";
     ctx.fillStyle = 'rgba(78,205,196,0.55)';
     ctx.textAlign = 'center';
-    ctx.fillText('• D I C E   G A M E •', S/2, S/2 + 340);
+    ctx.fillText('D I C E   G A M E', S/2, cy + fontSize * 0.7);
     ctx.restore();
 
     const tex = new THREE.CanvasTexture(c);
-    tex.anisotropy = 8;
+    tex.anisotropy = 16;
     return tex;
+  }
+
+  // Resolves once 'Bebas Neue' is loaded (or after a short timeout) so the
+  // floor texture is painted with the brand font, not the fallback.
+  function ensureBrandFont() {
+    if (!document.fonts || !document.fonts.load) return Promise.resolve();
+    return Promise.race([
+      document.fonts.load("700 64px 'Bebas Neue'").catch(() => null),
+      new Promise(res => setTimeout(res, 1200))
+    ]);
   }
 
   function buildOverlay() {
@@ -226,9 +214,9 @@
 
   function initScene() {
     scene = new THREE.Scene();
-    // Brand navy fog/background — matches --bg / --card
-    scene.fog = new THREE.Fog(0x1a1a2e, 14, 28);
-    scene.background = new THREE.Color(0x16213e);
+    // Very dark navy — matches the main lobby background
+    scene.fog = new THREE.Fog(0x08091a, 12, 26);
+    scene.background = new THREE.Color(0x0d0f24);
 
     const w = canvasEl.clientWidth || 1;
     const h = canvasEl.clientHeight || 1;
@@ -261,47 +249,25 @@
     fill.position.set(3, 2, -6);
     scene.add(fill);
 
-    // Branded floor: navy gradient + "YAMIO" wordmark baked into the texture
+    // Branded floor: dark navy + the Yamio main-screen logo baked into the texture
     const floorTex = makeFloorTexture();
     const floorMat = new THREE.MeshStandardMaterial({
-      map: floorTex, roughness: 0.85, metalness: 0.05
+      map: floorTex, roughness: 0.88, metalness: 0.04
     });
-    floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), floorMat);
+    floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), floorMat);
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.receiveShadow = true;
     scene.add(floorMesh);
 
-    // Outer dark surround so the play area sits inside the branded mat
+    // Outer near-black surround so the play area sits in deep darkness
     const surroundMat = new THREE.MeshStandardMaterial({
-      color: 0x0b1020, roughness: 0.98, metalness: 0.0
+      color: 0x07081a, roughness: 0.98, metalness: 0.0
     });
     const surround = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), surroundMat);
     surround.rotation.x = -Math.PI / 2;
     surround.position.y = -0.02;
     surround.receiveShadow = true;
     scene.add(surround);
-
-    // Gold play-area ring (matches game's gold accents)
-    const ringGeo = new THREE.RingGeometry(2.5, 2.7, 80);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xf5a623, side: THREE.DoubleSide,
-      transparent: true, opacity: 0.32
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = FLOOR_Y + 0.012;
-    scene.add(ring);
-    // Soft teal inner halo
-    const halo = new THREE.Mesh(
-      new THREE.RingGeometry(2.72, 2.95, 80),
-      new THREE.MeshBasicMaterial({
-        color: 0x4ecdc4, side: THREE.DoubleSide,
-        transparent: true, opacity: 0.12
-      })
-    );
-    halo.rotation.x = -Math.PI / 2;
-    halo.position.y = FLOOR_Y + 0.011;
-    scene.add(halo);
 
     const geo = new THREE.BoxGeometry(DIE_SIZE, DIE_SIZE, DIE_SIZE, 2, 2, 2);
     const mats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
@@ -568,7 +534,7 @@
   }
 
   window.throw3DDie = function () {
-    return ensureLibs().then(() => {
+    return Promise.all([ensureLibs(), ensureBrandFont()]).then(() => {
       if (!overlay) buildOverlay();
       if (!renderer) {
         try { initScene(); }
