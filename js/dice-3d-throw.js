@@ -27,6 +27,18 @@
   const FLOOR_Y = 0;
   const DRAG_Y = DIE_SIZE; // hover height while dragging
 
+  // Play-area bounds — sized so the die always stays inside the camera's
+  // visible footprint on the floor (see initScene for camera/FOV).
+  const WALL_FRONT =  2.6;   // wall closest to camera (max +Z)
+  const WALL_BACK  = -5.0;   // wall farthest from camera (min -Z)
+  const WALL_SIDE  =  2.4;   // ±X side walls
+  const DIE_HALF   =  DIE_SIZE / 2;
+  // Pointer-drag bounds: keep the die center safely inside the walls.
+  const DRAG_X_LIMIT = WALL_SIDE  - DIE_HALF - 0.05;
+  const DRAG_Z_MIN   = WALL_BACK  + DIE_HALF + 0.05;
+  const DRAG_Z_MAX   = WALL_FRONT - DIE_HALF - 0.05;
+  const clamp = (v, lo, hi) => v < lo ? lo : (v > hi ? hi : v);
+
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -169,14 +181,6 @@
       x += widths[i] + letterSpacing;
     }
 
-    // Tiny tagline beneath the wordmark
-    ctx.save();
-    ctx.font = "800 44px 'Nunito', sans-serif";
-    ctx.fillStyle = 'rgba(78,205,196,0.55)';
-    ctx.textAlign = 'center';
-    ctx.fillText('D I C E   G A M E', S/2, cy + fontSize * 0.7);
-    ctx.restore();
-
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = 16;
     return tex;
@@ -196,7 +200,7 @@
     overlay = document.createElement('div');
     overlay.id = 'dice3dOverlay';
     overlay.innerHTML =
-      '<div class="d3d-title">YAMIO DICE</div>' +
+      '<div class="d3d-title">YAMIO</div>' +
       '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the die and flick to throw</div>' +
       '<button class="d3d-cancel" id="dice3dCancel">Skip throw</button>';
@@ -220,9 +224,11 @@
 
     const w = canvasEl.clientWidth || 1;
     const h = canvasEl.clientHeight || 1;
-    camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+    // Slightly wider FOV than before (50°) so the camera covers the full
+    // walled play area even on portrait phones.
+    camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
     camera.position.set(0, 7.5, 7);
-    camera.lookAt(0, 0.4, -0.8);
+    camera.lookAt(0, 0.2, -1.3);
 
     renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -297,12 +303,12 @@
     floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     world.addBody(floorBody);
 
-    // Invisible walls — keep die in play area.
+    // Invisible walls — keep die in the camera-visible play area.
     const walls = [
-      { p: [0, 0, -6.5], r: [0, 0, 0] },
-      { p: [0, 0,  6.5], r: [0, Math.PI, 0] },
-      { p: [-5.5, 0, 0], r: [0,  Math.PI / 2, 0] },
-      { p: [ 5.5, 0, 0], r: [0, -Math.PI / 2, 0] }
+      { p: [0, 0, WALL_BACK],   r: [0, 0, 0] },
+      { p: [0, 0, WALL_FRONT],  r: [0, Math.PI, 0] },
+      { p: [-WALL_SIDE, 0, 0],  r: [0,  Math.PI / 2, 0] },
+      { p: [ WALL_SIDE, 0, 0],  r: [0, -Math.PI / 2, 0] }
     ];
     walls.forEach(d => {
       const b = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: floorPMat });
@@ -329,7 +335,7 @@
 
   function resetDie() {
     dieBody.type = CANNON.Body.DYNAMIC;
-    dieBody.position.set(0, 0.9, 2.6);
+    dieBody.position.set(0, 0.9, DRAG_Z_MAX - 0.4);
     dieBody.velocity.set(0, 0, 0);
     dieBody.angularVelocity.set(0, 0, 0);
     dieBody.quaternion.setFromEuler(
@@ -390,7 +396,9 @@
         pickOffset.z = dieBody.position.z - p.z;
       } else {
         pickOffset.x = 0; pickOffset.z = 0;
-        dieBody.position.set(p.x, DRAG_Y, p.z);
+        const cx = clamp(p.x, -DRAG_X_LIMIT, DRAG_X_LIMIT);
+        const cz = clamp(p.z, DRAG_Z_MIN, DRAG_Z_MAX);
+        dieBody.position.set(cx, DRAG_Y, cz);
       }
       pointerSamples.push({ t: performance.now(), x: p.x, z: p.z });
     }
@@ -401,7 +409,9 @@
     if (!dragging) return;
     const p = pointerOnDragPlane(ev);
     if (!p) return;
-    dieBody.position.set(p.x + pickOffset.x, DRAG_Y, p.z + pickOffset.z);
+    const tx = clamp(p.x + pickOffset.x, -DRAG_X_LIMIT, DRAG_X_LIMIT);
+    const tz = clamp(p.z + pickOffset.z, DRAG_Z_MIN, DRAG_Z_MAX);
+    dieBody.position.set(tx, DRAG_Y, tz);
     const now = performance.now();
     pointerSamples.push({ t: now, x: p.x, z: p.z });
     while (pointerSamples.length > 2 && now - pointerSamples[0].t > 200) {
