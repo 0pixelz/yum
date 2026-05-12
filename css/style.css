@@ -1164,8 +1164,10 @@
     background: var(--bg);
     display: none; flex-direction: column;
     align-items: center; justify-content: flex-start;
-    padding: 24px;
+    padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
   .room-code-box {
     background: var(--card);
