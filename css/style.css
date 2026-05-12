@@ -796,6 +796,12 @@
   }
   .lobby-input:focus { border-color: var(--gold); }
   .lobby-input::placeholder { color: var(--muted); font-weight: 400; }
+  @keyframes lobbyInputFlash {
+    0%, 100% { border-color: rgba(255,255,255,0.15); box-shadow: none; }
+    20%, 60% { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(231,76,60,0.25); }
+    40%, 80% { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(245,166,35,0.25); }
+  }
+  .lobby-input--flash { animation: lobbyInputFlash 0.9s ease-in-out 2; }
   .lobby-btn {
     width: 100%; max-width: 320px;
     padding: 16px; border-radius: 50px; border: none;

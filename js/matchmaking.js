@@ -896,7 +896,8 @@
     const nameEl = el('playerName');
     const name = (nameEl && nameEl.value && nameEl.value.trim()) || '';
     if (!name) {
-      lobbyErr('Enter your name first!');
+      if (typeof window.promptForUsername === 'function') window.promptForUsername();
+      else lobbyErr('Enter your name first!');
       return;
     }
     if (typeof window.yumValidateUsername === 'function') {

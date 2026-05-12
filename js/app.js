@@ -1007,9 +1007,23 @@ function genCode() {
   return code;
 }
 
+function promptForUsername() {
+  const input = document.getElementById('playerName');
+  if (input) {
+    try { input.focus({ preventScroll: false }); } catch(e) { input.focus(); }
+    try { input.click(); } catch(e) {}
+    input.classList.remove('lobby-input--flash');
+    void input.offsetWidth;
+    input.classList.add('lobby-input--flash');
+    setTimeout(() => input.classList.remove('lobby-input--flash'), 1900);
+  }
+  if (typeof showToast === 'function') showToast('Enter username first');
+}
+window.promptForUsername = promptForUsername;
+
 function getLobbyName() {
   const n = document.getElementById('playerName').value.trim();
-  if(!n) { showLobbyErr('Enter your name first!'); return null; }
+  if(!n) { promptForUsername(); return null; }
   if (typeof window.yumValidateUsername === 'function') {
     const check = window.yumValidateUsername(n);
     if (!check.ok) { showLobbyErr(check.reason); return null; }
@@ -1847,7 +1861,7 @@ let botThinkTimeout = null;
 
 function openBotModeChoice() {
   const name = document.getElementById('playerName').value.trim();
-  if(!name) { showLobbyErr('Enter your name first!'); return; }
+  if(!name) { promptForUsername(); return; }
   if (typeof window.yumValidateUsername === 'function') {
     const check = window.yumValidateUsername(name);
     if (!check.ok) { showLobbyErr(check.reason); return; }
@@ -1866,7 +1880,7 @@ function chooseBotMode(mode) {
 
 function startVsBot(mode) {
   const name = document.getElementById('playerName').value.trim();
-  if(!name) { showLobbyErr('Enter your name first!'); return; }
+  if(!name) { promptForUsername(); return; }
   if (typeof window.yumValidateUsername === 'function') {
     const check = window.yumValidateUsername(name);
     if (!check.ok) { showLobbyErr(check.reason); return; }
