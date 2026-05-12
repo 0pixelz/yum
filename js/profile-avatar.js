@@ -263,39 +263,6 @@
         justify-content: center;
       }
       .ya-pick-tile.selected .ya-pick-check { display: inline-flex; }
-
-      .lobby-name-row {
-        display: flex; align-items: center; gap: 10px;
-        width: 100%; max-width: 320px;
-        margin-bottom: 12px;
-      }
-      .lobby-name-row .lobby-input {
-        flex: 1; min-width: 0; margin-bottom: 0;
-      }
-      .lobby-avatar-btn {
-        flex: 0 0 auto;
-        width: 52px; height: 52px;
-        border-radius: 14px;
-        background: var(--card);
-        border: 2px solid rgba(255,255,255,0.15);
-        padding: 4px;
-        cursor: pointer;
-        display: inline-flex; align-items: center; justify-content: center;
-        transition: border-color 0.2s, transform 0.1s;
-        overflow: hidden;
-      }
-      .lobby-avatar-btn:hover { border-color: var(--gold); }
-      .lobby-avatar-btn:active { transform: scale(0.96); }
-      .lobby-avatar-btn .ya-host {
-        width: 100%; height: 100%;
-        border-radius: 10px;
-        display: flex; align-items: center; justify-content: center;
-        overflow: hidden;
-      }
-      .lobby-avatar-btn .ya-initials {
-        font-family: 'Bebas Neue', cursive;
-        font-size: 1.3rem; color: var(--gold);
-      }
     `;
     document.head.appendChild(style);
   }
@@ -390,52 +357,10 @@
     markupForProfile,
     openPicker,
     closePicker,
-    refreshLobbyAvatar() { refreshLobbyAvatar(); },
+    refreshLobbyAvatar() {},
     nameOf(id) {
       if (id === 'google') return 'Google photo';
       return (THEMES[id] || THEMES[DEFAULT_ID]).name;
     }
   };
-
-  function refreshLobbyAvatar() {
-    const btn = document.getElementById('lobbyAvatarBtn');
-    if (!btn) return;
-    btn.innerHTML = `<span class="ya-host">${markupForProfile()}</span>`;
-  }
-
-  function attachLobbyAvatar() {
-    const input = document.getElementById('playerName');
-    if (!input) return;
-    if (document.getElementById('lobbyAvatarBtn')) {
-      refreshLobbyAvatar();
-      return;
-    }
-    if (input.parentElement && input.parentElement.classList.contains('lobby-name-row')) {
-      refreshLobbyAvatar();
-      return;
-    }
-    const row = document.createElement('div');
-    row.className = 'lobby-name-row';
-    const btn = document.createElement('button');
-    btn.id = 'lobbyAvatarBtn';
-    btn.type = 'button';
-    btn.className = 'lobby-avatar-btn';
-    btn.setAttribute('aria-label', 'Choose avatar');
-    btn.title = 'Choose avatar';
-    btn.addEventListener('click', () => openPicker());
-    input.parentNode.insertBefore(row, input);
-    row.appendChild(btn);
-    row.appendChild(input);
-    refreshLobbyAvatar();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachLobbyAvatar);
-  } else {
-    attachLobbyAvatar();
-  }
-  document.addEventListener('yum-avatar-changed', refreshLobbyAvatar);
-  window.addEventListener('storage', e => {
-    if (e.key === 'yum_google_profile' || e.key === 'yum_avatar_id') refreshLobbyAvatar();
-  });
 })();
