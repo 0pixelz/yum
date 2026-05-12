@@ -1572,6 +1572,11 @@ function leaveGame() {
   document.getElementById('mpBanner').style.display = 'none';
   document.getElementById('leaderboard').style.display = 'none';
   document.getElementById('lobbyOverlay').style.display = 'flex';
+  // Hide any in-flight turn/score popups so they don't linger over the lobby
+  // when leaving mid-animation or during the 3-4s scheduled delays.
+  document.getElementById('yourTurnPop')?.classList.remove('show');
+  document.getElementById('botActionPopup')?.classList.remove('show');
+  if (_botActionTimer) { clearTimeout(_botActionTimer); _botActionTimer = null; }
   scores = {}; playerScoreDice = {}; renderScores();
 }
 
@@ -2110,6 +2115,13 @@ function animateBotDice() {
 let _botActionTimer = null;
 function showBotActionPopup(name, diceArr, catName, scored, isPerfect, isZero, isMp) {
   const pop = document.getElementById('botActionPopup');
+  // Bail if we're back in the lobby — Firebase listeners or pending timers
+  // can race with leaveGame() and otherwise paint a score popup over it.
+  if (!mpMode && !botMode) {
+    if (pop) pop.classList.remove('show');
+    if (_botActionTimer) { clearTimeout(_botActionTimer); _botActionTimer = null; }
+    return;
+  }
   document.getElementById('bapAvatar').innerHTML = isMp
     ? '<i class="icn icn-players"></i>'
     : '<i class="icn icn-bot"></i>';
@@ -2456,6 +2468,9 @@ function quitGame() {
   } else if(mpMode) {
     leaveGame();
   }
+  document.getElementById('yourTurnPop')?.classList.remove('show');
+  document.getElementById('botActionPopup')?.classList.remove('show');
+  if (_botActionTimer) { clearTimeout(_botActionTimer); _botActionTimer = null; }
   document.getElementById('lobbyOverlay').style.display = 'flex';
 }
 
@@ -2792,9 +2807,15 @@ function showYourTurnPop(sub) {
   // Most callers schedule this via setTimeout, so by the time it fires the
   // turn may already have flipped to the bot/opponent. Re-check the current
   // turn state and bail if it's no longer our turn.
+  const pop = document.getElementById('yourTurnPop');
+  // If we've left the game (back in the lobby), drop any pending show and
+  // make sure a previously-shown popup isn't lingering from a teardown race.
+  if (!mpMode && !botMode) {
+    if (pop) pop.classList.remove('show');
+    return;
+  }
   if (mpMode && currentTurnId && currentTurnId !== playerId) return;
   if (botMode && playerTurn === false) return;
-  const pop = document.getElementById('yourTurnPop');
   const subEl = document.getElementById('yourTurnSub');
   if(subEl) subEl.textContent = sub || 'ROLL THE DICE';
   // Reset animation
