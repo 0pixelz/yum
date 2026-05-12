@@ -71,20 +71,21 @@
     c.width = S; c.height = S;
     const ctx = c.getContext('2d');
 
-    // Warm gold face — same color stops as #yumDieFace in index.html
+    // Saturated orange face — punchier than the SVG brand mark so the die
+    // doesn't average down to beige at game scale.
     const faceGrad = ctx.createRadialGradient(S * 0.32, S * 0.28, 16, S * 0.5, S * 0.5, S * 0.95);
-    faceGrad.addColorStop(0,    '#fff3d6');
-    faceGrad.addColorStop(0.38, '#ffd28a');
-    faceGrad.addColorStop(0.78, '#f5a23a');
-    faceGrad.addColorStop(1,    '#e07a14');
+    faceGrad.addColorStop(0,    '#ffd49a');
+    faceGrad.addColorStop(0.32, '#ffa84a');
+    faceGrad.addColorStop(0.72, '#ef7a12');
+    faceGrad.addColorStop(1,    '#a8480a');
     ctx.fillStyle = faceGrad;
     ctx.fillRect(0, 0, S, S);
 
     // Soft inset border — looks like the bevel edge from the brand mark
-    ctx.strokeStyle = 'rgba(90,42,8,0.5)';
+    ctx.strokeStyle = 'rgba(70,30,5,0.55)';
     ctx.lineWidth = 10;
     ctx.strokeRect(28, 28, S - 56, S - 56);
-    ctx.strokeStyle = 'rgba(255,243,214,0.45)';
+    ctx.strokeStyle = 'rgba(255,210,138,0.45)';
     ctx.lineWidth = 3;
     ctx.strokeRect(40, 40, S - 80, S - 80);
 
@@ -104,7 +105,7 @@
       ctx.fillStyle = pg;
       ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
       // small specular highlight
-      ctx.fillStyle = 'rgba(255,243,214,0.32)';
+      ctx.fillStyle = 'rgba(255,210,138,0.34)';
       ctx.beginPath(); ctx.arc(x - 14, y - 14, 8, 0, Math.PI * 2); ctx.fill();
     };
     // Standard pip positions, scaled from 256→512 (×2)
@@ -156,10 +157,10 @@
     ctx.translate(x, y);
     ctx.scale(s, s);
 
-    // Soft gold radial glow behind the dice
+    // Warm orange radial glow behind the dice
     const glow = ctx.createRadialGradient(32, 32, 4, 32, 32, 30);
-    glow.addColorStop(0, 'rgba(245,166,35,0.55)');
-    glow.addColorStop(1, 'rgba(245,166,35,0)');
+    glow.addColorStop(0, 'rgba(255,140,30,0.7)');
+    glow.addColorStop(1, 'rgba(255,140,30,0)');
     ctx.fillStyle = glow;
     ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
 
@@ -167,20 +168,21 @@
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath(); ctx.ellipse(32, 58, 22, 3.5, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Rounded-square die face with the yumDieFace radial gradient
+    // Rounded-square die face — saturated orange so the small mark reads
+    // as "orange" on the floor instead of washing out to beige.
     const dieFace = ctx.createRadialGradient(
       10 + 44 * 0.32, 8 + 44 * 0.28, 2,
       10 + 44 * 0.32, 8 + 44 * 0.28, 44 * 0.95
     );
-    dieFace.addColorStop(0,    '#fff3d6');
-    dieFace.addColorStop(0.38, '#ffd28a');
-    dieFace.addColorStop(0.78, '#f5a23a');
-    dieFace.addColorStop(1,    '#e07a14');
+    dieFace.addColorStop(0,    '#ffd49a');
+    dieFace.addColorStop(0.32, '#ffa84a');
+    dieFace.addColorStop(0.72, '#ef7a12');
+    dieFace.addColorStop(1,    '#a8480a');
     ctx.fillStyle = dieFace;
     roundRect(ctx, 10, 8, 44, 44, 9);
     ctx.fill();
-    ctx.strokeStyle = '#5a2a08';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = '#4a1f04';
+    ctx.lineWidth = 1.4;
     ctx.stroke();
 
     // 6 pips arranged 2 cols × 3 rows
@@ -233,19 +235,24 @@
     // Dice mark on the left
     drawYamioMark(ctx, logoX, cy - markSize / 2, markSize);
 
-    // Wordmark "YAMIO" — gold→red diagonal gradient (matches .yum-brand-text)
+    // Wordmark "YAMIO" — orange-biased gold→red gradient. We hold the
+    // saturated orange across most of the word and only roll into red at
+    // the very end so the wordmark reads "orange" overall on the floor,
+    // matching the lobby header's vivid look.
     const wordX = logoX + markSize + gap;
     const wordGrad = ctx.createLinearGradient(
       wordX, cy - fontSize * 0.5,
       wordX + wordW, cy + fontSize * 0.5
     );
-    wordGrad.addColorStop(0, BRAND.gold);
-    wordGrad.addColorStop(1, BRAND.accent);
+    wordGrad.addColorStop(0,    '#ffb347');
+    wordGrad.addColorStop(0.55, '#f5871a');
+    wordGrad.addColorStop(1,    BRAND.accent);
 
-    // Soft glow pass under the letters
+    // Warm orange glow pass under the letters — tighter blur so the
+    // saturated color isn't diluted into a beige halo.
     ctx.save();
-    ctx.shadowColor = 'rgba(245,166,35,0.5)';
-    ctx.shadowBlur = 80;
+    ctx.shadowColor = 'rgba(239,122,18,0.55)';
+    ctx.shadowBlur = 36;
     ctx.fillStyle = wordGrad;
     let x = wordX;
     for (let i = 0; i < text.length; i++) {
@@ -254,15 +261,17 @@
     }
     ctx.restore();
 
-    // Crisp gradient pass (no shadow)
+    // Two crisp gradient passes for extra punch (no shadow)
     ctx.fillStyle = wordGrad;
-    x = wordX;
-    for (let i = 0; i < text.length; i++) {
-      ctx.fillText(text[i], x, cy);
-      x += widths[i] + letterSpacing;
+    for (let pass = 0; pass < 2; pass++) {
+      x = wordX;
+      for (let i = 0; i < text.length; i++) {
+        ctx.fillText(text[i], x, cy);
+        x += widths[i] + letterSpacing;
+      }
     }
     // Dark outline so the letters pop against the very dark floor
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
     ctx.lineWidth = 4;
     x = wordX;
     for (let i = 0; i < text.length; i++) {
