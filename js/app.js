@@ -233,6 +233,11 @@ function renderDice(justRolled) {
     const faceChanged = el.textContent !== face;
     if(wasRolled || faceChanged) {
       el.classList.remove('die-spin', 'die-rolled-same');
+      // Cancel any in-flight roll animation so a back-to-back re-trigger
+      // (e.g. powerup reroll followed by an immediate roll) reliably restarts.
+      if (typeof el.getAnimations === 'function') {
+        el.getAnimations().forEach(a => { try { a.cancel(); } catch(e){} });
+      }
       void el.offsetWidth; // force reflow
       el.classList.add('die-spin');
       if(wasRolled && !faceChanged) el.classList.add('die-rolled-same');
