@@ -16,14 +16,17 @@
   let secEl = null;
 
   function ensureTimerEl() {
-    if (timerEl) return timerEl;
-    timerEl = document.createElement('div');
-    timerEl.id = 'turnTimer';
-    timerEl.innerHTML =
-      '<i class="icn icn-bolt"></i>' +
-      '<span id="turnTimerSec">60</span>' +
-      '<span class="tt-unit">s</span>';
-    document.body.appendChild(timerEl);
+    if (timerEl && timerEl.isConnected) return timerEl;
+    if (!timerEl) {
+      timerEl = document.createElement('div');
+      timerEl.id = 'turnTimer';
+      timerEl.innerHTML =
+        '<i class="icn icn-bolt"></i>' +
+        '<span id="turnTimerSec">60</span>' +
+        '<span class="tt-unit">s</span>';
+    }
+    const host = document.querySelector('.dice-section') || document.body;
+    host.appendChild(timerEl);
     secEl = document.getElementById('turnTimerSec');
     return timerEl;
   }
@@ -178,26 +181,27 @@
   function injectCSS() {
     const style = document.createElement('style');
     style.textContent = `
+      .dice-section { position: relative; }
       #turnTimer {
-        position: fixed;
-        top: 70px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 500;
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 5;
         background: rgba(20, 20, 40, 0.92);
         border: 1.5px solid rgba(245, 166, 35, 0.5);
-        border-radius: 22px;
-        padding: 6px 14px;
+        border-radius: 18px;
+        padding: 4px 11px;
         color: var(--gold);
         font-family: 'Bebas Neue', cursive;
-        font-size: 1rem;
+        font-size: 0.95rem;
         letter-spacing: 1.5px;
         display: none;
         align-items: center;
         gap: 6px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         transition: color 0.2s, border-color 0.2s, background 0.2s;
         pointer-events: none;
+        transform-origin: top right;
       }
       #turnTimer.tt-show { display: inline-flex; }
       #turnTimer .tt-unit { opacity: 0.7; font-size: 0.85em; }
@@ -208,11 +212,11 @@
         animation: ttPulse 0.7s ease-in-out infinite;
       }
       @keyframes ttPulse {
-        0%, 100% { transform: translateX(-50%) scale(1); }
-        50% { transform: translateX(-50%) scale(1.08); }
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.08); }
       }
       @media (max-width: 480px) {
-        #turnTimer { top: 60px; font-size: 0.9rem; padding: 5px 12px; }
+        #turnTimer { top: 10px; right: 10px; font-size: 0.85rem; padding: 3px 9px; }
       }
     `;
     document.head.appendChild(style);
