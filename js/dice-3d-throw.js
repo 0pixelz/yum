@@ -148,72 +148,123 @@
     return geo;
   }
 
+  // Draws the Yamio brand dice mark (matches the #yum-mark SVG in index.html).
+  // Origin = top-left of the mark, size = side length on the canvas.
+  function drawYamioMark(ctx, x, y, size) {
+    const s = size / 64; // viewBox is 64x64
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+
+    // Soft gold radial glow behind the dice
+    const glow = ctx.createRadialGradient(32, 32, 4, 32, 32, 30);
+    glow.addColorStop(0, 'rgba(245,166,35,0.55)');
+    glow.addColorStop(1, 'rgba(245,166,35,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
+
+    // Drop-shadow ellipse beneath
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(32, 58, 22, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Rounded-square die face with the yumDieFace radial gradient
+    const dieFace = ctx.createRadialGradient(
+      10 + 44 * 0.32, 8 + 44 * 0.28, 2,
+      10 + 44 * 0.32, 8 + 44 * 0.28, 44 * 0.95
+    );
+    dieFace.addColorStop(0,    '#fff3d6');
+    dieFace.addColorStop(0.38, '#ffd28a');
+    dieFace.addColorStop(0.78, '#f5a23a');
+    dieFace.addColorStop(1,    '#e07a14');
+    ctx.fillStyle = dieFace;
+    roundRect(ctx, 10, 8, 44, 44, 9);
+    ctx.fill();
+    ctx.strokeStyle = '#5a2a08';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // 6 pips arranged 2 cols × 3 rows
+    ctx.fillStyle = '#3a1a05';
+    const pips = [[21,19],[43,19],[21,30],[43,30],[21,41],[43,41]];
+    for (const [px, py] of pips) {
+      ctx.beginPath(); ctx.arc(px, py, 2.9, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function makeFloorTexture() {
-    const S = 2048;
+    // 4K canvas — high enough that the YAMIO wordmark stays crisp even when the
+    // camera dollies in and views the floor at an angle.
+    const S = 4096;
     const c = document.createElement('canvas');
     c.width = S; c.height = S;
     const ctx = c.getContext('2d');
 
-    // Very dark navy — matches the main lobby background (almost black with
-    // a faint blue tint), slightly lifted in the upper-center where the dice sits.
-    const g = ctx.createRadialGradient(S/2, S * 0.42, 60, S/2, S * 0.5, S * 0.7);
-    g.addColorStop(0,    '#1d1f44');
-    g.addColorStop(0.45, BRAND.bg);     // #1a1a2e
-    g.addColorStop(1,    '#06071a');
+    // Very dark blue background — matches the main lobby (almost black with a
+    // faint navy lift in the upper center).
+    const g = ctx.createRadialGradient(S/2, S * 0.40, 80, S/2, S * 0.55, S * 0.72);
+    g.addColorStop(0,    '#10132e');
+    g.addColorStop(0.55, '#0a0c1f');
+    g.addColorStop(1,    '#05061a');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, S, S);
 
-    // Faint accent ring under the throw area (gold, very subtle)
-    ctx.strokeStyle = 'rgba(245,166,35,0.18)';
-    ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.arc(S/2, S * 0.55, S * 0.36, 0, Math.PI * 2); ctx.stroke();
+    // Subtle gold accent ring under the throw area
+    ctx.strokeStyle = 'rgba(245,166,35,0.15)';
+    ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.arc(S/2, S * 0.58, S * 0.34, 0, Math.PI * 2); ctx.stroke();
 
-    // ── YAMIO wordmark — matches .yum-brand-text on the main screen ──
-    // Positioned in the upper-middle of the canvas so it lands at world z ≈ -2.6
-    // (behind the dice's resting area, in the upper part of the camera frame).
+    // ── Yamio brand logo (dice mark + wordmark, like the main lobby) ──
     const text = 'YAMIO';
-    const fontSize = 260;
-    const letterSpacing = fontSize * 0.18; // matches CSS letter-spacing: 0.18em
+    const fontSize = 280;
+    const letterSpacing = fontSize * 0.18;            // matches CSS letter-spacing
     ctx.font = `900 ${fontSize}px 'Bebas Neue', 'Impact', 'Arial Narrow', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
 
     const widths = text.split('').map(ch => ctx.measureText(ch).width);
-    const totalW = widths.reduce((a, b) => a + b, 0) + letterSpacing * (text.length - 1);
-    const cy = S * 0.34;                 // upper-middle of the floor
-    const startX = (S - totalW) / 2;
+    const wordW = widths.reduce((a, b) => a + b, 0) + letterSpacing * (text.length - 1);
+    const markSize = fontSize * 1.25;                 // .yum-brand-mark ≈ 1.15em + extra room
+    const gap = fontSize * 0.35;                      // .yum-brand-logo gap = 0.4em
+    const totalW = markSize + gap + wordW;
+    const cy = S * 0.30;                              // upper-third of the floor
+    const logoX = (S - totalW) / 2;
 
-    // Gold → red diagonal gradient (matches .yum-brand-text background)
+    // Dice mark on the left
+    drawYamioMark(ctx, logoX, cy - markSize / 2, markSize);
+
+    // Wordmark "YAMIO" — gold→red diagonal gradient (matches .yum-brand-text)
+    const wordX = logoX + markSize + gap;
     const wordGrad = ctx.createLinearGradient(
-      startX, cy - fontSize * 0.5,
-      startX + totalW, cy + fontSize * 0.5
+      wordX, cy - fontSize * 0.5,
+      wordX + wordW, cy + fontSize * 0.5
     );
-    wordGrad.addColorStop(0, BRAND.gold);   // #f5a623
-    wordGrad.addColorStop(1, BRAND.accent); // #e94560
+    wordGrad.addColorStop(0, BRAND.gold);
+    wordGrad.addColorStop(1, BRAND.accent);
 
-    // Big soft glow behind the wordmark
+    // Soft glow pass under the letters
     ctx.save();
-    ctx.shadowColor = 'rgba(245,166,35,0.55)';
-    ctx.shadowBlur = 90;
+    ctx.shadowColor = 'rgba(245,166,35,0.5)';
+    ctx.shadowBlur = 80;
     ctx.fillStyle = wordGrad;
-    let x = startX;
+    let x = wordX;
     for (let i = 0; i < text.length; i++) {
       ctx.fillText(text[i], x, cy);
       x += widths[i] + letterSpacing;
     }
     ctx.restore();
 
-    // Crisp gradient fill pass (no shadow)
+    // Crisp gradient pass (no shadow)
     ctx.fillStyle = wordGrad;
-    x = startX;
+    x = wordX;
     for (let i = 0; i < text.length; i++) {
       ctx.fillText(text[i], x, cy);
       x += widths[i] + letterSpacing;
     }
-    // Dark outline so the letters pop against the dark navy
+    // Dark outline so the letters pop against the very dark floor
     ctx.strokeStyle = 'rgba(0,0,0,0.55)';
     ctx.lineWidth = 4;
-    x = startX;
+    x = wordX;
     for (let i = 0; i < text.length; i++) {
       ctx.strokeText(text[i], x, cy);
       x += widths[i] + letterSpacing;
@@ -240,7 +291,7 @@
     overlay.innerHTML =
       '<div class="d3d-title">YAMIO</div>' +
       '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas></div>' +
-      '<div class="d3d-status" id="dice3dStatus">Drag the die and flick to throw</div>' +
+      '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
       '<button class="d3d-cancel" id="dice3dCancel">Skip throw</button>';
     document.body.appendChild(overlay);
     canvasEl = overlay.querySelector('#dice3dCanvas');
@@ -622,7 +673,7 @@
         }
       }
       resetDie();
-      statusEl.textContent = 'Drag the die and flick to throw';
+      statusEl.textContent = 'Drag the dice and flick to throw';
       overlay.style.display = 'flex';
       requestAnimationFrame(() => {
         overlay.classList.add('open');
