@@ -23,7 +23,8 @@
   const FACE_NUMBERS = [1, 6, 2, 5, 3, 4];
   const FACE_KEYS    = ['+X','-X','+Y','-Y','+Z','-Z'];
 
-  const DIE_SIZE = 1.4;
+  const DIE_SIZE = 1.0;
+  const DIE_BEVEL = DIE_SIZE * 0.13; // corner/edge radius — gives a soft "casino die" silhouette
   const FLOOR_Y = 0;
   const DRAG_Y = DIE_SIZE; // hover height while dragging
 
@@ -60,54 +61,90 @@
     white:  '#f0f0f0'
   };
 
-  // The 3D die's faces are styled after the brand dice mark:
-  // warm gold radial face, dark-brown pips, brown border. Standard pip layouts 1–6.
+  // The 3D die's faces are styled after the brand dice mark (#yum-mark):
+  // warm gold radial face with dark-brown pips. The canvas is filled edge to
+  // edge so the rounded corners of the geometry show face color too.
   function makeFaceTexture(num) {
+    const S = 512;
     const c = document.createElement('canvas');
-    c.width = 256; c.height = 256;
+    c.width = S; c.height = S;
     const ctx = c.getContext('2d');
 
-    // Warm gold face — matches the #yumDieFace radial gradient from index.html
-    const faceGrad = ctx.createRadialGradient(82, 72, 8, 82, 72, 240);
+    // Warm gold face — same color stops as #yumDieFace in index.html
+    const faceGrad = ctx.createRadialGradient(S * 0.32, S * 0.28, 16, S * 0.5, S * 0.5, S * 0.95);
     faceGrad.addColorStop(0,    '#fff3d6');
     faceGrad.addColorStop(0.38, '#ffd28a');
     faceGrad.addColorStop(0.78, '#f5a23a');
     faceGrad.addColorStop(1,    '#e07a14');
     ctx.fillStyle = faceGrad;
-    roundRect(ctx, 8, 8, 240, 240, 38);
-    ctx.fill();
+    ctx.fillRect(0, 0, S, S);
 
-    // Dark brown brand border
-    ctx.strokeStyle = '#5a2a08';
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    // Soft inner highlight
-    roundRect(ctx, 16, 16, 224, 224, 32);
+    // Soft inset border — looks like the bevel edge from the brand mark
+    ctx.strokeStyle = 'rgba(90,42,8,0.5)';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(28, 28, S - 56, S - 56);
     ctx.strokeStyle = 'rgba(255,243,214,0.45)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.strokeRect(40, 40, S - 80, S - 80);
 
-    // Dark-brown pips (match the brand mark)
+    // Dark-brown pips (match the brand mark color, larger radius for the higher-res canvas)
     const pip = (x, y) => {
-      ctx.fillStyle = '#3a1a05';
-      ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); ctx.fill();
-      // subtle inner shine
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      ctx.beginPath(); ctx.arc(x - 7, y - 7, 4, 0, Math.PI * 2); ctx.fill();
+      // soft drop shadow beneath the pip for depth
+      const sh = ctx.createRadialGradient(x, y + 4, 8, x, y + 6, 56);
+      sh.addColorStop(0, 'rgba(58,26,5,0.45)');
+      sh.addColorStop(1, 'rgba(58,26,5,0)');
+      ctx.fillStyle = sh;
+      ctx.beginPath(); ctx.arc(x, y + 4, 56, 0, Math.PI * 2); ctx.fill();
+      // pip — slight gradient for a recessed look
+      const pg = ctx.createRadialGradient(x - 14, y - 14, 4, x, y, 44);
+      pg.addColorStop(0,    '#5a2a08');
+      pg.addColorStop(0.5,  '#3a1a05');
+      pg.addColorStop(1,    '#1a0a02');
+      ctx.fillStyle = pg;
+      ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
+      // small specular highlight
+      ctx.fillStyle = 'rgba(255,243,214,0.32)';
+      ctx.beginPath(); ctx.arc(x - 14, y - 14, 8, 0, Math.PI * 2); ctx.fill();
     };
+    // Standard pip positions, scaled from 256→512 (×2)
     const P = {
-      1: [[128,128]],
-      2: [[76,76],[180,180]],
-      3: [[72,72],[128,128],[184,184]],
-      4: [[76,76],[180,76],[76,180],[180,180]],
-      5: [[72,72],[184,72],[128,128],[72,184],[184,184]],
-      6: [[76,68],[180,68],[76,128],[180,128],[76,188],[180,188]]
+      1: [[256,256]],
+      2: [[152,152],[360,360]],
+      3: [[144,144],[256,256],[368,368]],
+      4: [[152,152],[360,152],[152,360],[360,360]],
+      5: [[144,144],[368,144],[256,256],[144,368],[368,368]],
+      6: [[152,136],[360,136],[152,256],[360,256],[152,376],[360,376]]
     };
     P[num].forEach(([x, y]) => pip(x, y));
 
     const tex = new THREE.CanvasTexture(c);
-    tex.anisotropy = 8;
+    tex.anisotropy = 16;
     return tex;
+  }
+
+  // Build a rounded-box geometry: start from a segmented BoxGeometry, then
+  // push each vertex outward from the inner box (the cube shrunk by `radius`)
+  // along the offset direction so the corners and edges become spherical.
+  function makeRoundedBoxGeometry(size, radius, segs) {
+    const half = size / 2;
+    const inner = half - radius;
+    const geo = new THREE.BoxGeometry(size, size, size, segs, segs, segs);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      // nearest point on the inner cube
+      const cx = Math.max(-inner, Math.min(inner, x));
+      const cy = Math.max(-inner, Math.min(inner, y));
+      const cz = Math.max(-inner, Math.min(inner, z));
+      const dx = x - cx, dy = y - cy, dz = z - cz;
+      const len = Math.hypot(dx, dy, dz);
+      if (len > 1e-4) {
+        const k = radius / len;
+        pos.setXYZ(i, cx + dx * k, cy + dy * k, cz + dz * k);
+      }
+    }
+    geo.computeVertexNormals();
+    return geo;
   }
 
   function makeFloorTexture() {
@@ -275,11 +312,11 @@
     surround.receiveShadow = true;
     scene.add(surround);
 
-    const geo = new THREE.BoxGeometry(DIE_SIZE, DIE_SIZE, DIE_SIZE, 2, 2, 2);
+    const geo = makeRoundedBoxGeometry(DIE_SIZE, DIE_BEVEL, 6);
     const mats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
       map: makeFaceTexture(n),
-      roughness: 0.32,
-      metalness: 0.08,
+      roughness: 0.28,
+      metalness: 0.12,
       color: 0xffffff
     }));
     dieMesh = new THREE.Mesh(geo, mats);
