@@ -41,6 +41,58 @@
   const DRAG_Z_MAX   = WALL_FRONT - DIE_HALF - 0.05;
   const clamp = (v, lo, hi) => v < lo ? lo : (v > hi ? hi : v);
 
+  // ── Sound effects ────────────────────────────────────────────────
+  // Reuses the global `soundEnabled` flag and yumSound localStorage key set in
+  // app.js so the dice overlay obeys the same mute toggle as the rest of the app.
+  let _diceAudioCtx = null;
+  let _lastTapTime = 0;
+  function diceCtx() {
+    if (_diceAudioCtx) return _diceAudioCtx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    _diceAudioCtx = new AC();
+    return _diceAudioCtx;
+  }
+  function soundOn() {
+    if (typeof window.soundEnabled === 'boolean') return window.soundEnabled;
+    return localStorage.getItem('yumSound') !== 'off';
+  }
+  function playThrowClatter() {
+    if (!soundOn()) return;
+    if (typeof SFX !== 'undefined' && typeof SFX.roll === 'function') { SFX.roll(); return; }
+    // Fallback if SFX isn't loaded yet
+    const ctx = diceCtx(); if (!ctx) return;
+    const now = ctx.currentTime;
+    for (let i = 0; i < 4; i++) {
+      const t = now + i * 0.05;
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(180 + Math.random() * 120, t);
+      g.gain.setValueAtTime(0.15, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t); osc.stop(t + 0.08);
+    }
+  }
+  function playImpactTap(speed) {
+    if (!soundOn()) return;
+    const ctx = diceCtx(); if (!ctx) return;
+    const now = ctx.currentTime;
+    // Throttle so a single step with multiple contact points doesn't stack.
+    if (now - _lastTapTime < 0.035) return;
+    _lastTapTime = now;
+    const vol = Math.min(0.22, 0.05 + speed * 0.018);
+    const baseFreq = 160 + Math.random() * 90;
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, now + 0.06);
+    g.gain.setValueAtTime(vol, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(now); osc.stop(now + 0.09);
+  }
+
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -427,6 +479,16 @@
     });
     world.addBody(dieBody);
 
+    // Tap sound on each meaningful bounce while the throw is in flight.
+    dieBody.addEventListener('collide', (e) => {
+      if (!throwing) return;
+      const c = e && e.contact;
+      const v = c && typeof c.getImpactVelocityAlongNormal === 'function'
+        ? Math.abs(c.getImpactVelocityAlongNormal())
+        : 0;
+      if (v >= 1.4) playImpactTap(v);
+    });
+
     dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -DRAG_Y);
     raycaster = new THREE.Raycaster();
   }
@@ -597,6 +659,7 @@
     throwing = true;
     settleStart = performance.now();
     statusEl.textContent = 'Rolling…';
+    playThrowClatter();
   }
 
   function topFaceNumber() {
