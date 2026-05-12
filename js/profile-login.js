@@ -109,16 +109,20 @@
 
     const google = loadJSON(GOOGLE_PROFILE_KEY, null);
     const device = getDeviceProfile();
-    const label = google
-      ? `<i class="icn icn-check icn-green"></i> ${google.name || google.email}`
-      : `<i class="icn icn-tap"></i> Device profile: ${device.name}`;
 
-    bar.innerHTML = `
-      <div style="width:100%;text-align:center;color:var(--muted);font-size:.72rem;font-weight:800;margin-bottom:2px">${label}</div>
-      ${google
-        ? '<button type="button" onclick="signOutProfile()" style="border:1px solid rgba(233,69,96,.25);background:rgba(233,69,96,.08);color:var(--accent);border-radius:999px;padding:8px 14px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.6px;cursor:pointer">Sign out</button>'
-        : `<button type="button" onclick="signInWithGoogle()" class="social-login-btn">${GOOGLE_ICON_SVG}<span>Continue with Google</span></button>`}
-    `;
+    if (google) {
+      bar.innerHTML = `
+        <div style="display:inline-flex;align-items:center;gap:8px;color:var(--white);font-size:.85rem;font-weight:800;padding:6px 12px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);border-radius:999px">
+          ${GOOGLE_ICON_SVG}<span>${google.name || google.email}</span>
+        </div>
+        <button type="button" onclick="signOutProfile()" style="border:1px solid rgba(233,69,96,.25);background:rgba(233,69,96,.08);color:var(--accent);border-radius:999px;padding:8px 14px;font-family:Nunito,sans-serif;font-weight:900;letter-spacing:.6px;cursor:pointer">Sign out</button>
+      `;
+    } else {
+      bar.innerHTML = `
+        <div style="width:100%;text-align:center;color:var(--muted);font-size:.72rem;font-weight:800;margin-bottom:2px"><i class="icn icn-tap"></i> Device profile: ${device.name}</div>
+        <button type="button" onclick="signInWithGoogle()" class="social-login-btn">${GOOGLE_ICON_SVG}<span>Continue with Google</span></button>
+      `;
+    }
   }
 
   async function getAuthInstance() {

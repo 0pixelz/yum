@@ -22,21 +22,19 @@
     const style = document.createElement('style');
     style.id = 'profileSettingsStyles';
     style.textContent = `
-      .profile-settings-btn {
-        border: 1px solid rgba(78,205,196,.45);
-        background: rgba(78,205,196,.13);
-        color: #9be7e0;
-        border-radius: 999px;
-        padding: 8px 14px;
-        font-family: Nunito, sans-serif;
-        font-weight: 900;
-        letter-spacing: .6px;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
+      .profile-gear-btn {
+        position: fixed; top: 14px; left: 60px;
+        z-index: 600;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 8px; color: var(--white);
+        font-size: 1.1rem; cursor: pointer;
+        padding: 4px 9px; line-height: 1;
+        transition: background 0.15s;
+        display: inline-flex; align-items: center; justify-content: center;
       }
-      .profile-settings-btn:hover { background: rgba(78,205,196,.22); }
+      .profile-gear-btn:hover { background: rgba(255,255,255,0.22); }
+      body.yum-in-game .profile-gear-btn { display: none !important; }
 
       #profileSettingsOverlay {
         position: fixed;
@@ -415,18 +413,21 @@
 
   function ensureSettingsButton() {
     injectStyles();
-    const bar = document.getElementById('profileLoginBar');
-    if (!bar) return;
 
-    if (bar.querySelector('.profile-settings-btn')) return;
+    // Strip any leftover Profile-settings buttons from the login bar.
+    document.querySelectorAll('.profile-settings-btn').forEach(el => el.remove());
+
+    if (document.getElementById('profileGearBtn')) return;
 
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'profile-settings-btn';
+    btn.id = 'profileGearBtn';
+    btn.className = 'profile-gear-btn';
     btn.title = 'Profile settings';
-    btn.innerHTML = '<i class="icn icn-gear"></i><span>Profile settings</span>';
+    btn.setAttribute('aria-label', 'Open profile settings');
+    btn.innerHTML = '<i class="icn icn-gear"></i>';
     btn.addEventListener('click', openSettings);
-    bar.appendChild(btn);
+    document.body.appendChild(btn);
   }
 
   if (document.readyState === 'loading') {
@@ -435,7 +436,7 @@
     ensureSettingsButton();
   }
 
-  // The profile bar is re-rendered on auth state changes and by a watchdog
-  // in profile-login.js, so re-attach the button on the same cadence.
+  // The friends button is re-rendered on auth state changes and by a watchdog,
+  // so re-attach the gear button on the same cadence.
   setInterval(ensureSettingsButton, 700);
 })();
