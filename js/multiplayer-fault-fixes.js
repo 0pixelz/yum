@@ -108,6 +108,8 @@
     // Only the host advances stale turns — keeps server-side rules tight
     // (currentTurn is host-or-self writeable) and avoids transaction storms.
     if (!window.isHost) return;
+    // Honor the lobby's "no timer" toggle — when disabled, never auto-skip.
+    if (window.__yumTurnTimerEnabled === false) return;
     const turn = window.currentTurnId;
     if (!turn) return;
 

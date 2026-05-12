@@ -1194,6 +1194,7 @@ async function createGame() {
         started: false,
         currentTurn: playerId,
         gameMode: 'normal',
+        turnTimer: true,
         players: {
           [playerId]: { name: playerName, uid: _authUser.uid, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc, avatar: _joinAvatar }
         }
@@ -1270,6 +1271,11 @@ async function createGame() {
 function setMpGameMode(mode) {
   if (!isHost || !roomRef) return;
   roomRef.update({ gameMode: mode });
+}
+
+function setMpTurnTimer(on) {
+  if (!isHost || !roomRef) return;
+  roomRef.update({ turnTimer: !!on });
 }
 
 async function joinGame() {
@@ -1430,6 +1436,23 @@ function listenRoom() {
       if(modeInfo) modeInfo.textContent = gm === 'powerup'
         ? 'Roll 5-of-a-kind to earn power-ups!'
         : 'Standard rules, no power-ups';
+    }
+
+    // Update turn-timer selector and expose the flag to turn-timeout.js.
+    // Default to on for older rooms that pre-date the setting.
+    const timerOn = (data.turnTimer !== false);
+    window.__yumTurnTimerEnabled = timerOn;
+    const timerOnBtn  = document.getElementById('mpTimerOnBtn');
+    const timerOffBtn = document.getElementById('mpTimerOffBtn');
+    const timerInfo   = document.getElementById('mpTimerInfo');
+    if(timerOnBtn && timerOffBtn) {
+      timerOnBtn.classList.toggle('active', timerOn);
+      timerOffBtn.classList.toggle('active', !timerOn);
+      timerOnBtn.disabled  = !isHost;
+      timerOffBtn.disabled = !isHost;
+      if(timerInfo) timerInfo.textContent = timerOn
+        ? 'Players have 60s per turn before auto-pick'
+        : 'Take as long as you want — no auto-pick';
     }
 
     if(data.started && document.getElementById('waitingOverlay').style.display !== 'none') {
@@ -1660,6 +1683,7 @@ function leaveGame() {
     roomRef = null;
   }
   window.__yumReactionsAttachedFor = null;
+  window.__yumTurnTimerEnabled = true;
   mpMode = false; roomCode = null;
   document.getElementById('waitingOverlay').style.display = 'none';
   document.getElementById('mpBanner').style.display = 'none';
