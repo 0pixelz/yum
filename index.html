@@ -280,6 +280,14 @@
     </div>
     <div class="mp-mode-info" id="mpModeInfo">Standard rules, no power-ups</div>
   </div>
+  <div class="mp-mode-selector" id="mpTimerSelector">
+    <div class="mp-mode-label">TURN TIMER</div>
+    <div class="mp-mode-btns">
+      <button class="mp-mode-btn active" id="mpTimerOnBtn" onclick="setMpTurnTimer(true)"><i class="icn icn-bolt"></i> 60s Timer</button>
+      <button class="mp-mode-btn" id="mpTimerOffBtn" onclick="setMpTurnTimer(false)"><i class="icn icn-close"></i> No Timer</button>
+    </div>
+    <div class="mp-mode-info" id="mpTimerInfo">Players have 60s per turn before auto-pick</div>
+  </div>
   <button class="lobby-btn lobby-btn-create" style="max-width:280px" onclick="startGame()">▶ START GAME</button>
   <button class="lobby-btn lobby-btn-solo" style="max-width:280px;margin-top:6px" onclick="leaveGame()"><i class="icn icn-close"></i> Cancel</button>
 </div>

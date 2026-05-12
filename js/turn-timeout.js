@@ -47,6 +47,16 @@
            (typeof mpMode !== 'undefined' && mpMode);
   }
 
+  // Multiplayer rooms can opt out of the timer via the lobby toggle
+  // (window.__yumTurnTimerEnabled is mirrored from the room's turnTimer field).
+  // Bot games always use the timer.
+  function timerEnabled() {
+    if (typeof mpMode !== 'undefined' && mpMode) {
+      return window.__yumTurnTimerEnabled !== false;
+    }
+    return true;
+  }
+
   function updateUI() {
     ensureTimerEl();
     if (!secEl) return;
@@ -63,7 +73,7 @@
 
   function start() {
     stop();
-    if (!isPlayerTurn() || !gameInProgress()) return;
+    if (!isPlayerTurn() || !gameInProgress() || !timerEnabled()) return;
     active = true;
     remaining = TURN_TIMEOUT_SECONDS;
     updateUI();
@@ -156,9 +166,10 @@
     setInterval(() => {
       const isTurn = isPlayerTurn();
       const inProgress = gameInProgress();
-      if (isTurn && inProgress && !active) {
+      const enabled = timerEnabled();
+      if (isTurn && inProgress && enabled && !active) {
         start();
-      } else if ((!isTurn || !inProgress) && active) {
+      } else if ((!isTurn || !inProgress || !enabled) && active) {
         stop();
       }
     }, 400);
