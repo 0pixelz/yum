@@ -469,6 +469,13 @@
     const candidates = Object.entries(all)
       .filter(([uid, info]) =>
         uid !== mmUid &&
+        // Tie-break: only the player with the smaller UID claims, mirroring
+        // onQueueChange. Without this, two players hitting Find Match in the
+        // same Firebase round-trip both end up claiming each other (their
+        // transactions write to different offer slots, so both commit), both
+        // become seekers, both call createGame, and the ACCEPT overlay never
+        // appears for either side.
+        uid > mmUid &&
         info &&
         typeof info.ts === 'number' &&
         (now - info.ts) < STALE_MS &&
