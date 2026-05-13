@@ -528,6 +528,14 @@
         // sees the failure instead of staring at "MATCH FOUND, Connecting…"
         // forever.
         cancelFindMatch();
+      } else if (window.roomRef && typeof window.leaveGame === 'function') {
+        // Matchmaking was cancelled while createGame was still awaiting.
+        // createGame finished after cancelFindMatch already ran (and saw an
+        // empty roomRef), so the host is now stranded inside the room's
+        // waitingOverlay while their opponent is back at the main menu.
+        // Tear the half-built room down so we end up where cancelFindMatch
+        // had tried to leave us.
+        try { window.leaveGame(); } catch (e) {}
       }
       return false;
     }
@@ -898,12 +906,21 @@
     hideReadyOverlay();
 
     // leaveGame tears down the room slot and returns to the lobby for us.
-    if (wasInRoom && typeof window.leaveGame === 'function') {
+    // Fall back to roomRef so a path that reset mmRole before reaching here
+    // (e.g. createSeekerRoom's failure cleanup) still surrenders the room.
+    if ((wasInRoom || window.roomRef) && typeof window.leaveGame === 'function') {
       try { window.leaveGame(); } catch (e) {}
-    } else {
-      const lobby = el('lobbyOverlay');
-      if (lobby) lobby.style.display = 'flex';
     }
+
+    // Defensive: leaveGame normally hides waitingOverlay and shows
+    // lobbyOverlay, but if it threw or wasn't applicable the host can be
+    // left staring at their matchmaking room's waiting lobby while the
+    // opponent is already back at the main menu. Force the matchmaking
+    // lobby to be visible so both sides end up in the same place.
+    const waiting = el('waitingOverlay');
+    if (waiting) waiting.style.display = 'none';
+    const lobby = el('lobbyOverlay');
+    if (lobby) lobby.style.display = 'flex';
 
     cleanupMatchmakingState();
   }
