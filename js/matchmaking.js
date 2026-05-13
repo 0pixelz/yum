@@ -21,7 +21,9 @@
 
   const QUEUE_PATH         = 'matchmaking/queue';
   const OFFERS_PATH        = 'matchmaking/offers';
+  const PRESENCE_PATH      = 'presence';
   const STALE_MS           = 90 * 1000;        // queue entries older than this are ignored
+  const PRESENCE_FRESH_MS  = 90 * 1000;        // /presence ts within this counts as online
   const READY_TIMEOUT_MS   = 15000;            // both players must accept within this window
   const READY_START_DELAY_MS = 3000;           // brief pause after both accept before kickoff
 
@@ -38,6 +40,8 @@
   let mmRoomCode = null;
   let mmQueueRef = null;
   let mmQueueWatcher = null;
+  let mmPresenceRef = null;
+  let mmPresenceWatcher = null;
   let mmInQueue = false;
   let mmClaimInFlight = false;
   let mmAutoStartScheduled = false;
@@ -280,6 +284,10 @@
     if (mmElapsedTimer) { clearInterval(mmElapsedTimer); mmElapsedTimer = null; }
   }
 
+  // Counts users with a recent heartbeat under /presence — i.e. anyone
+  // currently on yumi.io with a tab open. This is intentionally broader than
+  // the matchmaking queue: the stat is labeled "PLAYERS ONLINE", so we want
+  // total online users, not just players who tapped Find Match.
   function updateOnlineCount(snap) {
     const out = el('mmOnline');
     if (!out) return;
@@ -289,7 +297,7 @@
       const now = Date.now();
       for (const uid in all) {
         const info = all[uid];
-        if (info && typeof info.ts === 'number' && (now - info.ts) < STALE_MS) {
+        if (info && typeof info.ts === 'number' && (now - info.ts) < PRESENCE_FRESH_MS) {
           count++;
         }
       }
@@ -396,6 +404,7 @@
     mmOfferListener = mmOfferRef.on('value', onMyOfferChanged, () => {});
 
     attachQueueWatcher();
+    attachPresenceWatcher();
 
     // Try to claim someone already waiting; if no claim succeeds, queue ourselves.
     const claimed = await tryClaimAny();
@@ -423,8 +432,22 @@
     mmQueueWatcher = null;
   }
 
+  function attachPresenceWatcher() {
+    if (!mmDb) return;
+    detachPresenceWatcher();
+    mmPresenceRef = mmDb.ref(PRESENCE_PATH);
+    mmPresenceWatcher = mmPresenceRef.on('value', updateOnlineCount, () => {});
+  }
+
+  function detachPresenceWatcher() {
+    if (mmPresenceRef && mmPresenceWatcher) {
+      try { mmPresenceRef.off('value', mmPresenceWatcher); } catch (e) {}
+    }
+    mmPresenceRef = null;
+    mmPresenceWatcher = null;
+  }
+
   async function onQueueChange(snap) {
-    updateOnlineCount(snap);
     if (!mmActive || mmRole) return;
     if (!mmInQueue) return;            // only re-claim once our own entry is committed
     if (mmClaimInFlight) return;
@@ -919,6 +942,7 @@
     detachOfferListener();
     detachRoomListener();
     detachQueueWatcher();
+    detachPresenceWatcher();
     stopElapsedTicker();
     stopReadyCountdown();
 
@@ -964,6 +988,7 @@
     detachOfferListener();
     detachRoomListener();
     detachQueueWatcher();
+    detachPresenceWatcher();
     stopElapsedTicker();
     stopReadyCountdown();
     hideSearchOverlay();
