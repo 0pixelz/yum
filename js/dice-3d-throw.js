@@ -268,53 +268,37 @@
     ctx.lineWidth = 10;
     ctx.beginPath(); ctx.arc(S/2, S * 0.58, S * 0.34, 0, Math.PI * 2); ctx.stroke();
 
-    // ── Yamio brand logo (wordmark with dice mark centered in the middle) ──
-    const left  = 'YAM';
-    const right = 'IO';
+    // ── Yamio brand logo (dice mark + wordmark, like the main lobby) ──
+    const text = 'YAMIO';
     const fontSize = 280;
     const letterSpacing = fontSize * 0.18;            // matches CSS letter-spacing
     ctx.font = `900 ${fontSize}px 'Bebas Neue', 'Impact', 'Arial Narrow', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
 
-    const leftWidths  = left.split('').map(ch => ctx.measureText(ch).width);
-    const rightWidths = right.split('').map(ch => ctx.measureText(ch).width);
-    const leftW  = leftWidths.reduce((a, b) => a + b, 0)  + letterSpacing * (left.length - 1);
-    const rightW = rightWidths.reduce((a, b) => a + b, 0) + letterSpacing * (right.length - 1);
+    const widths = text.split('').map(ch => ctx.measureText(ch).width);
+    const wordW = widths.reduce((a, b) => a + b, 0) + letterSpacing * (text.length - 1);
     const markSize = fontSize * 1.25;                 // .yum-brand-mark ≈ 1.15em + extra room
     const gap = fontSize * 0.35;                      // .yum-brand-logo gap = 0.4em
-    const totalW = leftW + gap + markSize + gap + rightW;
-    const cy = S * 0.30;                              // upper-third of the floor
-    const startX = (S - totalW) / 2;
+    const totalW = markSize + gap + wordW;
+    const cy = S * 0.46;                              // mid-floor, around the camera's lookAt — sits visually centered on screen
+    const logoX = (S - totalW) / 2;
 
-    // Wordmark — orange-biased gold→red gradient that spans the full logo
-    // (both halves of "YAMIO" + the dice mark in the middle).
+    // Dice mark on the left
+    drawYamioMark(ctx, logoX, cy - markSize / 2, markSize);
+
+    // Wordmark "YAMIO" — orange-biased gold→red gradient. We hold the
+    // saturated orange across most of the word and only roll into red at
+    // the very end so the wordmark reads "orange" overall on the floor,
+    // matching the lobby header's vivid look.
+    const wordX = logoX + markSize + gap;
     const wordGrad = ctx.createLinearGradient(
-      startX, cy - fontSize * 0.5,
-      startX + totalW, cy + fontSize * 0.5
+      wordX, cy - fontSize * 0.5,
+      wordX + wordW, cy + fontSize * 0.5
     );
     wordGrad.addColorStop(0,    '#ffb347');
     wordGrad.addColorStop(0.55, '#f5871a');
     wordGrad.addColorStop(1,    BRAND.accent);
-
-    const drawHalf = (chars, widths, x0) => {
-      let x = x0;
-      for (let i = 0; i < chars.length; i++) {
-        ctx.fillText(chars[i], x, cy);
-        x += widths[i] + letterSpacing;
-      }
-    };
-    const strokeHalf = (chars, widths, x0) => {
-      let x = x0;
-      for (let i = 0; i < chars.length; i++) {
-        ctx.strokeText(chars[i], x, cy);
-        x += widths[i] + letterSpacing;
-      }
-    };
-
-    const leftX  = startX;
-    const markX  = startX + leftW + gap;
-    const rightX = markX + markSize + gap;
 
     // Warm orange glow pass under the letters — tighter blur so the
     // saturated color isn't diluted into a beige halo.
@@ -322,24 +306,30 @@
     ctx.shadowColor = 'rgba(239,122,18,0.55)';
     ctx.shadowBlur = 36;
     ctx.fillStyle = wordGrad;
-    drawHalf(left,  leftWidths,  leftX);
-    drawHalf(right, rightWidths, rightX);
+    let x = wordX;
+    for (let i = 0; i < text.length; i++) {
+      ctx.fillText(text[i], x, cy);
+      x += widths[i] + letterSpacing;
+    }
     ctx.restore();
 
     // Two crisp gradient passes for extra punch (no shadow)
     ctx.fillStyle = wordGrad;
     for (let pass = 0; pass < 2; pass++) {
-      drawHalf(left,  leftWidths,  leftX);
-      drawHalf(right, rightWidths, rightX);
+      x = wordX;
+      for (let i = 0; i < text.length; i++) {
+        ctx.fillText(text[i], x, cy);
+        x += widths[i] + letterSpacing;
+      }
     }
     // Dark outline so the letters pop against the very dark floor
     ctx.strokeStyle = 'rgba(0,0,0,0.6)';
     ctx.lineWidth = 4;
-    strokeHalf(left,  leftWidths,  leftX);
-    strokeHalf(right, rightWidths, rightX);
-
-    // Dice mark sits in the middle of the wordmark (between "YAM" and "IO")
-    drawYamioMark(ctx, markX, cy - markSize / 2, markSize);
+    x = wordX;
+    for (let i = 0; i < text.length; i++) {
+      ctx.strokeText(text[i], x, cy);
+      x += widths[i] + letterSpacing;
+    }
 
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = 16;
