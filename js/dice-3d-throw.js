@@ -281,7 +281,7 @@
     const markSize = fontSize * 1.25;                 // .yum-brand-mark ≈ 1.15em + extra room
     const gap = fontSize * 0.35;                      // .yum-brand-logo gap = 0.4em
     const totalW = markSize + gap + wordW;
-    const cy = S * 0.30;                              // upper-third of the floor
+    const cy = S * 0.46;                              // mid-floor, around the camera's lookAt — sits visually centered on screen
     const logoX = (S - totalW) / 2;
 
     // Dice mark on the left
