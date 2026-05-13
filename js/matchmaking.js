@@ -532,13 +532,22 @@
       return false;
     }
 
+    // Record the room code now so cancelFindMatch can tear our slot down via
+    // leaveGame on any failure below — and notify the waiter via the room's
+    // status='matchCanceled' marker so they don't sit on their own search
+    // screen waiting for a host that's already gone.
+    mmRoomCode = code;
+
     try { await offerRef.update({ roomCode: code }); }
     catch (e) {
       console.warn('[matchmaking] roomCode broadcast failed:', e);
       try { await offerRef.remove(); } catch (e2) {}
-      // Tear the room down — the waiter has no way to join us
-      try { if (typeof window.leaveGame === 'function') window.leaveGame(); } catch (e2) {}
-      mmRole = null;
+      // Bail back to the lobby — cancelFindMatch tears down our room slot
+      // (via leaveGame, since mmRole is still 'seeker'), hides the search
+      // overlay, and restores the lobby. Without this the seeker hangs on
+      // "MATCH FOUND, Connecting…" forever while the waiter sees the offer
+      // disappear and bails out separately.
+      if (mmActive) cancelFindMatch();
       return false;
     }
 
@@ -554,7 +563,6 @@
     // Make sure no stray queue entry survives for the seeker.
     try { await mmDb.ref(QUEUE_PATH + '/' + mmUid).remove(); } catch (e) {}
 
-    mmRoomCode = code;
     watchRoomForReady(code, 'seeker');
     return true;
   }
@@ -810,9 +818,15 @@
 
     if (typeof window.joinGame !== 'function') {
       console.warn('[matchmaking] joinGame missing');
-      cleanupMatchmakingState();
+      handleRemoteCancel('Match canceled — multiplayer unavailable.');
       return;
     }
+
+    // Set mmRoomCode before kicking off joinGame so cancelFindMatch can
+    // notify the seeker via rooms/CODE/status='matchCanceled' if anything
+    // goes wrong. Without this the seeker hangs in their waiting room
+    // forever while the waiter bounces back to the main menu.
+    mmRoomCode = offer.roomCode;
 
     Promise.resolve().then(() => window.joinGame()).then(() => {
       // joinGame doesn't throw on a missing room — it just shows a lobby
@@ -823,17 +837,13 @@
         handleRemoteCancel('Match canceled — opponent room unavailable.');
         return;
       }
-      mmRoomCode = offer.roomCode;
       watchRoomForReady(offer.roomCode, 'waiter');
       if (mmDb && mmUid) {
         mmDb.ref(OFFERS_PATH + '/' + mmUid).remove().catch(() => {});
       }
     }).catch(e => {
       console.warn('[matchmaking] joinGame failed:', e);
-      cleanupMatchmakingState();
-      const lobby = el('lobbyOverlay');
-      if (lobby) lobby.style.display = 'flex';
-      lobbyErr('Failed to join match.');
+      handleRemoteCancel('Failed to join match.');
     });
   }
 
