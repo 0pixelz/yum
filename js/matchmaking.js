@@ -546,7 +546,7 @@
         // sees the failure instead of staring at "MATCH FOUND, Connecting…"
         // forever.
         cancelFindMatch();
-      } else if (window.roomRef && typeof window.leaveGame === 'function') {
+      } else if ((typeof roomRef !== 'undefined' && roomRef) && typeof window.leaveGame === 'function') {
         // Matchmaking was cancelled while createGame was still awaiting.
         // createGame finished after cancelFindMatch already ran (and saw an
         // empty roomRef), so the host is now stranded inside the room's
@@ -601,8 +601,12 @@
     // createGame leaves roomCode set to the last *attempted* code even when
     // the transaction failed (e.g. permission_denied, network drop), so the
     // global by itself isn't enough to know we actually have a room. roomRef
-    // is nulled on failure, so use it as the success signal.
-    if (!window.roomRef) return null;
+    // is nulled on failure, so use it as the success signal. `roomRef` is
+    // declared with `let` at app.js top level, so it is NOT exposed as
+    // `window.roomRef` — read it lexically the same way roomCode is read
+    // below, otherwise this check trips on every attempt and the seeker
+    // always tears its own offer down.
+    if (typeof roomRef === 'undefined' || !roomRef) return null;
 
     let code = null;
     try {
@@ -869,7 +873,7 @@
       // error and returns. Verify we actually landed in the seeker's room
       // before attaching the ready-check listener; otherwise we'd silently
       // watch an empty path and never show the Accept button.
-      if (!window.roomRef || window.roomRef.key !== offer.roomCode) {
+      if (typeof roomRef === 'undefined' || !roomRef || roomRef.key !== offer.roomCode) {
         handleRemoteCancel('Match canceled — opponent room unavailable.');
         return;
       }
@@ -936,7 +940,7 @@
     // leaveGame tears down the room slot and returns to the lobby for us.
     // Fall back to roomRef so a path that reset mmRole before reaching here
     // (e.g. createSeekerRoom's failure cleanup) still surrenders the room.
-    if ((wasInRoom || window.roomRef) && typeof window.leaveGame === 'function') {
+    if ((wasInRoom || (typeof roomRef !== 'undefined' && roomRef)) && typeof window.leaveGame === 'function') {
       try { window.leaveGame(); } catch (e) {}
     }
 
