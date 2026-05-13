@@ -493,6 +493,17 @@
 
   async function tryClaimOne(oppUid, oppInfo) {
     if (!mmActive) return false;
+    // Belt-and-suspenders tie-break: tryClaimAny and onQueueChange both
+    // filter candidates by uid > mmUid, but enforce it inside tryClaimOne
+    // too so any future caller can't accidentally let the larger-UID side
+    // also write a placeholder. If both sides claim each other their
+    // transactions hit different offer paths and both commit, leaving each
+    // player with a placeholder on their own offer slot (mmOfferSeen=true)
+    // and both bailing out with "Match canceled — opponent dropped." when
+    // the seeker tears its placeholder down.
+    if (typeof oppUid !== 'string' || typeof mmUid !== 'string' || oppUid <= mmUid) {
+      return false;
+    }
 
     const offerRef   = mmDb.ref(OFFERS_PATH + '/' + oppUid);
     const placeholder = { from: mmUid, fromName: mmName, fromAvatar: myAvatarId() || null, ts: Date.now() };
@@ -779,9 +790,19 @@
     mmInQueue = true;
 
     try { await queueRef.onDisconnect().remove(); } catch (e) {}
-    if (mmOfferRef) {
-      try { await mmOfferRef.onDisconnect().remove(); } catch (e) {}
-    }
+    // Intentionally NOT setting onDisconnect().remove() on offers/MY_UID.
+    // Firebase's onDisconnect removes the entire path, including any
+    // placeholder the seeker has already written into our slot. A brief
+    // mobile-network blip on the waiter side then nukes the seeker's
+    // placeholder before our listener has processed the inbound
+    // roomCode; on reconnect the listener fires with an empty slot
+    // while mmOfferSeen is still true and mmRole is still null, so
+    // onMyOfferChanged surfaces "Match canceled — opponent dropped."
+    // even though the seeker is sitting happily in the freshly-created
+    // waiting lobby. cancelFindMatch and the post-join remove still
+    // clean the slot up on normal exits, and the waiter's next
+    // findMatch clears offers/MY_UID up front, so a stranded
+    // placeholder doesn't outlive its usefulness.
 
     // The queue watcher may have fired with our snapshot before mmInQueue
     // flipped — kick off one explicit re-scan so we don't miss the
