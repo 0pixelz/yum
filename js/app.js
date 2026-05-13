@@ -1360,6 +1360,13 @@ async function joinGame() {
   }
   setTimeout(() => { if (typeof window.publishMyDiceSkin === 'function') window.publishMyDiceSkin(); }, 200);
 
+  // Same grace window createGame uses: the on('value') listener can briefly
+  // see snap.exists()=false from the local cache right after we attach (the
+  // server-confirmed snapshot follows). Without this flag the matchmaking
+  // waiter hits leaveGame() ~0.5s after the Accept popup appears — which
+  // removes their player slot, drops activeIds below 2, and trips
+  // watchRoomForReady into cancelling the match on both sides.
+  window.__yumJustCreatedAt = Date.now();
   listenRoom();
 }
 
