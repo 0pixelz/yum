@@ -493,6 +493,17 @@
 
   async function tryClaimOne(oppUid, oppInfo) {
     if (!mmActive) return false;
+    // Belt-and-suspenders tie-break: tryClaimAny and onQueueChange both
+    // filter candidates by uid > mmUid, but enforce it inside tryClaimOne
+    // too so any future caller can't accidentally let the larger-UID side
+    // also write a placeholder. If both sides claim each other their
+    // transactions hit different offer paths and both commit, leaving each
+    // player with a placeholder on their own offer slot (mmOfferSeen=true)
+    // and both bailing out with "Match canceled — opponent dropped." when
+    // the seeker tears its placeholder down.
+    if (typeof oppUid !== 'string' || typeof mmUid !== 'string' || oppUid <= mmUid) {
+      return false;
+    }
 
     const offerRef   = mmDb.ref(OFFERS_PATH + '/' + oppUid);
     const placeholder = { from: mmUid, fromName: mmName, fromAvatar: myAvatarId() || null, ts: Date.now() };
