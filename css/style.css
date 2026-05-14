@@ -2606,7 +2606,7 @@
   }
 
   .howto-btn {
-    position: absolute; top: 14px; left: 104px;
+    position: absolute; top: 54px; right: 14px;
     background: rgba(255,255,255,0.1);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 8px; color: var(--white);
