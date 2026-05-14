@@ -137,7 +137,7 @@ const categories = [
   { id:'fullHouse', name:'Full House',  icon:'icn-home',   hint:'3+2 of a kind → 25 pts', max:25, section:'lower', calc: d=>{const v=Object.values(counts(d)).sort();return(v[0]===2&&v[1]===3)||v[0]===5?25:0} },
   { id:'smStraight',name:'Sm. Straight',icon:'icn-flag',   hint:'4 sequential → 30 pts', max:30, section:'lower', calc: d=>{const u=[...new Set(d)].sort((a,b)=>a-b);const s=u.join('');return['1234','2345','3456'].some(p=>s.includes(p))?30:0} },
   { id:'lgStraight',name:'Lg. Straight',icon:'icn-bolt',   hint:'5 sequential → 40 pts', max:40, section:'lower', calc: d=>{const u=[...new Set(d)].sort((a,b)=>a-b);return(u.length===5&&u[4]-u[0]===4)?40:0} },
-  { id:'yum',       name:'YAM!',        icon:'icn-trophy', hint:'5 of a kind → 50 pts', max:50, section:'lower', calc: d=>{return Object.values(counts(d)).some(v=>v===5)?50:0} },
+  { id:'yum',       name:'YAM!',        icon:'icn-trophy', hint:'5 of a kind → 30 pts', max:30, section:'lower', calc: d=>{return Object.values(counts(d)).some(v=>v===5)?30:0} },
   { id:'chance',    name:'Chance',      icon:'icn-gem',    hint:'Any roll → sum all dice (max 30)', max:30, section:'lower', calc: d=>d.reduce((a,b)=>a+b,0) },
 ];
 
