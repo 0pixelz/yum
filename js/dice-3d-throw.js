@@ -24,12 +24,15 @@
   let pickOffset = { x: 0, z: 0 };
 
   // ── Multi-die mode state ─────────────────────────────────────────
-  // 'single' = drag-and-flick one die (who-goes-first). 'multi' = auto-toss
-  // N smaller dice all at once for the regular in-game roll.
+  // 'single' = drag-and-flick one die (who-goes-first). 'multi' = flick-throw
+  // N smaller dice all at once (Pokémon-GO-style swipe).
   let mode = 'single';
   let multiDiceBodies = [];
   let multiDiceMeshes = [];
   let multiThrowing = false;
+  let multiReady = false;          // dice are parked, awaiting a flick
+  let multiDragging = false;
+  let multiPointerSamples = [];
   let multiSettleStart = 0;
   let multiResolve = null;
   let multiGeom = null;
@@ -561,7 +564,7 @@
   }
 
   function onPointerDown(ev) {
-    if (mode !== 'single') return;
+    if (mode === 'multi') return onPointerDownMulti(ev);
     if (throwing) return;
     // Allow grabbing the die, OR starting a flick anywhere if pointer is below die.
     const hitsDie = hitTestDie(ev);
@@ -619,7 +622,7 @@
   }
 
   function onPointerMove(ev) {
-    if (mode !== 'single') return;
+    if (mode === 'multi') return onPointerMoveMulti(ev);
     if (!dragging) return;
     const p = pointerOnDragPlane(ev);
     if (!p) return;
@@ -636,7 +639,7 @@
   }
 
   function onPointerUp(ev) {
-    if (mode !== 'single') return;
+    if (mode === 'multi') return onPointerUpMulti(ev);
     if (!dragging) return;
     dragging = false;
     lastDragP = null;
@@ -776,7 +779,8 @@
       if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
       lastTime = 0;
       throwing = false; dragging = false;
-      multiThrowing = false;
+      multiThrowing = false; multiReady = false; multiDragging = false;
+      multiPointerSamples = [];
       teardownMultiDice();
       if (dieMesh) dieMesh.visible = true;
       mode = 'single';
@@ -811,15 +815,16 @@
     const HALF = SIZE / 2;
     buildMultiAssets(SIZE);
 
-    // Spread the dice across the back of the play area, slightly above
-    // the floor, then throw them all toward the camera with random spin.
+    // Park the dice in a row near the camera ("in the cup"). Kinematic so
+    // they don't fall while the player lines up a flick. On pointer-up the
+    // dice get velocity from the swipe vector and switch to dynamic.
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(multiGeom, multiMats);
       mesh.castShadow = true;
       scene.add(mesh);
       multiDiceMeshes.push(mesh);
 
-      const lane = count === 1 ? 0 : (i / (count - 1) - 0.5) * 3.2; // -1.6..1.6
+      const lane = count === 1 ? 0 : (i / (count - 1) - 0.5) * 2.4; // -1.2..1.2
       const body = new CANNON.Body({
         mass: 0.6,
         shape: new CANNON.Box(new CANNON.Vec3(HALF, HALF, HALF)),
@@ -830,28 +835,14 @@
         linearDamping: 0.18,
         angularDamping: 0.18
       });
-      body.position.set(
-        lane + (Math.random() - 0.5) * 0.25,
-        2.4 + Math.random() * 1.4,
-        WALL_BACK + 0.9 + Math.random() * 0.4
-      );
+      // Ready pose: lined up just in front of the player, resting on floor.
+      body.position.set(lane, HALF + 0.02, DRAG_Z_MAX - 0.2);
       body.quaternion.setFromEuler(
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2
+        Math.random() * 0.35, Math.random() * 0.35, Math.random() * 0.35
       );
-      // Forward (+Z toward camera) toss with a bit of upward lift and lateral spread.
-      body.velocity.set(
-        -lane * 0.6 + (Math.random() - 0.5) * 2.6,
-        2.0 + Math.random() * 1.5,
-        5.5 + Math.random() * 2.5
-      );
-      const spin = 14;
-      body.angularVelocity.set(
-        (Math.random() - 0.5) * spin,
-        (Math.random() - 0.5) * spin,
-        (Math.random() - 0.5) * spin
-      );
+      body.type = CANNON.Body.KINEMATIC;
+      body.velocity.set(0, 0, 0);
+      body.angularVelocity.set(0, 0, 0);
       body.addEventListener('collide', (e) => {
         if (!multiThrowing) return;
         const c = e && e.contact;
@@ -863,8 +854,105 @@
       world.addBody(body);
       multiDiceBodies.push(body);
     }
+    multiReady = true;
+    multiThrowing = false;
+    multiDragging = false;
+    multiPointerSamples = [];
+    multiSettleStart = 0;
+  }
+
+  function multiFlick(vx, vz, speed) {
+    const minS = 4, maxS = 22;
+    const mag = Math.max(minS, Math.min(maxS, speed * 1.3));
+    const k = mag / Math.max(0.01, speed);
+    const VX = vx * k;
+    const VZ = vz * k;
+    const VY = 3.8 + Math.min(7, speed * 0.35);
+    multiDiceBodies.forEach((b) => {
+      b.type = CANNON.Body.DYNAMIC;
+      b.wakeUp();
+      const jitter = 1.5;
+      b.velocity.set(
+        VX + (Math.random() - 0.5) * jitter,
+        VY + (Math.random() - 0.5) * 0.8,
+        VZ + (Math.random() - 0.5) * jitter
+      );
+      const spin = 10 + Math.min(22, speed * 1.6);
+      b.angularVelocity.set(
+        -VZ * 0.7 + (Math.random() - 0.5) * spin,
+        (Math.random() - 0.5) * spin * 0.5,
+         VX * 0.7 + (Math.random() - 0.5) * spin
+      );
+    });
+  }
+
+  function multiSoftDrop() {
+    // Weak / no flick → just let the dice tumble in place.
+    multiDiceBodies.forEach((b) => {
+      b.type = CANNON.Body.DYNAMIC;
+      b.wakeUp();
+      b.velocity.set(
+        (Math.random() - 0.5) * 1.8,
+        2.6 + Math.random() * 1.2,
+        -1.0 - Math.random() * 1.8
+      );
+      const spin = 12;
+      b.angularVelocity.set(
+        (Math.random() - 0.5) * spin,
+        (Math.random() - 0.5) * spin,
+        (Math.random() - 0.5) * spin
+      );
+    });
+  }
+
+  function onPointerDownMulti(ev) {
+    if (!multiReady || multiThrowing) return;
+    ev.preventDefault();
+    multiDragging = true;
+    multiPointerSamples = [];
+    try { canvasEl.setPointerCapture(ev.pointerId); } catch (_) {}
+    const p = pointerOnDragPlane(ev);
+    if (p) multiPointerSamples.push({ t: performance.now(), x: p.x, z: p.z });
+    statusEl.textContent = 'Flick to throw!';
+  }
+
+  function onPointerMoveMulti(ev) {
+    if (!multiDragging) return;
+    const p = pointerOnDragPlane(ev);
+    if (!p) return;
+    const now = performance.now();
+    multiPointerSamples.push({ t: now, x: p.x, z: p.z });
+    while (multiPointerSamples.length > 2 && now - multiPointerSamples[0].t > 200) {
+      multiPointerSamples.shift();
+    }
+  }
+
+  function onPointerUpMulti(ev) {
+    if (!multiDragging) return;
+    multiDragging = false;
+    try { canvasEl.releasePointerCapture(ev.pointerId); } catch (_) {}
+
+    const now = performance.now();
+    while (multiPointerSamples.length > 2 && now - multiPointerSamples[0].t > 120) {
+      multiPointerSamples.shift();
+    }
+    let vx = 0, vz = 0;
+    if (multiPointerSamples.length >= 2) {
+      const a = multiPointerSamples[0];
+      const b = multiPointerSamples[multiPointerSamples.length - 1];
+      const dt = Math.max(0.016, (b.t - a.t) / 1000);
+      vx = (b.x - a.x) / dt;
+      vz = (b.z - a.z) / dt;
+    }
+    const speed = Math.hypot(vx, vz);
+    if (speed < 0.6) multiSoftDrop();
+    else multiFlick(vx, vz, speed);
+
+    multiReady = false;
     multiThrowing = true;
     multiSettleStart = performance.now();
+    statusEl.textContent = 'Rolling…';
+    playThrowClatter();
   }
 
   let libsPromise = null;
@@ -941,7 +1029,7 @@
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
       if (dieMesh) dieMesh.visible = false;
       setupMultiDice(n);
-      statusEl.textContent = 'Rolling…';
+      statusEl.textContent = 'Swipe up to throw your dice';
       cancelBtn.textContent = 'Skip throw';
       overlay.style.display = 'flex';
       requestAnimationFrame(() => {
@@ -963,7 +1051,6 @@
         rafId = requestAnimationFrame(tick);
       }
 
-      playThrowClatter();
       return new Promise(res => { multiResolve = res; });
     }).catch(e => {
       console.warn('throw3DDice failed, using random fallback', e);
