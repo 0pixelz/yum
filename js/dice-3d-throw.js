@@ -37,6 +37,8 @@
   let multiResolve = null;
   let multiGeom = null;
   let multiMats = null;
+  let multiLanes = [];             // pre-computed {dx,dz} fan offsets per die
+  let multiLastDragP = null;
 
   // BoxGeometry material order: [+X, -X, +Y, -Y, +Z, -Z]
   // Standard die: opposite faces sum to 7.
@@ -597,22 +599,20 @@
     statusEl.textContent = 'Flick to throw!';
   }
 
-  // Tumble-on-drag: while the die is being held, finger motion spins it like
+  // Tumble-on-drag: while a die is being held, finger motion spins it like
   // it's rolling under your fingertip. Angle = distance × SPIN_GAIN (well above
   // the natural arc-length-over-radius rate, so the die spins visibly fast).
   const SPIN_GAIN = 9.0;
-  function applyTumble(dx, dz) {
+  function applyTumbleTo(body, dx, dz, gain) {
     const dist = Math.hypot(dx, dz);
     if (dist < 0.0005) return;
     const ax = -dz / dist;        // roll axis = horizontal perpendicular to motion
     const az =  dx / dist;
-    const angle = dist * SPIN_GAIN;
+    const angle = dist * (gain || SPIN_GAIN);
     const half = angle * 0.5;
     const s = Math.sin(half), cw = Math.cos(half);
-    // delta quaternion = rotation by `angle` around (ax, 0, az)
     const dqx = ax * s, dqy = 0, dqz = az * s, dqw = cw;
-    // new_q = delta * current  (world-space rotation premultiply)
-    const q = dieBody.quaternion;
+    const q = body.quaternion;
     const cx = q.x, cy = q.y, cz = q.z, cw2 = q.w;
     const nx = dqw * cx + dqx * cw2 + dqy * cz - dqz * cy;
     const ny = dqw * cy - dqx * cz + dqy * cw2 + dqz * cx;
@@ -620,6 +620,7 @@
     const nw = dqw * cw2 - dqx * cx - dqy * cy - dqz * cz;
     q.set(nx, ny, nz, nw);
   }
+  function applyTumble(dx, dz) { applyTumbleTo(dieBody, dx, dz); }
 
   function onPointerMove(ev) {
     if (mode === 'multi') return onPointerMoveMulti(ev);
@@ -781,6 +782,8 @@
       throwing = false; dragging = false;
       multiThrowing = false; multiReady = false; multiDragging = false;
       multiPointerSamples = [];
+      multiLastDragP = null;
+      multiLanes = [];
       teardownMultiDice();
       if (dieMesh) dieMesh.visible = true;
       mode = 'single';
@@ -815,16 +818,23 @@
     const HALF = SIZE / 2;
     buildMultiAssets(SIZE);
 
-    // Park the dice in a row near the camera ("in the cup"). Kinematic so
-    // they don't fall while the player lines up a flick. On pointer-up the
-    // dice get velocity from the swipe vector and switch to dynamic.
+    // Pre-compute fan offsets so the dice spread sideways around the finger.
+    multiLanes = [];
+    for (let i = 0; i < count; i++) {
+      const lane = count === 1 ? 0 : (i / (count - 1) - 0.5) * 2.0; // -1..1
+      const dz = (i % 2 === 0 ? 0 : 0.35);                          // light zig-zag
+      multiLanes.push({ dx: lane, dz: dz });
+    }
+
+    // Park the dice in a fan near the player. Kinematic so they don't fall
+    // while you line up a flick. On pickup they follow your finger and
+    // tumble; on release the swipe vector becomes their velocity.
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(multiGeom, multiMats);
       mesh.castShadow = true;
       scene.add(mesh);
       multiDiceMeshes.push(mesh);
 
-      const lane = count === 1 ? 0 : (i / (count - 1) - 0.5) * 2.4; // -1.2..1.2
       const body = new CANNON.Body({
         mass: 0.6,
         shape: new CANNON.Box(new CANNON.Vec3(HALF, HALF, HALF)),
@@ -835,8 +845,8 @@
         linearDamping: 0.18,
         angularDamping: 0.18
       });
-      // Ready pose: lined up just in front of the player, resting on floor.
-      body.position.set(lane, HALF + 0.02, DRAG_Z_MAX - 0.2);
+      const lane = multiLanes[i];
+      body.position.set(lane.dx, HALF + 0.02, DRAG_Z_MAX - 0.2 + lane.dz);
       body.quaternion.setFromEuler(
         Math.random() * 0.35, Math.random() * 0.35, Math.random() * 0.35
       );
@@ -858,7 +868,19 @@
     multiThrowing = false;
     multiDragging = false;
     multiPointerSamples = [];
+    multiLastDragP = null;
     multiSettleStart = 0;
+  }
+
+  // Move every multi die so it sits at (fingerX + lane.dx, fingerZ + lane.dz),
+  // hovering at DRAG_Y. The whole group "tracks" the finger as one handful.
+  function placeMultiAtFinger(px, pz) {
+    for (let i = 0; i < multiDiceBodies.length; i++) {
+      const lane = multiLanes[i] || { dx: 0, dz: 0 };
+      const tx = clamp(px + lane.dx, -DRAG_X_LIMIT, DRAG_X_LIMIT);
+      const tz = clamp(pz + lane.dz, DRAG_Z_MIN, DRAG_Z_MAX);
+      multiDiceBodies[i].position.set(tx, DRAG_Y, tz);
+    }
   }
 
   function multiFlick(vx, vz, speed) {
@@ -912,14 +934,34 @@
     multiPointerSamples = [];
     try { canvasEl.setPointerCapture(ev.pointerId); } catch (_) {}
     const p = pointerOnDragPlane(ev);
-    if (p) multiPointerSamples.push({ t: performance.now(), x: p.x, z: p.z });
-    statusEl.textContent = 'Flick to throw!';
+    if (p) {
+      multiPointerSamples.push({ t: performance.now(), x: p.x, z: p.z });
+      multiLastDragP = { x: p.x, z: p.z };
+      // Lift all dice off the floor and snap the group to the finger.
+      multiDiceBodies.forEach(b => {
+        b.velocity.set(0, 0, 0);
+        b.angularVelocity.set(0, 0, 0);
+      });
+      placeMultiAtFinger(p.x, p.z);
+    }
+    statusEl.textContent = 'Spin them up — flick to throw!';
   }
 
   function onPointerMoveMulti(ev) {
     if (!multiDragging) return;
     const p = pointerOnDragPlane(ev);
     if (!p) return;
+    if (multiLastDragP) {
+      const dx = p.x - multiLastDragP.x;
+      const dz = p.z - multiLastDragP.z;
+      // Tumble each die under the fingertip. Slightly lower gain than the
+      // single-die mode so the cluster doesn't spin as a chaotic blur.
+      for (let i = 0; i < multiDiceBodies.length; i++) {
+        applyTumbleTo(multiDiceBodies[i], dx, dz, 7.5);
+      }
+    }
+    multiLastDragP = { x: p.x, z: p.z };
+    placeMultiAtFinger(p.x, p.z);
     const now = performance.now();
     multiPointerSamples.push({ t: now, x: p.x, z: p.z });
     while (multiPointerSamples.length > 2 && now - multiPointerSamples[0].t > 200) {
@@ -930,6 +972,7 @@
   function onPointerUpMulti(ev) {
     if (!multiDragging) return;
     multiDragging = false;
+    multiLastDragP = null;
     try { canvasEl.releasePointerCapture(ev.pointerId); } catch (_) {}
 
     const now = performance.now();
@@ -1029,7 +1072,7 @@
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
       if (dieMesh) dieMesh.visible = false;
       setupMultiDice(n);
-      statusEl.textContent = 'Swipe up to throw your dice';
+      statusEl.textContent = 'Grab the dice and flick to throw';
       cancelBtn.textContent = 'Skip throw';
       overlay.style.display = 'flex';
       requestAnimationFrame(() => {
