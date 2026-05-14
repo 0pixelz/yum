@@ -622,6 +622,22 @@
   }
   function applyTumble(dx, dz) { applyTumbleTo(dieBody, dx, dz); }
 
+  // Rotate a body's quaternion by `angle` radians around an arbitrary axis
+  // (world-space premultiply). Used for the continuous in-hand spin so the
+  // player can't keep a die at a chosen face by holding still.
+  function spinBodyAroundAxis(body, axis, angle) {
+    const half = angle * 0.5;
+    const s = Math.sin(half), cw = Math.cos(half);
+    const dqx = axis.x * s, dqy = axis.y * s, dqz = axis.z * s, dqw = cw;
+    const q = body.quaternion;
+    const cx = q.x, cy = q.y, cz = q.z, cw2 = q.w;
+    const nx = dqw * cx + dqx * cw2 + dqy * cz - dqz * cy;
+    const ny = dqw * cy - dqx * cz + dqy * cw2 + dqz * cx;
+    const nz = dqw * cz + dqx * cy - dqy * cx + dqz * cw2;
+    const nw = dqw * cw2 - dqx * cx - dqy * cy - dqz * cz;
+    q.set(nx, ny, nz, nw);
+  }
+
   function onPointerMove(ev) {
     if (mode === 'multi') return onPointerMoveMulti(ev);
     if (!dragging) return;
@@ -722,6 +738,14 @@
     const dt = lastTime ? Math.min(0.05, (now - lastTime) / 1000) : 1 / 60;
     lastTime = now;
     world.step(1 / 60, dt, 3);
+    // While the player is holding the dice, spin each one around its own
+    // axis so the orientation at release is unpredictable (no cheating).
+    if (mode === 'multi' && multiDragging) {
+      for (let i = 0; i < multiDiceBodies.length; i++) {
+        const b = multiDiceBodies[i];
+        if (b._spinAxis) spinBodyAroundAxis(b, b._spinAxis, b._spinRate * dt);
+      }
+    }
     if (dieMesh) {
       dieMesh.position.copy(dieBody.position);
       dieMesh.quaternion.copy(dieBody.quaternion);
@@ -853,6 +877,14 @@
       body.type = CANNON.Body.KINEMATIC;
       body.velocity.set(0, 0, 0);
       body.angularVelocity.set(0, 0, 0);
+      // Per-die "auto spin" axis used while the dice are held in the hand —
+      // prevents the player from picking a face by holding still.
+      const ax = Math.random() * 2 - 1;
+      const ay = Math.random() * 2 - 1;
+      const az = Math.random() * 2 - 1;
+      const al = Math.hypot(ax, ay, az) || 1;
+      body._spinAxis = { x: ax / al, y: ay / al, z: az / al };
+      body._spinRate = 9 + Math.random() * 5; // rad/s — ~1.5-2 rotations/sec
       body.addEventListener('collide', (e) => {
         if (!multiThrowing) return;
         const c = e && e.contact;
@@ -899,26 +931,27 @@
         VY + (Math.random() - 0.5) * 0.8,
         VZ + (Math.random() - 0.5) * jitter
       );
-      const spin = 10 + Math.min(22, speed * 1.6);
+      const spin = 16 + Math.min(28, speed * 2.0);
       b.angularVelocity.set(
         -VZ * 0.7 + (Math.random() - 0.5) * spin,
-        (Math.random() - 0.5) * spin * 0.5,
+        (Math.random() - 0.5) * spin * 0.7,
          VX * 0.7 + (Math.random() - 0.5) * spin
       );
     });
   }
 
   function multiSoftDrop() {
-    // Weak / no flick → just let the dice tumble in place.
+    // Weak / no flick → still toss the dice in the air with heavy spin so
+    // they can't be released face-up.
     multiDiceBodies.forEach((b) => {
       b.type = CANNON.Body.DYNAMIC;
       b.wakeUp();
       b.velocity.set(
-        (Math.random() - 0.5) * 1.8,
-        2.6 + Math.random() * 1.2,
-        -1.0 - Math.random() * 1.8
+        (Math.random() - 0.5) * 2.2,
+        3.4 + Math.random() * 1.6,
+        -1.2 - Math.random() * 2.4
       );
-      const spin = 12;
+      const spin = 18;
       b.angularVelocity.set(
         (Math.random() - 0.5) * spin,
         (Math.random() - 0.5) * spin,
