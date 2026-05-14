@@ -2723,6 +2723,56 @@
     line-height: 1.5;
   }
   .howto-tip b { color: var(--green); }
+  .howto-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 50px;
+    background: linear-gradient(135deg, #7c3aed, #e91e8c);
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 0.62rem;
+    letter-spacing: 1.5px;
+    vertical-align: middle;
+  }
+  .howto-para {
+    margin: 0 0 8px;
+    font-size: 0.85rem;
+    color: var(--white);
+    line-height: 1.5;
+  }
+  .howto-pup-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .howto-pup {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-left: 3px solid var(--pup-col, #a855f7);
+  }
+  .howto-pup-icon {
+    font-size: 1.4rem;
+    color: var(--pup-col, #a855f7);
+    width: 32px; flex-shrink: 0;
+    text-align: center;
+  }
+  .howto-pup-name {
+    font-weight: 800;
+    font-size: 0.88rem;
+    color: var(--white);
+    margin-bottom: 2px;
+  }
+  .howto-pup-desc {
+    font-size: 0.74rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
   .howto-done-btn {
     width: 100%;
     margin-top: 8px;
