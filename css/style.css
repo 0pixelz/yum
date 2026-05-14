@@ -2593,6 +2593,18 @@
   }
   .pup-pick-btn:active { transform: scale(0.97); }
 
+  .pup-pick-btn.pup-pick-disabled,
+  .pup-pick-btn.pup-pick-disabled:hover,
+  .pup-pick-btn.pup-pick-disabled:active {
+    opacity: 0.35;
+    filter: grayscale(1);
+    cursor: not-allowed;
+    background: rgba(255,255,255,0.02);
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: none;
+    transform: none;
+  }
+
   .pup-pick-icon { font-size: 2rem; flex-shrink: 0; }
   .pup-pick-info { flex: 1; }
   .pup-pick-name { font-weight: 800; font-size: 0.95rem; color: var(--gold); margin-bottom: 3px; }
