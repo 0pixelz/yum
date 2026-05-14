@@ -89,15 +89,23 @@ function openPowerupPickerModal(context) {
   document.getElementById('powerupPickerTitle').innerHTML = titleHtml;
   document.getElementById('powerupPickerSub').textContent = subText;
 
-  document.getElementById('powerupPickerGrid').innerHTML = POWERUPS.map(p => `
-    <button class="pup-pick-btn" onclick="selectPowerup('${p.id}','${context}')"
+  const yumSlotFilled = !!(scores && scores.yum !== undefined);
+
+  document.getElementById('powerupPickerGrid').innerHTML = POWERUPS.map(p => {
+    const disabled = p.id === 'yamOrStrike' && yumSlotFilled;
+    const onclick  = disabled ? '' : `onclick="selectPowerup('${p.id}','${context}')"`;
+    const descText = disabled ? 'Yum slot already filled — unavailable' : p.desc;
+    return `
+    <button class="pup-pick-btn ${disabled ? 'pup-pick-disabled' : ''}" ${onclick}
+            ${disabled ? 'disabled aria-disabled="true"' : ''}
             style="--pup-col:${p.color}">
       <div class="pup-pick-icon">${p.icon}</div>
       <div class="pup-pick-info">
         <div class="pup-pick-name">${p.name}</div>
-        <div class="pup-pick-desc">${p.desc}</div>
+        <div class="pup-pick-desc">${descText}</div>
       </div>
-    </button>`).join('');
+    </button>`;
+  }).join('');
 
   document.getElementById('powerupPickerModal').classList.add('open');
 }
