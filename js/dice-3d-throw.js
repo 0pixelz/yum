@@ -578,6 +578,16 @@
     dieBody.type = CANNON.Body.KINEMATIC;
     dieBody.velocity.set(0, 0, 0);
     dieBody.angularVelocity.set(0, 0, 0);
+    // Fresh random "in-hand" spin axis so the player can't keep a face up
+    // by holding still — tick() applies this every frame while dragging.
+    {
+      const ax = Math.random() * 2 - 1;
+      const ay = Math.random() * 2 - 1;
+      const az = Math.random() * 2 - 1;
+      const al = Math.hypot(ax, ay, az) || 1;
+      dieBody._spinAxis = { x: ax / al, y: ay / al, z: az / al };
+      dieBody._spinRate = 9 + Math.random() * 5;
+    }
     pointerSamples = [];
     try { canvasEl.setPointerCapture(ev.pointerId); } catch (_) {}
     const p = pointerOnDragPlane(ev);
@@ -678,15 +688,22 @@
 
     dieBody.type = CANNON.Body.DYNAMIC;
     dieBody.wakeUp();
+    // Stop the in-hand auto-spin now that the die is physics-driven.
+    dieBody._spinAxis = null;
 
     const speed = Math.hypot(vx, vz);
     if (speed < 0.6) {
-      // Drop without throw — small bounce, random spin to ensure a roll.
-      dieBody.velocity.set(0, 1.5, -0.5);
+      // Drop without throw — heavier toss + random spin so the player can't
+      // keep a chosen face by releasing softly.
+      dieBody.velocity.set(
+        (Math.random() - 0.5) * 1.8,
+        3.4 + Math.random() * 1.4,
+        -1.0 - Math.random() * 1.8
+      );
       dieBody.angularVelocity.set(
-        (Math.random() - 0.5) * 12,
-        (Math.random() - 0.5) * 8,
-        (Math.random() - 0.5) * 12
+        (Math.random() - 0.5) * 18,
+        (Math.random() - 0.5) * 14,
+        (Math.random() - 0.5) * 18
       );
     } else {
       const minS = 4, maxS = 22;
@@ -696,10 +713,10 @@
       const VZ = vz * k;
       const VY = 4.5 + Math.min(7, speed * 0.35);
       dieBody.velocity.set(VX, VY, VZ);
-      const spin = 8 + Math.min(22, speed * 1.6);
+      const spin = 14 + Math.min(26, speed * 1.8);
       dieBody.angularVelocity.set(
         -VZ * 0.7 + (Math.random() - 0.5) * spin,
-        (Math.random() - 0.5) * spin * 0.5,
+        (Math.random() - 0.5) * spin * 0.7,
          VX * 0.7 + (Math.random() - 0.5) * spin
       );
     }
@@ -740,6 +757,9 @@
     world.step(1 / 60, dt, 3);
     // While the player is holding the dice, spin each one around its own
     // axis so the orientation at release is unpredictable (no cheating).
+    if (mode === 'single' && dragging && dieBody._spinAxis) {
+      spinBodyAroundAxis(dieBody, dieBody._spinAxis, dieBody._spinRate * dt);
+    }
     if (mode === 'multi' && multiDragging) {
       for (let i = 0; i < multiDiceBodies.length; i++) {
         const b = multiDiceBodies[i];
@@ -925,6 +945,7 @@
     multiDiceBodies.forEach((b) => {
       b.type = CANNON.Body.DYNAMIC;
       b.wakeUp();
+      b._spinAxis = null;
       const jitter = 1.5;
       b.velocity.set(
         VX + (Math.random() - 0.5) * jitter,
@@ -946,6 +967,7 @@
     multiDiceBodies.forEach((b) => {
       b.type = CANNON.Body.DYNAMIC;
       b.wakeUp();
+      b._spinAxis = null;
       b.velocity.set(
         (Math.random() - 0.5) * 2.2,
         3.4 + Math.random() * 1.6,
