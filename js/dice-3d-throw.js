@@ -1,11 +1,15 @@
 // 3D dice throw overlay — drag-and-flick gesture, Three.js + cannon-es.
 // Exposes window.throw3DDie() → Promise<1-6>. Falls back to random on failure.
+// Also exposes window.throw3DDice(count) → Promise<number[]> for auto-tossing
+// several smaller dice at once (used by the in-game roll button when the
+// "Roll dice in 3D" preference is enabled).
 (function () {
   'use strict';
 
   let THREE, CANNON;
   let scene, camera, renderer;
   let world, dieBody, dieMesh, floorMesh;
+  let floorPMat = null, diePMat = null;
   let overlay, canvasEl, statusEl, cancelBtn;
   let rafId = null;
   let lastTime = 0;
@@ -18,6 +22,18 @@
   let dragPlane;
   let raycaster;
   let pickOffset = { x: 0, z: 0 };
+
+  // ── Multi-die mode state ─────────────────────────────────────────
+  // 'single' = drag-and-flick one die (who-goes-first). 'multi' = auto-toss
+  // N smaller dice all at once for the regular in-game roll.
+  let mode = 'single';
+  let multiDiceBodies = [];
+  let multiDiceMeshes = [];
+  let multiThrowing = false;
+  let multiSettleStart = 0;
+  let multiResolve = null;
+  let multiGeom = null;
+  let multiMats = null;
 
   // BoxGeometry material order: [+X, -X, +Y, -Y, +Z, -Z]
   // Standard die: opposite faces sum to 7.
@@ -359,6 +375,15 @@
     statusEl = overlay.querySelector('#dice3dStatus');
     cancelBtn = overlay.querySelector('#dice3dCancel');
     cancelBtn.addEventListener('click', () => {
+      if (multiResolve) {
+        const r = multiResolve; multiResolve = null;
+        const n = multiDiceBodies.length || 5;
+        const arr = [];
+        for (let i = 0; i < n; i++) arr.push(Math.floor(Math.random() * 6) + 1);
+        closeOverlay();
+        r(arr);
+        return;
+      }
       if (!resolveFn) return;
       const r = resolveFn; resolveFn = null;
       closeOverlay();
@@ -440,8 +465,8 @@
     world.allowSleep = true;
     world.broadphase = new CANNON.NaiveBroadphase();
 
-    const floorPMat = new CANNON.Material('floor');
-    const diePMat = new CANNON.Material('die');
+    floorPMat = new CANNON.Material('floor');
+    diePMat = new CANNON.Material('die');
     world.addContactMaterial(new CANNON.ContactMaterial(floorPMat, diePMat, {
       friction: 0.45, restitution: 0.32
     }));
@@ -536,6 +561,7 @@
   }
 
   function onPointerDown(ev) {
+    if (mode !== 'single') return;
     if (throwing) return;
     // Allow grabbing the die, OR starting a flick anywhere if pointer is below die.
     const hitsDie = hitTestDie(ev);
@@ -593,6 +619,7 @@
   }
 
   function onPointerMove(ev) {
+    if (mode !== 'single') return;
     if (!dragging) return;
     const p = pointerOnDragPlane(ev);
     if (!p) return;
@@ -609,6 +636,7 @@
   }
 
   function onPointerUp(ev) {
+    if (mode !== 'single') return;
     if (!dragging) return;
     dragging = false;
     lastDragP = null;
@@ -662,10 +690,10 @@
     playThrowClatter();
   }
 
-  function topFaceNumber() {
+  function topFaceFor(body) {
     const q = new THREE.Quaternion(
-      dieBody.quaternion.x, dieBody.quaternion.y,
-      dieBody.quaternion.z, dieBody.quaternion.w
+      body.quaternion.x, body.quaternion.y,
+      body.quaternion.z, body.quaternion.w
     );
     const normals = [
       new THREE.Vector3( 1, 0, 0),
@@ -683,16 +711,24 @@
     return FACE_NUMBERS[bestIdx];
   }
 
+  function topFaceNumber() { return topFaceFor(dieBody); }
+
   function tick(now) {
     rafId = requestAnimationFrame(tick);
     const dt = lastTime ? Math.min(0.05, (now - lastTime) / 1000) : 1 / 60;
     lastTime = now;
     world.step(1 / 60, dt, 3);
-    dieMesh.position.copy(dieBody.position);
-    dieMesh.quaternion.copy(dieBody.quaternion);
+    if (dieMesh) {
+      dieMesh.position.copy(dieBody.position);
+      dieMesh.quaternion.copy(dieBody.quaternion);
+    }
+    for (let i = 0; i < multiDiceMeshes.length; i++) {
+      multiDiceMeshes[i].position.copy(multiDiceBodies[i].position);
+      multiDiceMeshes[i].quaternion.copy(multiDiceBodies[i].quaternion);
+    }
     renderer.render(scene, camera);
 
-    if (throwing) {
+    if (mode === 'single' && throwing) {
       const elapsed = now - settleStart;
       const v = dieBody.velocity.length();
       const a = dieBody.angularVelocity.length();
@@ -710,6 +746,26 @@
           r(val);
         }, 750);
       }
+    } else if (mode === 'multi' && multiThrowing) {
+      const elapsed = now - multiSettleStart;
+      const allSettled = multiDiceBodies.every(b => {
+        if (b.sleepState === CANNON.Body.SLEEPING) return true;
+        return elapsed > 900 &&
+          b.velocity.length() < 0.07 &&
+          b.angularVelocity.length() < 0.07;
+      });
+      if (allSettled || elapsed > 8500) {
+        multiThrowing = false;
+        const results = multiDiceBodies.map(topFaceFor);
+        statusEl.innerHTML = 'You rolled <b style="color:var(--gold)">' +
+          results.join(' · ') + '</b>!';
+        setTimeout(() => {
+          if (!multiResolve) return;
+          const r = multiResolve; multiResolve = null;
+          closeOverlay();
+          r(results);
+        }, 700);
+      }
     }
   }
 
@@ -720,7 +776,95 @@
       if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
       lastTime = 0;
       throwing = false; dragging = false;
+      multiThrowing = false;
+      teardownMultiDice();
+      if (dieMesh) dieMesh.visible = true;
+      mode = 'single';
     }, 280);
+  }
+
+  function teardownMultiDice() {
+    for (const m of multiDiceMeshes) { try { scene && scene.remove(m); } catch (_) {} }
+    for (const b of multiDiceBodies) { try { world && world.removeBody(b); } catch (_) {} }
+    multiDiceMeshes = [];
+    multiDiceBodies = [];
+  }
+
+  function buildMultiAssets(size) {
+    const bevel = size * 0.13;
+    if (multiGeom) { try { multiGeom.dispose(); } catch (_) {} }
+    multiGeom = makeRoundedBoxGeometry(size, bevel, 6);
+    if (!multiMats) {
+      multiMats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
+        map: makeFaceTexture(n),
+        roughness: 0.28,
+        metalness: 0.12,
+        color: 0xffffff
+      }));
+    }
+  }
+
+  function setupMultiDice(count) {
+    teardownMultiDice();
+    // Smaller dice so all 5 fit in the play area together.
+    const SIZE = 0.62;
+    const HALF = SIZE / 2;
+    buildMultiAssets(SIZE);
+
+    // Spread the dice across the back of the play area, slightly above
+    // the floor, then throw them all toward the camera with random spin.
+    for (let i = 0; i < count; i++) {
+      const mesh = new THREE.Mesh(multiGeom, multiMats);
+      mesh.castShadow = true;
+      scene.add(mesh);
+      multiDiceMeshes.push(mesh);
+
+      const lane = count === 1 ? 0 : (i / (count - 1) - 0.5) * 3.2; // -1.6..1.6
+      const body = new CANNON.Body({
+        mass: 0.6,
+        shape: new CANNON.Box(new CANNON.Vec3(HALF, HALF, HALF)),
+        material: diePMat,
+        allowSleep: true,
+        sleepSpeedLimit: 0.16,
+        sleepTimeLimit: 0.45,
+        linearDamping: 0.18,
+        angularDamping: 0.18
+      });
+      body.position.set(
+        lane + (Math.random() - 0.5) * 0.25,
+        2.4 + Math.random() * 1.4,
+        WALL_BACK + 0.9 + Math.random() * 0.4
+      );
+      body.quaternion.setFromEuler(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2
+      );
+      // Forward (+Z toward camera) toss with a bit of upward lift and lateral spread.
+      body.velocity.set(
+        -lane * 0.6 + (Math.random() - 0.5) * 2.6,
+        2.0 + Math.random() * 1.5,
+        5.5 + Math.random() * 2.5
+      );
+      const spin = 14;
+      body.angularVelocity.set(
+        (Math.random() - 0.5) * spin,
+        (Math.random() - 0.5) * spin,
+        (Math.random() - 0.5) * spin
+      );
+      body.addEventListener('collide', (e) => {
+        if (!multiThrowing) return;
+        const c = e && e.contact;
+        const v = c && typeof c.getImpactVelocityAlongNormal === 'function'
+          ? Math.abs(c.getImpactVelocityAlongNormal())
+          : 0;
+        if (v >= 1.4) playImpactTap(v);
+      });
+      world.addBody(body);
+      multiDiceBodies.push(body);
+    }
+    multiThrowing = true;
+    multiSettleStart = performance.now();
   }
 
   let libsPromise = null;
@@ -744,8 +888,12 @@
           return Math.floor(Math.random() * 6) + 1;
         }
       }
+      mode = 'single';
+      teardownMultiDice();
+      if (dieMesh) dieMesh.visible = true;
       resetDie();
       statusEl.textContent = 'Drag the dice and flick to throw';
+      cancelBtn.textContent = 'Skip throw';
       overlay.style.display = 'flex';
       requestAnimationFrame(() => {
         overlay.classList.add('open');
@@ -770,6 +918,56 @@
     }).catch(e => {
       console.warn('throw3DDie failed, using random fallback', e);
       return Math.floor(Math.random() * 6) + 1;
+    });
+  };
+
+  // Auto-toss `count` smaller dice in the same 3D scene. Resolves with an
+  // array of face values (1..6) in the same order the dice were spawned.
+  window.throw3DDice = function (count) {
+    const n = Math.max(1, Math.min(5, (count | 0) || 5));
+    const randomArr = () => {
+      const a = [];
+      for (let i = 0; i < n; i++) a.push(Math.floor(Math.random() * 6) + 1);
+      return a;
+    };
+    return Promise.all([ensureLibs(), ensureBrandFont()]).then(() => {
+      if (!overlay) buildOverlay();
+      if (!renderer) {
+        try { initScene(); }
+        catch (e) { console.warn('3D dice init failed', e); return randomArr(); }
+      }
+      mode = 'multi';
+      // Park the single die out of view so it doesn't share the scene visibly.
+      if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
+      if (dieMesh) dieMesh.visible = false;
+      setupMultiDice(n);
+      statusEl.textContent = 'Rolling…';
+      cancelBtn.textContent = 'Skip throw';
+      overlay.style.display = 'flex';
+      requestAnimationFrame(() => {
+        overlay.classList.add('open');
+        onResize();
+      });
+
+      if (!canvasEl._d3dBound) {
+        canvasEl._d3dBound = true;
+        canvasEl.addEventListener('pointerdown', onPointerDown);
+        canvasEl.addEventListener('pointermove', onPointerMove);
+        canvasEl.addEventListener('pointerup', onPointerUp);
+        canvasEl.addEventListener('pointercancel', onPointerUp);
+        window.addEventListener('resize', onResize);
+      }
+
+      if (!rafId) {
+        lastTime = 0;
+        rafId = requestAnimationFrame(tick);
+      }
+
+      playThrowClatter();
+      return new Promise(res => { multiResolve = res; });
+    }).catch(e => {
+      console.warn('throw3DDice failed, using random fallback', e);
+      return randomArr();
     });
   };
 })();

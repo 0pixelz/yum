@@ -271,6 +271,12 @@
           <span class="ps-row-value" id="psSoundValue">On</span>
         </button>
 
+        <button type="button" class="ps-row" id="ps3DRollRow">
+          <span class="ps-row-icon"><i class="icn icn-dice"></i></span>
+          <span class="ps-row-label">Roll dice in 3D</span>
+          <span class="ps-row-value" id="ps3DRollValue">Off</span>
+        </button>
+
         <button type="button" class="ps-row" id="psSkinRow">
           <span class="ps-row-icon"><i class="icn icn-dice"></i></span>
           <span class="ps-row-label">Dice skin</span>
@@ -322,6 +328,11 @@
 
     document.getElementById('psSoundRow').addEventListener('click', () => {
       if (typeof window.toggleSound === 'function') window.toggleSound();
+      refreshSettings();
+    });
+
+    document.getElementById('ps3DRollRow').addEventListener('click', () => {
+      if (typeof window.toggle3DRoll === 'function') window.toggle3DRoll();
       refreshSettings();
     });
 
@@ -378,6 +389,14 @@
     const sVal = document.getElementById('psSoundValue');
     if (sIcon) sIcon.className = on ? 'icn icn-sound-on' : 'icn icn-sound-off';
     if (sVal) sVal.textContent = on ? 'On' : 'Off';
+
+    const d3dVal = document.getElementById('ps3DRollValue');
+    if (d3dVal) {
+      const enabled = typeof window.is3DRollEnabled === 'function'
+        ? window.is3DRollEnabled()
+        : false;
+      d3dVal.textContent = enabled ? 'On' : 'Off';
+    }
 
     const skinVal = document.getElementById('psSkinValue');
     if (skinVal) skinVal.textContent = activeSkinName();
