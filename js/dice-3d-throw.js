@@ -25,8 +25,12 @@
 
   // ── Multi-die mode state ─────────────────────────────────────────
   // 'single' = drag-and-flick one die (who-goes-first). 'multi' = flick-throw
-  // N smaller dice all at once (Pokémon-GO-style swipe).
+  // N smaller dice all at once (Pokémon-GO-style swipe). 'spectator' =
+  // non-interactive playback of an opponent's throw — meshes are posed from
+  // network-streamed transforms, no physics drives them.
   let mode = 'single';
+  let _onFrameCb = null, _onOpenCb = null, _onCloseCb = null;
+  let _onSpectatorHideCb = null;
   let multiDiceBodies = [];
   let multiDiceMeshes = [];
   let multiThrowing = false;
@@ -380,6 +384,14 @@
     statusEl = overlay.querySelector('#dice3dStatus');
     cancelBtn = overlay.querySelector('#dice3dCancel');
     cancelBtn.addEventListener('click', () => {
+      if (mode === 'spectator') {
+        // "Hide" the live view of an opponent's roll — purely local; the
+        // roll continues on their side and the regular post-roll dice update
+        // will appear in the roller card via the existing liveDice channel.
+        if (_onSpectatorHideCb) { try { _onSpectatorHideCb(); } catch (_) {} }
+        closeOverlay();
+        return;
+      }
       if (multiResolve) {
         const r = multiResolve; multiResolve = null;
         const n = multiDiceBodies.length || 5;
@@ -774,6 +786,9 @@
       multiDiceMeshes[i].position.copy(multiDiceBodies[i].position);
       multiDiceMeshes[i].quaternion.copy(multiDiceBodies[i].quaternion);
     }
+    if ((mode === 'multi' || mode === 'spectator') && _onFrameCb) {
+      try { _onFrameCb(); } catch (_) {}
+    }
     renderer.render(scene, camera);
 
     if (mode === 'single' && throwing) {
@@ -818,6 +833,7 @@
   }
 
   function closeOverlay() {
+    const closingMode = mode;
     overlay.classList.remove('open');
     setTimeout(() => {
       if (overlay) overlay.style.display = 'none';
@@ -830,7 +846,17 @@
       multiLanes = [];
       teardownMultiDice();
       if (dieMesh) dieMesh.visible = true;
+      // Restore interactive UI for the next non-spectator open.
+      if (cancelBtn) cancelBtn.style.display = '';
+      if (canvasEl) canvasEl.style.pointerEvents = '';
+      if (overlay) {
+        const t = overlay.querySelector('.d3d-title');
+        if (t) t.textContent = 'YAMIO';
+      }
       mode = 'single';
+      if ((closingMode === 'multi' || closingMode === 'spectator') && _onCloseCb) {
+        try { _onCloseCb(closingMode); } catch (_) {}
+      }
     }, 280);
   }
 
@@ -1127,6 +1153,7 @@
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
       if (dieMesh) dieMesh.visible = false;
       setupMultiDice(n);
+      if (_onOpenCb) { try { _onOpenCb(n); } catch (_) {} }
       statusEl.textContent = 'Grab the dice and flick to throw';
       cancelBtn.textContent = 'Skip throw';
       overlay.style.display = 'flex';
@@ -1154,5 +1181,105 @@
       console.warn('throw3DDice failed, using random fallback', e);
       return randomArr();
     });
+  };
+
+  // ── Spectator mode: render an opponent's live 3D throw ───────────
+  // No physics, no pointer input — just pose `count` multi-style dice from
+  // network-streamed transforms. Returns { setFrame, close } once ready.
+  window.dice3DSpectate = function (opts) {
+    const o = opts || {};
+    const n = Math.max(1, Math.min(5, (o.count | 0) || 5));
+    return Promise.all([ensureLibs(), ensureBrandFont()]).then(() => {
+      if (!overlay) buildOverlay();
+      if (!renderer) {
+        try { initScene(); }
+        catch (e) { console.warn('3D dice init failed (spectator)', e); return null; }
+      }
+      mode = 'spectator';
+      if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
+      if (dieMesh) dieMesh.visible = false;
+      setupMultiDice(n);
+      // Freeze all bodies — meshes will follow body.position which we slam
+      // each frame from the incoming stream.
+      multiDiceBodies.forEach(b => {
+        b.type = CANNON.Body.STATIC;
+        b.velocity.set(0, 0, 0);
+        b.angularVelocity.set(0, 0, 0);
+        b._spinAxis = null;
+      });
+      multiReady = false; multiThrowing = false; multiDragging = false;
+
+      const title = overlay.querySelector('.d3d-title');
+      if (title) title.textContent = (o.title || 'OPPONENT').toUpperCase();
+      statusEl.textContent = o.status || 'Watching opponent…';
+      cancelBtn.textContent = 'Hide';
+      cancelBtn.style.display = '';
+      canvasEl.style.pointerEvents = 'none';
+      overlay.style.display = 'flex';
+      requestAnimationFrame(() => {
+        overlay.classList.add('open');
+        onResize();
+      });
+
+      if (!rafId) {
+        lastTime = 0;
+        rafId = requestAnimationFrame(tick);
+      }
+
+      return {
+        setFrame(transforms) {
+          if (mode !== 'spectator' || !transforms) return;
+          const len = Math.min(transforms.length, multiDiceBodies.length);
+          for (let i = 0; i < len; i++) {
+            const t = transforms[i];
+            if (!t || !t.p || !t.q) continue;
+            multiDiceBodies[i].position.set(t.p[0], t.p[1], t.p[2]);
+            multiDiceBodies[i].quaternion.set(t.q[0], t.q[1], t.q[2], t.q[3]);
+          }
+        },
+        setStatus(text) {
+          if (statusEl) statusEl.textContent = text || '';
+        },
+        close() {
+          if (mode === 'spectator') closeOverlay();
+        }
+      };
+    }).catch(e => {
+      console.warn('dice3DSpectate failed', e);
+      return null;
+    });
+  };
+
+  // ── Public bridge for the multiplayer streaming module ───────────
+  window.dice3DBridge = {
+    isMultiActive() {
+      return mode === 'multi' && (multiReady || multiDragging || multiThrowing);
+    },
+    isSpectatorActive() { return mode === 'spectator'; },
+    getMode() { return mode; },
+    getMultiState() {
+      if (mode !== 'multi') return null;
+      const transforms = [];
+      for (let i = 0; i < multiDiceMeshes.length; i++) {
+        const m = multiDiceMeshes[i];
+        transforms.push({
+          p: [m.position.x, m.position.y, m.position.z],
+          q: [m.quaternion.x, m.quaternion.y, m.quaternion.z, m.quaternion.w]
+        });
+      }
+      return {
+        n: multiDiceMeshes.length,
+        ready: multiReady,
+        dragging: multiDragging,
+        throwing: multiThrowing,
+        transforms: transforms
+      };
+    },
+    setOnFrame(fn) { _onFrameCb = (typeof fn === 'function') ? fn : null; },
+    setOnOpen(fn)  { _onOpenCb  = (typeof fn === 'function') ? fn : null; },
+    setOnClose(fn) { _onCloseCb = (typeof fn === 'function') ? fn : null; },
+    setOnSpectatorHide(fn) {
+      _onSpectatorHideCb = (typeof fn === 'function') ? fn : null;
+    }
   };
 })();
