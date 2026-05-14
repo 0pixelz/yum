@@ -100,6 +100,7 @@
   <button class="lobby-btn lobby-btn-find" onclick="openFindMatchModeChoice()"><i class="icn icn-players"></i> FIND MATCH (1v1)</button>
   <div class="lobby-divider">— OR —</div>
   <button class="lobby-btn lobby-btn-bot" onclick="openBotModeChoice()"><i class="icn icn-bot"></i> PLAY VS BOT</button>
+  <button class="lobby-btn lobby-btn-howto" onclick="openHowToPlay()"><i class="icn icn-orb"></i> HOW TO PLAY</button>
 
   <div class="lobby-legal">
     <a href="privacy.html">Privacy Policy</a>
@@ -299,6 +300,7 @@
 
 <header>
   <button class="ach-btn" onclick="openAchievements()" title="Achievements"><i class="icn icn-trophy"></i></button>
+  <button class="howto-btn" onclick="openHowToPlay()" title="How to Play" aria-label="How to play">?</button>
   <button class="sound-toggle" id="soundToggle" onclick="toggleSound()" title="Toggle sound"><i class="icn icn-sound-on"></i></button>
   <h1 class="yum-brand-logo">
     <svg class="yum-brand-mark" viewBox="0 0 64 64" aria-hidden="true"><use href="#yum-mark"/></svg>
@@ -348,6 +350,80 @@
 <div id="achOverlay" onclick="closeAchievementsOverlay(event)"><div class="ach-sheet"><div class="ach-header"><div class="ach-header-title"><i class="icn icn-trophy"></i> ACHIEVEMENTS</div><button class="ach-close" onclick="closeAchievements()"><i class="icn icn-close"></i></button></div><div class="ach-progress-bar"><div class="ach-progress-fill" id="achProgressFill" style="width:0%"></div></div><div class="ach-progress-label" id="achProgressLabel">0 / 15 unlocked</div><div class="ach-grid" id="achGrid"></div></div></div>
 <div id="achNotif"><div class="achN-icon" id="achNotifIcon"><i class="icn icn-trophy icn-gold"></i></div><div><div class="achN-label">ACHIEVEMENT UNLOCKED</div><div class="achN-name" id="achNotifName">First Roll</div><div class="achN-desc" id="achNotifDesc">Complete your first game</div></div></div>
 
+<!-- HOW TO PLAY OVERLAY -->
+<div id="howToPlayOverlay" onclick="closeHowToPlayOverlay(event)">
+  <div class="howto-sheet" role="dialog" aria-labelledby="howToPlayTitle">
+    <div class="howto-header">
+      <div class="howto-header-title" id="howToPlayTitle"><i class="icn icn-orb"></i> HOW TO PLAY</div>
+      <button class="howto-close" onclick="closeHowToPlay()" aria-label="Close"><i class="icn icn-close"></i></button>
+    </div>
+
+    <div class="howto-body">
+      <div class="howto-intro">
+        Yamio is a Yam / Yahtzee-style dice game. Roll five dice, hold the ones you like,
+        and pick a category to score. Fill all 13 categories — biggest total wins.
+      </div>
+
+      <div class="howto-section">
+        <div class="howto-section-title">1 · Your Turn</div>
+        <ul class="howto-list">
+          <li>Tap <b>ROLL</b> to throw all five dice.</li>
+          <li>Tap <b>HOLD</b> under a die to lock it for the next roll.</li>
+          <li>You get up to <b>3 rolls</b> per turn. You can stop early any time.</li>
+          <li>When you're done rolling, pick a category in your scorecard to bank the score.</li>
+        </ul>
+      </div>
+
+      <div class="howto-section">
+        <div class="howto-section-title">2 · Scoring Categories</div>
+        <div class="howto-table-wrap">
+          <table class="howto-table">
+            <thead>
+              <tr><th>Category</th><th>How to Score</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Ones – Sixes</td><td>Sum of dice matching that number</td></tr>
+              <tr><td>3 of a Kind</td><td>3+ matching dice → sum of all 5 dice</td></tr>
+              <tr><td>4 of a Kind</td><td>4+ matching dice → sum of all 5 dice</td></tr>
+              <tr><td>Full House</td><td>3 of one + 2 of another → <b>25</b></td></tr>
+              <tr><td>Small Straight</td><td>4 in a row → <b>30</b></td></tr>
+              <tr><td>Large Straight</td><td>5 in a row → <b>40</b></td></tr>
+              <tr><td>YAM!</td><td>All 5 dice the same → <b>50</b></td></tr>
+              <tr><td>Chance</td><td>Any combo → sum of all 5 dice</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="howto-tip">
+          <b>Upper Bonus:</b> score <b>63+</b> in the Ones–Sixes section to earn a
+          <b>+35</b> bonus. The Upper Bonus Helper shows how many of each number
+          you still need.
+        </div>
+      </div>
+
+      <div class="howto-section">
+        <div class="howto-section-title">3 · End of Game</div>
+        <ul class="howto-list">
+          <li>Each category can only be used <b>once</b>.</li>
+          <li>If a category doesn't fit, you can <b>scratch</b> it for 0 points.</li>
+          <li>Game ends when all 13 categories are filled. Highest total wins.</li>
+        </ul>
+      </div>
+
+      <div class="howto-section">
+        <div class="howto-section-title">4 · Tips</div>
+        <ul class="howto-list">
+          <li>Tap <b>PREDICT</b> after a roll for AI-suggested holds and best scores.</li>
+          <li>In multiplayer, tap an opponent's name to peek at their scorecard.</li>
+          <li>Save big categories (YAM, Large Straight) for when you actually roll them — scratch a low Ones early if you must.</li>
+          <li>Watch the Upper Bonus tracker — that +35 often decides the game.</li>
+        </ul>
+      </div>
+
+      <button class="howto-done-btn" onclick="closeHowToPlay()">GOT IT</button>
+    </div>
+  </div>
+</div>
+
 <!-- POWER-UP PICKER MODAL -->
 <div id="powerupPickerModal">
   <div class="pup-picker-sheet">
@@ -394,5 +470,6 @@
 <script src="js/turn-timeout.js"></script>
 <script src="js/report-block.js"></script>
 <script src="js/friends.js"></script>
+<script src="js/how-to-play.js"></script>
 </body>
 </html>
