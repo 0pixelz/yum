@@ -187,25 +187,58 @@ function cycleDie(i) {
   renderScores();
 }
 
-function rollDice() {
+let _yumRollInFlight = false;
+
+async function rollDice() {
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
   if(botMode && !playerTurn) { showToast('Wait for the bot!'); return; }
   if(rollsLeft <= 0) return;
+  if(_yumRollInFlight) return;
   SFX.roll();
+
+  // Multiplayer: dice come from the server (functions/index.js rollDice).
+  // The client's animation runs to mask the 200-500ms round trip; we then
+  // patch the local dice array with the authoritative values before the
+  // score modal can open. Solo and bot games keep the local Math.random
+  // path since there's no opponent to cheat.
+  if (mpMode && roomRef && window.YumCloud && roomCode) {
+    _yumRollInFlight = true;
+    try {
+      const resp = await window.YumCloud.rollDice({ roomId: roomCode, held: [...held] });
+      if (resp && Array.isArray(resp.dice) && resp.dice.length === 5) {
+        dice = resp.dice.slice();
+        rolled = true;
+        rollsLeft = 3 - (Number(resp.roll) || 0);
+        renderDice(true);
+        renderScores();
+        document.getElementById('rollCount').textContent = `Rolls: ${3-rollsLeft} / 3`;
+        // Mirror to liveDice so the streaming opponent UI updates promptly.
+        // The opponent's score check on the server reads /serverDice, not
+        // /liveDice — so this stream is display-only.
+        const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+        let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
+        roomRef.child('players/' + playerId + '/liveDice').set({
+          dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, perDieColors: _pdc, ts: Date.now()
+        });
+      }
+    } catch (err) {
+      console.warn('cloud rollDice failed:', err);
+      const msg = String((err && err.message) || '');
+      if (/not your turn/i.test(msg)) showToast("It's not your turn!");
+      else if (/no rolls left/i.test(msg)) showToast('No rolls left');
+      else showToast("Couldn't roll — check your connection");
+    } finally {
+      _yumRollInFlight = false;
+    }
+    return;
+  }
+
   dice = dice.map((v,i) => held[i] ? v : Math.floor(Math.random()*6)+1);
   rolled = true;
   rollsLeft--;
   renderDice(true);
   renderScores();
   document.getElementById('rollCount').textContent = `Rolls: ${3-rollsLeft} / 3`;
-  // Sync dice to Firebase for opponents to see
-  if(mpMode && roomRef) {
-    const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
-    let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
-    roomRef.child('players/' + playerId + '/liveDice').set({
-      dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, perDieColors: _pdc, ts: Date.now()
-    });
-  }
 }
 
 function clearDice() {
@@ -1856,10 +1889,55 @@ function showToast(msg) {
   setTimeout(()=>t.classList.remove('show'), 2800);
 }
 
-// Patch confirmScore to push to Firebase and advance turn
+// Patch confirmScore to route multiplayer through the server.
+// The server's submitScore reads /serverDice (set by rollDice), recomputes
+// the score for the category, writes it to /scores, clears liveDice, and
+// advances /currentTurn. The client then mirrors that into the local UI.
+let _yumScoreInFlight = false;
 const _origConfirmScore = confirmScore;
-confirmScore = function() {
+confirmScore = async function() {
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
+
+  if (mpMode && roomRef && window.YumCloud && roomCode && activeModal) {
+    if (_yumScoreInFlight) return;
+    _yumScoreInFlight = true;
+    const categoryId = activeModal;
+    try {
+      const resp = await window.YumCloud.submitScore({ roomId: roomCode, categoryId });
+      const serverScore = (resp && typeof resp.score === 'number') ? resp.score : selectedScore;
+      // Mirror what the server wrote into local state, then run the
+      // original confirm flow (SFX, close modal, scroll) using that score.
+      selectedScore = serverScore;
+      scores[categoryId] = serverScore;
+      playerScoreDice[categoryId] = dice.slice();
+      if (categoryId === 'yum' && serverScore === 30) SFX.yum();
+      else if (serverScore === 0) SFX.scratch();
+      else SFX.score();
+      clearDice();
+      closeModalEl();
+      renderScores();
+      setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 150);
+      // Check if game is over (every player filled every category).
+      if (Object.keys(scores).length >= categories.length) {
+        const localDone = Object.entries(allPlayers).every(([id, p]) => {
+          const sc = id === playerId ? scores : (p.scores || {});
+          return Object.keys(sc).length >= categories.length;
+        });
+        if (localDone) setTimeout(showMpGameOver, 800);
+      }
+    } catch (err) {
+      console.warn('cloud submitScore failed:', err);
+      const msg = String((err && err.message) || '');
+      if (/no rolled dice/i.test(msg)) showToast('Roll the dice first');
+      else if (/already scored/i.test(msg)) showToast('Category already used');
+      else if (/not your turn/i.test(msg)) showToast("It's not your turn!");
+      else showToast("Couldn't save score — check your connection");
+    } finally {
+      _yumScoreInFlight = false;
+    }
+    return;
+  }
+
   _origConfirmScore();
   if(mpMode) {
     pushScoresToDb();

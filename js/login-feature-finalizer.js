@@ -112,14 +112,32 @@
     toast(id === 'classic' ? 'Original dice equipped' : 'Skin equipped');
   };
 
-  window.buySkin = function(id) {
+  window.buySkin = async function(id) {
     if (!isLoggedIn()) return toast('Sign in with Google to use the Skin Store');
     const skin = SKINS.find(s => s.id === id);
     if (!skin) return toast('Open the Skin Store to browse available skins');
     const list = owned();
     if (list.includes(id)) return window.equipSkin(id);
     if (credits() < skin.cost) return toast(`Need ${skin.cost} credits`);
-    if (!spend(skin.cost, `skin_${id}`)) return toast('Not enough credits');
+
+    if (!window.YumCloud || typeof window.YumCloud.purchaseSkin !== 'function') {
+      return toast('Store unavailable — reload and try again');
+    }
+    try {
+      await window.YumCloud.purchaseSkin({ skinId: id });
+    } catch (err) {
+      const msg = String((err && err.message) || '');
+      if (/already owned/i.test(msg)) {
+        list.push(id);
+        setOwned(list);
+        window.equipSkin(id);
+        return;
+      }
+      return toast('Purchase failed — not enough credits');
+    }
+    if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+      try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
+    }
     list.push(id);
     setOwned(list);
     window.equipSkin(id);

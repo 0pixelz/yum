@@ -326,36 +326,58 @@
     }
   }
 
-  window.claimDailyChallenge = function claimDailyChallenge(id) {
+  window.claimDailyChallenge = async function claimDailyChallenge(id) {
     if (!isLoggedIn()) {
       if (window.showToast) showToast('Sign in with Google to earn credits');
       return;
     }
     const st = challengeState();
     const targets = id ? st.items.filter(it => it.id === id) : st.items.slice();
-    let totalReward = 0;
-    let claimedCount = 0;
+    const ready = [];
     for (const item of targets) {
       if (item.claimed) continue;
       const def = CHALLENGES.find(c => c.id === item.id);
       if (!def) continue;
       if ((Math.max(0, Number(item.progress) || 0)) < def.target) continue;
-      item.claimed = true;
-      totalReward += def.reward;
-      claimedCount++;
+      ready.push({ item, def });
     }
-    if (claimedCount === 0) {
+    if (ready.length === 0) {
       if (window.showToast) showToast('Challenge not completed yet');
       return;
     }
+    if (!window.YumCloud || typeof window.YumCloud.claimDailyChallenge !== 'function') {
+      if (window.showToast) showToast('Challenges unavailable — reload and try again');
+      return;
+    }
+
+    let totalReward = 0;
+    let claimedCount = 0;
+    for (const { item, def } of ready) {
+      try {
+        const resp = await window.YumCloud.claimDailyChallenge({ challengeId: item.id });
+        const reward = (resp && typeof resp.reward === 'number') ? resp.reward : def.reward;
+        item.claimed = true;
+        totalReward += reward;
+        claimedCount++;
+      } catch (err) {
+        const msg = String((err && err.message) || '');
+        if (/already claimed/i.test(msg)) {
+          item.claimed = true;
+        }
+      }
+    }
     saveChallengeState(st);
-    window.addYumCredits(totalReward, 'daily_challenge');
+    if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+      try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
+    }
     renderDailyChallengeOverlay();
     refreshChallengeButtonText();
-    if (window.showToast) {
+    if (claimedCount > 0 && window.showToast) {
       showToast(claimedCount === 1
         ? `Challenge reward claimed: +${totalReward} credits`
         : `${claimedCount} rewards claimed: +${totalReward} credits`);
+    } else if (window.showToast) {
+      showToast('Already claimed');
     }
   };
 
