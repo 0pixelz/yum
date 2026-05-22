@@ -1,3 +1,18 @@
+// ─── HTML escape helper ─────────────────────────────────────────────
+// Any DB-sourced string (player names, reactions, invites…) MUST be passed
+// through this before being interpolated into innerHTML / template literals.
+// textContent assignments are already safe and do not need it.
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+window.escapeHtml = escapeHtml;
+
 // ─── SOUND EFFECTS ──────────────────────────────────────────────────
 let soundEnabled = localStorage.getItem('yumSound') !== 'off';
 let _audioCtx = null;
@@ -1421,7 +1436,7 @@ function listenRoom() {
       wp.innerHTML = sorted.map(([id,p]) =>
         `<div class="room-player-row">
           <div class="room-player-dot"></div>
-          <div class="room-player-name">${p.name}${id===playerId?' (you)':''}</div>
+          <div class="room-player-name">${escapeHtml(p.name)}${id===playerId?' (you)':''}</div>
           ${id===data.host?'<div class="room-player-host">HOST</div>':''}
         </div>`
       ).join('');
@@ -1630,7 +1645,7 @@ function listenRoom() {
           for (let i = 0; i < removed; i++) {
             const icon = POWERUP_ICONS[pid] || '<i class="icn icn-bolt"></i>';
             const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === pid) || {}).name : null) || pid;
-            showToast(`${icon} ${p.name} used ${pName}!`);
+            showToast(`${icon} ${escapeHtml(p.name)} used ${escapeHtml(pName)}!`);
           }
         });
 
@@ -1638,7 +1653,7 @@ function listenRoom() {
         if (!prev.pending && cur.pending) {
           const icon = POWERUP_ICONS[cur.pending] || '<i class="icn icn-bolt"></i>';
           const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === cur.pending) || {}).name : null) || cur.pending;
-          showToast(`${icon} ${p.name} is activating ${pName}…`);
+          showToast(`${icon} ${escapeHtml(p.name)} is activating ${escapeHtml(pName)}…`);
         }
 
         prevOpponentPowerups[id] = { inventory: curInv.slice(), pending: cur.pending || null };
@@ -1760,14 +1775,14 @@ function renderLeaderboard() {
       if (av) avatarHtml = `<div class="lb-avatar">${av}</div>`;
     }
     const reactBtnHtml = !isMe
-      ? `<button class="lb-react-btn" onclick="event.stopPropagation(); openReactionPicker('${id}')" aria-label="Send reaction to ${p.name}" title="Send reaction"><i class="icn icn-sparkle icn-gold"></i></button>`
+      ? `<button class="lb-react-btn" onclick="event.stopPropagation(); openReactionPicker('${id}')" aria-label="Send reaction to ${escapeHtml(p.name)}" title="Send reaction"><i class="icn icn-sparkle icn-gold"></i></button>`
       : '';
     return `<div class="lb-row ${isMe?'me':''}" onclick="${tapAction}" style="cursor:pointer">
       <div class="lb-rank">${i+1}</div>
       ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
       ${avatarHtml}
       <div class="lb-name-col">
-        <div class="lb-name">${p.name}<span style="font-size:0.65rem;color:var(--muted)"> <i class="icn icn-eye"></i> ${isMe?'tap':'view'}</span></div>
+        <div class="lb-name">${escapeHtml(p.name)}<span style="font-size:0.65rem;color:var(--muted)"> <i class="icn icn-eye"></i> ${isMe?'tap':'view'}</span></div>
         ${pupHtml}
       </div>
       ${reactBtnHtml}
@@ -1793,7 +1808,7 @@ function advanceTurn() {
   const idx = playerOrder.indexOf(currentTurnId);
   const nextId = playerOrder[(idx+1) % playerOrder.length];
   roomRef.update({ currentTurn: nextId });
-  showToast('Score saved! ' + (allPlayers[nextId]?.name || 'Next player') + "'s turn");
+  showToast('Score saved! ' + escapeHtml(allPlayers[nextId]?.name || 'Next player') + "'s turn");
 }
 
 function pushScoresToDb() {
@@ -2530,7 +2545,7 @@ function showGameOver(players) {
 
   document.getElementById('goScores').innerHTML = players.map((p,i) =>
     `<div class="gameover-score-row">
-      <div class="gameover-score-name">${i===0&&!tied?'<i class="icn icn-medal icn-gold"></i> ':''}${p.name}${p.isMe?' (you)':''}</div>
+      <div class="gameover-score-name">${i===0&&!tied?'<i class="icn icn-medal icn-gold"></i> ':''}${escapeHtml(p.name)}${p.isMe?' (you)':''}</div>
       <div class="gameover-score-val">${p.score}</div>
     </div>`
   ).join('');
@@ -2719,7 +2734,7 @@ function renderSessionSummary(cont) {
     html += `<div class="session-summary-row">
       <div class="ssrow-rank">${renderMedal(i)}</div>
       <div>
-        <div class="ssrow-name">${name}${s.isMe?' (you)':''}</div>
+        <div class="ssrow-name">${escapeHtml(name)}${s.isMe?' (you)':''}</div>
         <div style="font-size:0.7rem;color:var(--muted)">${s.games} game${s.games!==1?'s':''} · avg ${Math.round(s.totalScore/s.games)} pts</div>
       </div>
       <div class="ssrow-wins">${s.wins} WIN${s.wins!==1?'S':''}</div>
@@ -2737,11 +2752,11 @@ function renderSessionSummary(cont) {
     html += `<div class="session-result-card" onclick="setSessionTab('game${g.gameNum}')">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;gap:8px">
         <span style="font-family:'Bebas Neue',cursive;letter-spacing:2px;color:var(--muted)">GAME ${g.gameNum}</span>
-        <span style="font-size:0.75rem;color:var(--gold);font-weight:700"><i class="icn icn-trophy"></i> ${g.winner}</span>
+        <span style="font-size:0.75rem;color:var(--gold);font-weight:700"><i class="icn icn-trophy"></i> ${escapeHtml(g.winner)}</span>
       </div>
-      <div style="font-size:0.72rem;color:var(--muted);letter-spacing:0.4px;margin-bottom:6px;text-transform:uppercase">${vsLabel}</div>
+      <div style="font-size:0.72rem;color:var(--muted);letter-spacing:0.4px;margin-bottom:6px;text-transform:uppercase">${escapeHtml(vsLabel)}</div>
       ${sorted.map(p=>`<div style="display:flex;justify-content:space-between;font-size:0.85rem">
-        <span style="font-weight:700">${p.name}${p.isMe?' (you)':''}</span>
+        <span style="font-weight:700">${escapeHtml(p.name)}${p.isMe?' (you)':''}</span>
         <span style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:${p.name===g.winner?'var(--gold)':'var(--muted)'}">${p.score}</span>
       </div>`).join('')}
       <div class="session-result-tap"><i class="icn icn-clipboard"></i> Tap for scorecard ›</div>
@@ -2762,14 +2777,14 @@ function renderSessionGame(cont, game) {
     <div class="sgc-header">
       <div>
         <div class="sgc-title">GAME ${game.gameNum}</div>
-        <div class="sgc-subtitle">${sessionVsLabel(game)}</div>
+        <div class="sgc-subtitle">${escapeHtml(sessionVsLabel(game))}</div>
       </div>
-      <div class="sgc-winner"><i class="icn icn-trophy icn-gold"></i> ${game.winner}</div>
+      <div class="sgc-winner"><i class="icn icn-trophy icn-gold"></i> ${escapeHtml(game.winner)}</div>
     </div>
     <table class="sgc-table">
       <thead><tr>
         <th>Category</th>
-        ${playerNames.map(n=>`<th>${n.length>7?n.substr(0,6)+'…':n}</th>`).join('')}
+        ${playerNames.map(n=>`<th>${escapeHtml(n.length>7?n.substr(0,6)+'…':n)}</th>`).join('')}
       </tr></thead>
       <tbody>`;
 

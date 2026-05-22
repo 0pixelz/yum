@@ -143,7 +143,8 @@
         watchedTurnStartedAt = Date.now();
         const name = (window.allPlayers[turn] || {}).name || 'Player';
         if (typeof window.showToast === 'function') {
-          window.showToast(name + ' timed out — turn skipped');
+          var esc = (window.escapeHtml || function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); });
+          window.showToast(esc(name) + ' timed out — turn skipped');
         }
       }
     }).catch(function(){});

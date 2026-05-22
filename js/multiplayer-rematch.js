@@ -56,10 +56,11 @@ function showRematchVoteBar() {
 function renderRematchVotes(votes) {
   var container = document.getElementById('rvbPlayers');
   if (!container) return;
+  var esc = (window.escapeHtml || function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); });
   container.innerHTML = Object.entries(allPlayers).map(function (e) {
     var id = e[0], p = e[1];
     var voted = votes[id] === 'yes';
-    return '<span class="rvb-player' + (voted ? ' voted' : '') + '">' + (voted ? '<i class="icn icn-check"></i>' : '…') + ' ' + p.name + '</span>';
+    return '<span class="rvb-player' + (voted ? ' voted' : '') + '">' + (voted ? '<i class="icn icn-check"></i>' : '…') + ' ' + esc(p.name) + '</span>';
   }).join('');
   if (myVoteCast) {
     document.querySelectorAll('.rvb-btn').forEach(function (b) { b.disabled = true; });

@@ -235,8 +235,9 @@
     }
     const players = getPlayers();
     const hId = hostId();
+    const esc = (window.escapeHtml || function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); });
     const rows = Object.entries(players).sort((a, b) => (a[1].joined || 0) - (b[1].joined || 0)).map(([id, p]) => {
-      const initial = String(p.name || '?').charAt(0).toUpperCase();
+      const initial = esc(String(p.name || '?').charAt(0).toUpperCase());
       const isHost = id === hId;
       const isMe = id === myId();
       const ready = !!p.ready;
@@ -248,7 +249,7 @@
           avatarHtml = window.YumAvatars.markup(p.avatar, p.name);
         }
       }
-      return `<div class="wup-player"><div class="wup-avatar">${avatarHtml}</div><div class="wup-info"><div class="wup-name">${p.name || 'Player'}${isMe ? ' · You' : ''}</div><div class="wup-meta">${isHost ? 'Host' : 'Guest'} · ${ready ? 'Ready' : 'Not ready'}</div></div><div class="wup-badge ${ready ? 'ready' : ''}">${isHost ? 'HOST' : ready ? 'READY' : 'WAIT'}</div></div>`;
+      return `<div class="wup-player"><div class="wup-avatar">${avatarHtml}</div><div class="wup-info"><div class="wup-name">${esc(p.name || 'Player')}${isMe ? ' · You' : ''}</div><div class="wup-meta">${isHost ? 'Host' : 'Guest'} · ${ready ? 'Ready' : 'Not ready'}</div></div><div class="wup-badge ${ready ? 'ready' : ''}">${isHost ? 'HOST' : ready ? 'READY' : 'WAIT'}</div></div>`;
     }).join('') || '<div class="ssu-small">Waiting for players…</div>';
     card.innerHTML = `<div class="waiting-upgrade-title">LOBBY PLAYERS</div>${rows}<div class="wup-actions"><button class="wup-btn ready" onclick="toggleLobbyReady()">${currentReady() ? '<i class="icn icn-check"></i> Ready' : 'Mark Ready'}</button><button class="wup-btn" onclick="copyRoomCodeUpgrade()"><i class="icn icn-clipboard"></i> Copy Code</button><button class="wup-btn share" onclick="shareLobby()"><i class="icn icn-handshake"></i> Share Lobby</button></div>`;
   }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yamio-pwa-v4';
+const CACHE_NAME = 'yamio-pwa-v5';
 const NAV_TIMEOUT_MS = 4000;
 
 // Files that must be available offline so the PWA splash always resolves to a
@@ -10,7 +10,11 @@ const PRECACHE_URLS = [
   './index.html',
   './manifest.json',
   './css/style.css',
-  './css/icons.css'
+  './css/icons.css',
+  './privacy.html',
+  './deleteaccount.html',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
