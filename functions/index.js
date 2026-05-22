@@ -8,12 +8,15 @@ const admin = require('firebase-admin');
 const crypto = require('crypto');
 
 admin.initializeApp();
-// maxInstances raised from 50 → 500 for Play Store launch: each active
+// maxInstances raised from 50 → 200 for Play Store launch: each active
 // player triggers rollDice / submitScore / claimDailyBonus every 30–60s,
-// so 50 instances throttles past ~200 concurrent users.
+// so 50 instances throttles past ~200 concurrent users. 200 is the cap
+// the project's current CpuAllocPerProjectRegion quota (200,000 mCPU)
+// allows; request a quota increase in GCP Console → IAM & Admin → Quotas
+// before bumping this any higher.
 setGlobalOptions({
   region: 'us-central1',
-  maxInstances: 500,
+  maxInstances: 200,
 });
 
 const SERVER_TIMESTAMP = admin.database.ServerValue.TIMESTAMP;
