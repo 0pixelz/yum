@@ -26,6 +26,18 @@
   const PRESENCE_FRESH_MS  = 90 * 1000;        // /presence ts within this counts as online
   const READY_TIMEOUT_MS   = 15000;            // both players must accept within this window
   const READY_START_DELAY_MS = 3000;           // brief pause after both accept before kickoff
+  // Cap how many queue entries we ever pull into the client. At 1000 concurrent
+  // seekers an unbounded `ref(QUEUE_PATH).on('value')` would pull the whole
+  // queue down to every seeker on every join/leave — O(n²) reads. Looking at
+  // the oldest 30 is enough: the UID tie-break only ever pairs us with someone
+  // older anyway, and stale entries get evicted at STALE_MS.
+  const QUEUE_SCAN_LIMIT   = 30;
+  // /presence is global to the whole app, so subscribing to it scales linearly
+  // with online users. We just need a counter for the "PLAYERS ONLINE" badge,
+  // so poll a bounded slice every 20s instead of holding a live listener on
+  // the full tree.
+  const PRESENCE_POLL_MS   = 20 * 1000;
+  const PRESENCE_PEEK_LIMIT = 500;
 
   let mmActive = false;
   let mmRole   = null;            // 'seeker' | 'waiter' | null
@@ -42,6 +54,7 @@
   let mmQueueWatcher = null;
   let mmPresenceRef = null;
   let mmPresenceWatcher = null;
+  let mmPresencePollTimer = null;
   let mmInQueue = false;
   let mmClaimInFlight = false;
   let mmAutoStartScheduled = false;
@@ -292,17 +305,22 @@
     const out = el('mmOnline');
     if (!out) return;
     let count = 0;
+    let total = 0;
     if (snap && snap.exists()) {
       const all = snap.val() || {};
       const now = Date.now();
       for (const uid in all) {
+        total++;
         const info = all[uid];
         if (info && typeof info.ts === 'number' && (now - info.ts) < PRESENCE_FRESH_MS) {
           count++;
         }
       }
     }
-    out.textContent = String(count);
+    // Query is capped at PRESENCE_PEEK_LIMIT so once we hit the ceiling we
+    // can only say "at least this many" — show a "+" so a busy server
+    // doesn't appear flat-lined at the cap.
+    out.textContent = (total >= PRESENCE_PEEK_LIMIT) ? (count + '+') : String(count);
   }
 
   function lobbyErr(msg) {
@@ -420,7 +438,10 @@
   function attachQueueWatcher() {
     if (!mmDb) return;
     detachQueueWatcher();
-    mmQueueRef = mmDb.ref(QUEUE_PATH);
+    // Only watch the oldest QUEUE_SCAN_LIMIT entries (indexed on `ts` in
+    // firebase.rules.json). The queue can grow unboundedly at launch — without
+    // this cap every seeker downloads the full queue on every join/leave.
+    mmQueueRef = mmDb.ref(QUEUE_PATH).orderByChild('ts').limitToFirst(QUEUE_SCAN_LIMIT);
     mmQueueWatcher = mmQueueRef.on('value', onQueueChange, () => {});
   }
 
@@ -435,11 +456,29 @@
   function attachPresenceWatcher() {
     if (!mmDb) return;
     detachPresenceWatcher();
-    mmPresenceRef = mmDb.ref(PRESENCE_PATH);
-    mmPresenceWatcher = mmPresenceRef.on('value', updateOnlineCount, () => {});
+    // Poll a bounded slice instead of holding a live listener on the full
+    // /presence tree. At 1000 concurrent users every presence write (every
+    // 10s per user) would otherwise fan out a snapshot to every searching
+    // client. limitToLast(PRESENCE_PEEK_LIMIT) keeps the payload bounded
+    // while .indexOn:["ts"] in the rules makes the query cheap.
+    const pollOnce = () => {
+      if (!mmActive || !mmDb) return;
+      mmDb.ref(PRESENCE_PATH)
+        .orderByChild('ts')
+        .limitToLast(PRESENCE_PEEK_LIMIT)
+        .once('value')
+        .then(updateOnlineCount)
+        .catch(() => {});
+    };
+    pollOnce();
+    mmPresencePollTimer = setInterval(pollOnce, PRESENCE_POLL_MS);
   }
 
   function detachPresenceWatcher() {
+    if (mmPresencePollTimer) {
+      clearInterval(mmPresencePollTimer);
+      mmPresencePollTimer = null;
+    }
     if (mmPresenceRef && mmPresenceWatcher) {
       try { mmPresenceRef.off('value', mmPresenceWatcher); } catch (e) {}
     }
@@ -484,8 +523,12 @@
 
   async function tryClaimAny() {
     let snap;
-    try { snap = await mmDb.ref(QUEUE_PATH).once('value'); }
-    catch (e) { return false; }
+    try {
+      snap = await mmDb.ref(QUEUE_PATH)
+        .orderByChild('ts')
+        .limitToFirst(QUEUE_SCAN_LIMIT)
+        .once('value');
+    } catch (e) { return false; }
     if (!snap || !snap.exists()) return false;
     const all = snap.val() || {};
     const now = Date.now();
@@ -836,7 +879,10 @@
     // simultaneous-join race in that timing window.
     if (mmActive && !mmRole) {
       try {
-        const snap = await mmDb.ref(QUEUE_PATH).once('value');
+        const snap = await mmDb.ref(QUEUE_PATH)
+          .orderByChild('ts')
+          .limitToFirst(QUEUE_SCAN_LIMIT)
+          .once('value');
         if (mmActive && !mmRole) await onQueueChange(snap);
       } catch (e) {}
     }

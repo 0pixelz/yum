@@ -8,7 +8,16 @@ const admin = require('firebase-admin');
 const crypto = require('crypto');
 
 admin.initializeApp();
-setGlobalOptions({ region: 'us-central1', maxInstances: 50 });
+// maxInstances raised from 50 → 500 for Play Store launch: each active
+// player triggers rollDice / submitScore / claimDailyBonus every 30–60s,
+// so 50 instances throttles past ~200 concurrent users. concurrency: 80
+// lets each instance fan out cheap calls (the dice/score math is sync and
+// fast), which keeps cold-start counts and cost down at the same scale.
+setGlobalOptions({
+  region: 'us-central1',
+  maxInstances: 500,
+  concurrency: 80,
+});
 
 const SERVER_TIMESTAMP = admin.database.ServerValue.TIMESTAMP;
 const ROOM_ID_RE = /^[A-Z0-9]{4,8}$/;
