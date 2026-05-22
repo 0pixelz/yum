@@ -5,14 +5,20 @@ let frResults = [];
 let frMyIdx = 0;
 let frMyRolled = false;
 let frAutoStartTimer = null;
-const FR_AUTO_START_DELAY = 2500;
+let frCurrentTurnListener = null;
+let frBroadcasted = false;
+let frClosing = false;
+const FR_AUTO_START_DELAY = 3000;
 
 function showFirstRoll(players, onDone) {
   firstRollPlayers = players;
   firstRollCallback = onDone;
+  firstRollWinnerId = null;
   frResults = players.map(() => null);
   frMyIdx = players.findIndex(p => p.isMe);
   frMyRolled = false;
+  frBroadcasted = false;
+  frClosing = false;
   if(frAutoStartTimer) { clearTimeout(frAutoStartTimer); frAutoStartTimer = null; }
 
   const container = document.getElementById('frPlayers');
@@ -59,6 +65,20 @@ function showFirstRoll(players, onDone) {
       });
       frCheckAllRolled();
     });
+
+    // Watch for another client starting the game (LET'S GO press or auto-start).
+    // Skip the first event so we don't react to a stale currentTurn from the
+    // previous game; only act on changes that happen while the overlay is open.
+    let initialSeen = false;
+    let initialCt = null;
+    frCurrentTurnListener = snap => {
+      const ct = snap.val();
+      if(!initialSeen) { initialCt = ct; initialSeen = true; return; }
+      if(!ct || ct === initialCt) return;
+      const ov = document.getElementById('firstRollOverlay');
+      if(ov && ov.style.display !== 'none') closeFirstRoll();
+    };
+    roomRef.child('currentTurn').on('value', frCurrentTurnListener);
   }
 
   const ov = document.getElementById('firstRollOverlay');
@@ -232,12 +252,28 @@ function frCheckAllRolled() {
 function closeFirstRoll() {
   if(frAutoStartTimer) { clearTimeout(frAutoStartTimer); frAutoStartTimer = null; }
   const ov = document.getElementById('firstRollOverlay');
+  if(!ov || ov.style.display === 'none' || frClosing) return;
+  frClosing = true;
   const winnerIsMe = firstRollPlayers.some(p => p.id === firstRollWinnerId && p.isMe);
+
+  // In MP: any client closing the overlay broadcasts the winner so every
+  // client starts together. Without this, only the host's press/auto-fire
+  // set currentTurn — a non-host press did nothing and players got stuck.
+  if(mpMode && roomRef && firstRollWinnerId && !frBroadcasted) {
+    frBroadcasted = true;
+    try { roomRef.update({ currentTurn: firstRollWinnerId }); } catch(e) {}
+  }
 
   ov.classList.add('closing');
   ov.classList.remove('open');
 
-  if(mpMode && roomRef) roomRef.child('firstRoll').off();
+  if(mpMode && roomRef) {
+    roomRef.child('firstRoll').off();
+    if(frCurrentTurnListener) {
+      roomRef.child('currentTurn').off('value', frCurrentTurnListener);
+      frCurrentTurnListener = null;
+    }
+  }
 
   // Smoothly bring the player back to the dice roller before the turn starts.
   setTimeout(() => {
@@ -247,6 +283,7 @@ function closeFirstRoll() {
   setTimeout(() => {
     ov.style.display = 'none';
     ov.classList.remove('closing');
+    frClosing = false;
 
     if(firstRollCallback) firstRollCallback(firstRollWinnerId);
 
