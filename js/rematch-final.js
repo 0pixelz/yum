@@ -86,11 +86,12 @@
   function renderVotes(votes, message) {
     const box = document.getElementById('rvbPlayers');
     if (!box) return;
+    const esc = (window.escapeHtml || function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); });
     const list = ids();
     const rows = list.map(id => {
       const vote = votes ? votes[id] : undefined;
       const label = vote === true ? '<i class="icn icn-check"></i> YES' : vote === false ? '<i class="icn icn-close"></i> NO' : '… waiting';
-      return '<div class="rvb-player ' + (vote !== undefined ? 'voted' : '') + '">' + playerName(id) + ' ' + label + '</div>';
+      return '<div class="rvb-player ' + (vote !== undefined ? 'voted' : '') + '">' + esc(playerName(id)) + ' ' + label + '</div>';
     }).join('');
     const countdownHtml = voteTimer
       ? '<div class="rvb-player rvb-countdown" style="width:100%;margin-top:4px;color:var(--muted)">' + voteCountdown + 's remaining</div>'
@@ -199,8 +200,9 @@
     localVote = null;
     clearVoteTimer();
 
+    const esc = (window.escapeHtml || function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); });
     const name = cancelledBy ? playerName(cancelledBy) : 'A player';
-    const votesMsg = '<i class="icn icn-close icn-red"></i> ' + name + ' declined — returning to lobby…';
+    const votesMsg = '<i class="icn icn-close icn-red"></i> ' + esc(name) + ' declined — returning to lobby…';
     showBar();
     renderVotes({}, votesMsg);
     document.querySelectorAll('.rvb-btn').forEach(btn => {

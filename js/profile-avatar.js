@@ -108,12 +108,17 @@
     return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
   }
 
+  function _esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
   function googlePhotoMarkup(name) {
     const g = googleProfile();
     if (g && g.photoURL) {
-      return `<img src="${g.photoURL}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit">`;
+      return `<img src="${_esc(g.photoURL)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit">`;
     }
-    return `<span class="ya-initials">${initialsFor(name || (g && g.name) || 'Player')}</span>`;
+    return `<span class="ya-initials">${_esc(initialsFor(name || (g && g.name) || 'Player'))}</span>`;
   }
 
   // Build the inner HTML of an avatar bubble for a given id + name.
