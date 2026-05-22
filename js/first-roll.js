@@ -96,6 +96,10 @@ function frPlayerRoll() {
   }
   document.getElementById('frSub').textContent = 'Rolling…';
 
+  // Seed the 3D overlay strip with any opponent rolls that already arrived,
+  // and keep pushing as new ones land (handled inside frRevealDie).
+  frSyncOppRollsToOverlay();
+
   const rollPromise = (typeof window.throw3DDie === 'function')
     ? window.throw3DDie()
     : new Promise(r => setTimeout(() => r(Math.floor(Math.random()*6)+1), 500));
@@ -118,6 +122,21 @@ function frRevealDie(i, val) {
   die.classList.remove('rolling');
   die.textContent = FACES[val - 1];
   if(sc) sc.textContent = val;
+  frSyncOppRollsToOverlay();
+}
+
+// Mirror the current opponent rolls into the 3D throw overlay so the player
+// can see them while their own die is in the air. The bridge no-ops when the
+// overlay isn't open.
+function frSyncOppRollsToOverlay() {
+  if(!window.dice3DBridge || typeof window.dice3DBridge.setOpponentRolls !== 'function') return;
+  const arr = [];
+  firstRollPlayers.forEach((p, i) => {
+    if(!p.isMe && frResults[i] !== null) {
+      arr.push({ name: p.name, val: frResults[i] });
+    }
+  });
+  window.dice3DBridge.setOpponentRolls(arr);
 }
 
 function frCheckAllRolled() {
