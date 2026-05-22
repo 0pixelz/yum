@@ -4,6 +4,8 @@ let firstRollWinnerId = null;
 let frResults = [];
 let frMyIdx = 0;
 let frMyRolled = false;
+let frAutoStartTimer = null;
+const FR_AUTO_START_DELAY = 2500;
 
 function showFirstRoll(players, onDone) {
   firstRollPlayers = players;
@@ -11,6 +13,7 @@ function showFirstRoll(players, onDone) {
   frResults = players.map(() => null);
   frMyIdx = players.findIndex(p => p.isMe);
   frMyRolled = false;
+  if(frAutoStartTimer) { clearTimeout(frAutoStartTimer); frAutoStartTimer = null; }
 
   const container = document.getElementById('frPlayers');
   container.innerHTML = '';
@@ -196,9 +199,19 @@ function frCheckAllRolled() {
   const btn = document.getElementById('frBtn');
   btn.style.display = 'block';
   if(mpMode && roomRef) roomRef.child('firstRoll').remove();
+
+  // Auto-start the game after a short delay so everyone can see the result.
+  // The LET'S GO! button stays visible as a way to skip the wait.
+  if(frAutoStartTimer) clearTimeout(frAutoStartTimer);
+  frAutoStartTimer = setTimeout(() => {
+    frAutoStartTimer = null;
+    const ov = document.getElementById('firstRollOverlay');
+    if(ov && ov.style.display !== 'none') closeFirstRoll();
+  }, FR_AUTO_START_DELAY);
 }
 
 function closeFirstRoll() {
+  if(frAutoStartTimer) { clearTimeout(frAutoStartTimer); frAutoStartTimer = null; }
   const ov = document.getElementById('firstRollOverlay');
   const winnerIsMe = firstRollPlayers.some(p => p.id === firstRollWinnerId && p.isMe);
 
