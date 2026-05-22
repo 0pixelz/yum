@@ -505,34 +505,46 @@
     if (ov) ov.classList.remove('open');
   }
 
-  function doClaim() {
-    const today = todayISO();
-    if (localStorage.getItem(BONUS_DATE_KEY()) === today) {
-      toast('Daily bonus already claimed today');
+  async function performBonusClaim() {
+    if (!isLoggedIn()) return toast('Sign in with Google to claim daily bonus');
+    migrateLegacyKeys();
+
+    // Server is the source of truth for the streak/reward. Calling
+    // claimDailyBonus does the date + streak check, applies the reward to
+    // /users/$uid/creditWallet, and returns the new state — we mirror it
+    // into localStorage so the UI updates immediately.
+    if (!window.YumCloud || typeof window.YumCloud.claimDailyBonus !== 'function') {
+      toast('Daily bonus unavailable — reload and try again');
+      return;
+    }
+
+    let result;
+    try {
+      result = await window.YumCloud.claimDailyBonus();
+    } catch (err) {
+      const msg = String((err && err.message) || '');
+      if (/already claimed/i.test(msg)) {
+        toast('Daily bonus already claimed today');
+      } else {
+        toast('Could not claim bonus — check your connection');
+      }
       renderBonusOverlay();
       return;
     }
-    const info = streakInfo();
-    persistBonusState(today, info.nextStreak);
-    window.addYumCredits(info.reward, 'daily_bonus_final');
-    toast(`Daily bonus claimed: +${info.reward} credits`);
+
+    if (result && result.lastDate && typeof result.streak === 'number') {
+      persistBonusState(result.lastDate, result.streak);
+    }
+    if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+      try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
+    }
+    if (result && typeof result.reward === 'number') {
+      toast(`Daily bonus claimed: +${result.reward} credits`);
+    } else {
+      toast('Daily bonus claimed');
+    }
     renderBonusOverlay();
     if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
-  }
-
-  function performBonusClaim() {
-    if (!isLoggedIn()) return toast('Sign in with Google to claim daily bonus');
-    if (typeof window.addYumCredits !== 'function') return;
-    migrateLegacyKeys();
-    // Make sure we have the latest server-side state before deciding what
-    // streak day this claim belongs to. Otherwise a fresh device or a wiped
-    // localStorage would always award day 1. Also pull the latest credit
-    // wallet so we don't double-claim into a stale balance.
-    const hydrateBonus = hydrateFromFirebase();
-    const hydrateCredits = typeof window.hydrateYumCreditsFromFirebase === 'function'
-      ? window.hydrateYumCreditsFromFirebase()
-      : Promise.resolve(false);
-    Promise.all([hydrateBonus, hydrateCredits]).then(() => doClaim());
   }
 
   window.dboCloseBonus = closeBonus;

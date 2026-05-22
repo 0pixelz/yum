@@ -77,7 +77,21 @@ function checkAchievements() {
   }
   if (newlyUnlocked.length > 0) {
     saveUnlocked(unlocked);
-    for (const ach of newlyUnlocked) showAchievementNotif(ach);
+    for (const ach of newlyUnlocked) {
+      showAchievementNotif(ach);
+      // Ask the server to credit the achievement reward. The server keeps
+      // a no-replay record under /users/$uid/achievements; a second call
+      // for the same id no-ops.
+      if (window.YumCloud && typeof window.YumCloud.grantAchievementCredits === 'function') {
+        window.YumCloud.grantAchievementCredits({ achievementId: ach.id })
+          .then(() => {
+            if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+              window.hydrateYumCreditsFromFirebase();
+            }
+          })
+          .catch(() => {});
+      }
+    }
   }
 }
 

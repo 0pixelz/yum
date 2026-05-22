@@ -138,7 +138,7 @@
               ".validate": false
             },
             "scores": {
-              ".write": "auth != null && (auth.uid === $playerId || (root.child('rooms').child($roomId).child('host').val() === auth.uid && !newData.exists()))",
+              ".write": "auth != null && root.child('rooms').child($roomId).child('host').val() === auth.uid && !newData.exists()",
               "ones":       { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5"  },
               "twos":       { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10" },
               "threes":     { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 15" },
@@ -166,6 +166,9 @@
               "skin":         { ".validate": "newData.isString() && newData.val().length <= 30" },
               "perDieColors": { ".validate": "(!newData.exists()) || newData.isString() || newData.hasChildren()" },
               "ts":           { ".validate": "newData.isNumber()" }
+            },
+            "serverDice": {
+              ".validate": false
             },
             "livePowerups": {
               ".write": "auth != null && auth.uid === $playerId",
@@ -236,7 +239,7 @@
     "users": {
       "$uid": {
         ".read":  "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && !newData.exists()",
 
         "credits": {
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
@@ -244,8 +247,8 @@
         "creditWallet": {
           ".validate": "(!newData.exists()) || newData.hasChildren()",
           "credits":    { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
-          "earned":     { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000 && (!data.exists() || !data.isNumber() || newData.val() >= data.val())" },
-          "spent":      { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000 && (!data.exists() || !data.isNumber() || newData.val() >= data.val())" },
+          "earned":     { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+          "spent":      { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
           "updatedAt":  { ".validate": "newData.isNumber() && newData.val() <= now + 5000" },
           "lastReason": { ".validate": "newData.isString() && newData.val().length <= 50" },
           "$other":     { ".validate": false }
@@ -260,13 +263,32 @@
             ".validate": "(newData.isBoolean() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000)) && $achId.length <= 50"
           }
         },
+        "dailyBonus": {
+          ".validate": "(!newData.exists()) || newData.hasChildren()",
+          "lastDate":      { ".validate": "newData.isString() && newData.val().length <= 12" },
+          "streak":        { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+          "lastClaimedAt": { ".validate": "newData.isNumber()" },
+          "updatedAt":     { ".validate": "newData.isNumber()" },
+          "$other":        { ".validate": false }
+        },
+        "dailyChallenges": {
+          ".validate": "(!newData.exists()) || newData.hasChildren()",
+          "$date": {
+            ".validate": "$date.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)",
+            "$challengeId": {
+              ".validate": "$challengeId.length <= 50 && (newData.isBoolean() || newData.isNumber())"
+            }
+          }
+        },
         "stats": {
+          ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.hasChildren()"
         },
         "lastDailyBonus": {
           ".validate": "newData.isNumber() && newData.val() <= now"
         },
         "displayName": {
+          ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.isString() && newData.val().length <= 20"
         }
       }

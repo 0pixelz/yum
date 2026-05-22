@@ -125,6 +125,10 @@
     const original = rollDice;
 
     function rollDice3D() {
+      // Multiplayer dice must come from the server, not from the 3D physics
+      // simulation. Fall through to the original (async) rollDice which
+      // routes to Cloud Functions.
+      if (typeof mpMode !== 'undefined' && mpMode) return original();
       if (!window.is3DRollEnabled()) return original();
       if (typeof window.throw3DDice !== 'function') return original();
 

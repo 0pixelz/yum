@@ -761,7 +761,7 @@
     if (typeof renderDice === 'function') renderDice(false);
   }
 
-  function buySkin(id) {
+  async function buySkin(id) {
     const skin = SKINS.find(s => s.id === id);
     if (!skin) return;
 
@@ -776,6 +776,36 @@
       return;
     }
 
+    // Free skins (cost === 0) don't need a server roundtrip — they aren't
+    // worth protecting and the server would just no-op.
+    if (skin.cost === 0) {
+      owned.push(id);
+      setOwnedSkins(owned);
+      equipSkin(id);
+      if (typeof showToast === 'function') showToast(`Unlocked ${skin.name}!`);
+      return;
+    }
+
+    if (!window.YumCloud || typeof window.YumCloud.purchaseSkin !== 'function') {
+      if (typeof showToast === 'function') showToast('Store unavailable — reload and try again');
+      return;
+    }
+
+    try {
+      await window.YumCloud.purchaseSkin({ skinId: id });
+    } catch (err) {
+      const msg = String((err && err.message) || '');
+      if (/already owned/i.test(msg)) {
+        equipSkin(id);
+        return;
+      }
+      if (typeof showToast === 'function') showToast('Purchase failed — not enough credits');
+      return;
+    }
+
+    if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+      try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
+    }
     owned.push(id);
     setOwnedSkins(owned);
     equipSkin(id);

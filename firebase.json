@@ -2,6 +2,10 @@
   "database": {
     "rules": "firebase.rules.json"
   },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  },
   "hosting": {
     "public": ".",
     "ignore": [
@@ -10,6 +14,7 @@
       ".firebaserc",
       "**/.*",
       "**/node_modules/**",
+      "functions/**",
       "README.md",
       "DEPLOYMENT.md"
     ],
