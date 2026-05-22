@@ -2134,6 +2134,32 @@
     content: '◆'; color: rgba(78,205,196,0.55);
     font-size: 0.7em; margin: 0 12px; vertical-align: middle;
   }
+  #dice3dOverlay .d3d-opp-rolls {
+    display: flex; flex-wrap: wrap;
+    justify-content: center; gap: 8px;
+    padding: 4px 16px 6px; min-height: 0;
+  }
+  #dice3dOverlay .d3d-opp-rolls:empty { padding: 0; }
+  #dice3dOverlay .d3d-opp-item {
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.82rem; letter-spacing: 0.5px;
+    color: var(--muted);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 4px 12px;
+    animation: d3dOppPop 0.32s ease;
+  }
+  #dice3dOverlay .d3d-opp-name { color: var(--white); font-weight: 700; }
+  #dice3dOverlay .d3d-opp-item b {
+    color: var(--gold); font-weight: 900;
+    margin-left: 4px;
+    text-shadow: 0 0 10px rgba(245,166,35,0.45);
+  }
+  @keyframes d3dOppPop {
+    from { opacity: 0; transform: translateY(-4px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);   }
+  }
   #dice3dOverlay .d3d-canvas-wrap {
     flex: 1; min-height: 0; position: relative; width: 100%;
   }

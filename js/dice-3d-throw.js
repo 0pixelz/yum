@@ -44,6 +44,26 @@
   let multiLanes = [];             // pre-computed {dx,dz} fan offsets per die
   let multiLastDragP = null;
 
+  // Opponent-roll text strip — used by the "who goes first" flow so the
+  // player can see what their opponent(s) rolled while throwing their own
+  // die. Source of truth lives in first-roll.js; we just render the array.
+  let _oppRolls = [];
+  function _escOpp(s) {
+    if (typeof window.escapeHtml === 'function') return window.escapeHtml(s);
+    return String(s).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function _renderOppRolls() {
+    if (!overlay) return;
+    const el = overlay.querySelector('#dice3dOppRolls');
+    if (!el) return;
+    if (!_oppRolls.length) { el.innerHTML = ''; return; }
+    el.innerHTML = _oppRolls.map(r =>
+      '<div class="d3d-opp-item"><span class="d3d-opp-name">' +
+      _escOpp(r.name) + '</span> rolled <b>' + (r.val | 0) + '</b></div>'
+    ).join('');
+  }
+
   // BoxGeometry material order: [+X, -X, +Y, -Y, +Z, -Z]
   // Standard die: opposite faces sum to 7.
   const FACE_NUMBERS = [1, 6, 2, 5, 3, 4];
@@ -376,6 +396,7 @@
     overlay.id = 'dice3dOverlay';
     overlay.innerHTML =
       '<div class="d3d-title">YAMIO</div>' +
+      '<div class="d3d-opp-rolls" id="dice3dOppRolls"></div>' +
       '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
       '<button class="d3d-cancel" id="dice3dCancel">Skip throw</button>';
@@ -383,6 +404,7 @@
     canvasEl = overlay.querySelector('#dice3dCanvas');
     statusEl = overlay.querySelector('#dice3dStatus');
     cancelBtn = overlay.querySelector('#dice3dCancel');
+    _renderOppRolls();
     cancelBtn.addEventListener('click', () => {
       if (mode === 'spectator') {
         // "Hide" the live view of an opponent's roll — purely local; the
@@ -853,6 +875,8 @@
         const t = overlay.querySelector('.d3d-title');
         if (t) t.textContent = 'YAMIO';
       }
+      _oppRolls = [];
+      _renderOppRolls();
       mode = 'single';
       if ((closingMode === 'multi' || closingMode === 'spectator') && _onCloseCb) {
         try { _onCloseCb(closingMode); } catch (_) {}
@@ -1280,6 +1304,13 @@
     setOnClose(fn) { _onCloseCb = (typeof fn === 'function') ? fn : null; },
     setOnSpectatorHide(fn) {
       _onSpectatorHideCb = (typeof fn === 'function') ? fn : null;
+    },
+    // Source-of-truth set by first-roll.js: list of {name, val} for every
+    // opponent whose roll is already in. Rendered into the overlay strip
+    // so the player can see opponents' results while throwing their own die.
+    setOpponentRolls(arr) {
+      _oppRolls = Array.isArray(arr) ? arr.slice() : [];
+      _renderOppRolls();
     }
   };
 })();
