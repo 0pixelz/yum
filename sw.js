@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yamio-pwa-v5';
+const CACHE_NAME = 'yamio-pwa-v6';
 const NAV_TIMEOUT_MS = 4000;
 
 // Files that must be available offline so the PWA splash always resolves to a
@@ -11,6 +11,7 @@ const PRECACHE_URLS = [
   './manifest.json',
   './css/style.css',
   './css/icons.css',
+  './js/version.js',
   './privacy.html',
   './deleteaccount.html',
   './icons/icon-192.png',
@@ -60,17 +61,25 @@ self.addEventListener('fetch', event => {
   const isCodeAsset = /\.(js|css|html)$/i.test(url.pathname);
 
   if (isNavigation || isCodeAsset) {
-    event.respondWith(networkFirstWithTimeout(request));
+    event.respondWith(networkFirstWithTimeout(request, isCodeAsset));
     return;
   }
 
   event.respondWith(staleWhileRevalidate(request));
 });
 
-function networkFirstWithTimeout(request) {
+function networkFirstWithTimeout(request, bypassHttpCache) {
   // Race the network against a timeout. On slow Android mobile networks the
   // first navigation fetch can hang for tens of seconds; without a timeout
   // the PWA system splash never goes away (reported on S21 Ultra / Android 15).
+  //
+  // For code assets we re-issue the request with `cache: 'reload'` so the
+  // network leg bypasses the browser HTTP cache. Otherwise a just-deployed
+  // build keeps losing to a stale copy held by the HTTP cache, and the player
+  // never sees the update without clearing browser data.
+  const networkRequest = bypassHttpCache
+    ? new Request(request, { cache: 'reload' })
+    : request;
   return new Promise(resolve => {
     let settled = false;
     const finish = response => {
@@ -91,7 +100,7 @@ function networkFirstWithTimeout(request) {
       fallbackToCache().then(res => { if (res) finish(res); });
     }, NAV_TIMEOUT_MS);
 
-    fetch(request).then(response => {
+    fetch(networkRequest).then(response => {
       clearTimeout(timer);
       if (response && response.ok && response.type === 'basic') {
         const copy = response.clone();

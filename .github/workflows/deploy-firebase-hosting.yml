@@ -38,5 +38,12 @@ jobs:
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_YUM_GAME" > "$RUNNER_TEMP/firebase-sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
 
+      - name: Stamp build version
+        run: |
+          SHA="$(git rev-parse --short HEAD)"
+          BUILT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          sed -i "s/__BUILD_VERSION__/${SHA}/; s/__BUILD_TIME__/${BUILT}/" js/version.js
+          echo "Stamped version ${SHA} (${BUILT})"
+
       - name: Deploy to Hosting
         run: firebase deploy --only hosting --project yum-game --non-interactive

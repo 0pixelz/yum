@@ -1157,6 +1157,7 @@
   .lobby-legal { margin-top: 18px; font-size: 0.74rem; color: var(--muted); text-align: center; opacity: 0.85; }
   .lobby-legal a { color: var(--muted); text-decoration: underline; }
   .lobby-legal-sep { margin: 0 8px; opacity: 0.6; }
+  .app-version { margin-top: 10px; font-size: 0.66rem; color: var(--muted); text-align: center; opacity: 0.5; letter-spacing: 0.5px; }
 
   /* WAITING ROOM */
   #waitingOverlay {
