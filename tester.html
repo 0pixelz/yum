@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Become a Yamio Tester 🎲</title>
+<meta name="description" content="Join the Yamio closed test — play the multiplayer dice game early and help shape it. Takes 3 minutes a day.">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<!-- ============================================================
+     Yamio tester recruitment landing page.
+     Point your ads (Google Ads / Reddit) at this page.
+
+     Before going live, set the two opt-in links below:
+       1) GROUP_LINK  — your public Google Group "join" URL
+                        (this is what lets a new person become an
+                        eligible closed-test tester)
+       2) The Play links are already wired to package io.yamio.app
+     ============================================================ -->
+<style>
+  :root{
+    --bg:#1a1a2e;
+    --bg2:#16213e;
+    --panel:#0f3460;
+    --gold:#f5a623;
+    --red:#e94560;
+    --text:#f3f5fb;
+    --muted:#aab3cf;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Nunito',system-ui,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%, #233a6b 0%, var(--bg) 60%);
+    color:var(--text);
+    min-height:100vh;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:28px 20px 56px}
+  .display{font-family:'Bebas Neue',sans-serif;letter-spacing:1.5px;line-height:1}
+
+  /* Hero */
+  .hero{text-align:center;padding:18px 0 8px}
+  .badge{
+    display:inline-block;font-weight:800;font-size:.72rem;letter-spacing:1.4px;
+    text-transform:uppercase;color:var(--bg);
+    background:linear-gradient(135deg,var(--gold),var(--red));
+    padding:6px 14px;border-radius:999px;margin-bottom:18px;
+  }
+  .app-icon{
+    width:104px;height:104px;border-radius:24px;display:block;margin:0 auto 16px;
+    box-shadow:0 12px 34px rgba(0,0,0,.45);
+  }
+  h1{font-size:3.1rem;color:#fff;margin-bottom:6px}
+  h1 .accent{color:var(--gold)}
+  .tagline{color:var(--muted);font-size:1.06rem;max-width:430px;margin:0 auto}
+
+  /* Buttons */
+  .cta-stack{margin:26px 0 8px;display:flex;flex-direction:column;gap:12px}
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    text-decoration:none;font-weight:800;font-size:1.06rem;
+    padding:16px 18px;border-radius:14px;transition:transform .12s ease, filter .12s ease;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:linear-gradient(135deg,var(--gold),var(--red));color:#1a1024;box-shadow:0 8px 22px rgba(233,69,96,.35)}
+  .btn-primary:hover{filter:brightness(1.05)}
+  .btn-secondary{background:var(--panel);color:#fff;border:1px solid #2a4a86}
+  .btn-step-num{
+    background:rgba(0,0,0,.22);width:26px;height:26px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;font-size:.95rem;flex:0 0 auto;
+  }
+  .note{text-align:center;color:var(--muted);font-size:.86rem;margin-top:6px}
+
+  /* Steps */
+  .section-title{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:1.7rem;color:#fff;margin:38px 0 14px;text-align:center}
+  .steps{display:flex;flex-direction:column;gap:12px}
+  .step{
+    background:linear-gradient(180deg,var(--bg2),#13203c);
+    border:1px solid #243a63;border-radius:14px;padding:16px 16px 16px 14px;
+    display:flex;gap:14px;align-items:flex-start;
+  }
+  .step .n{
+    font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--bg);
+    background:linear-gradient(135deg,var(--gold),var(--red));
+    width:38px;height:38px;border-radius:10px;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .step h3{font-size:1.04rem;color:#fff;margin-bottom:2px}
+  .step p{color:var(--muted);font-size:.92rem}
+  .step a{color:var(--gold);font-weight:700}
+
+  /* Ask box */
+  .ask{
+    margin-top:18px;background:rgba(245,166,35,.08);
+    border:1px solid rgba(245,166,35,.35);border-radius:14px;padding:18px;
+  }
+  .ask h3{color:var(--gold);font-size:1.05rem;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .ask ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .ask li{display:flex;gap:10px;color:var(--text);font-size:.95rem}
+  .ask li::before{content:"✓";color:var(--gold);font-weight:800}
+
+  /* Features */
+  .features{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+  .feat{background:var(--bg2);border:1px solid #243a63;border-radius:12px;padding:14px;text-align:center}
+  .feat .emoji{font-size:1.5rem;display:block;margin-bottom:6px}
+  .feat span.label{font-size:.86rem;color:var(--muted);font-weight:700}
+
+  footer{text-align:center;color:var(--muted);font-size:.8rem;margin-top:40px;line-height:1.7}
+  footer a{color:var(--muted)}
+  .placeholder{outline:2px dashed var(--gold);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="badge">Early Access · Closed Beta</span>
+    <img class="app-icon" src="icons/icon-512.png" alt="Yamio icon">
+    <h1 class="display">YAM<span class="accent">IO</span></h1>
+    <p class="tagline">A fast, social dice game — play solo, vs a smart bot, or live with friends. Be one of our first testers.</p>
+  </header>
+
+  <!-- PRIMARY CTAs -->
+  <div class="cta-stack">
+    <!-- STEP 1: become an eligible tester via the Google Group -->
+    <a class="btn btn-primary placeholder" id="joinGroup" href="REPLACE_WITH_GOOGLE_GROUP_JOIN_LINK">
+      <span class="btn-step-num">1</span> Join the tester group
+    </a>
+    <!-- STEP 2: accept the test on Google Play -->
+    <a class="btn btn-secondary" href="https://play.google.com/apps/testing/io.yamio.app" target="_blank" rel="noopener">
+      <span class="btn-step-num">2</span> Become a tester on Google Play
+    </a>
+    <!-- STEP 3: install -->
+    <a class="btn btn-secondary" href="https://play.google.com/store/apps/details?id=io.yamio.app" target="_blank" rel="noopener">
+      <span class="btn-step-num">3</span> Open in Play Store &amp; install
+    </a>
+  </div>
+  <p class="note">Android only · Free · Do the steps in order (1 → 2 → 3)</p>
+
+  <!-- HOW IT WORKS -->
+  <h2 class="section-title">How to join (2 minutes)</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="n">1</div>
+      <div>
+        <h3>Join the tester group</h3>
+        <p>Tap <a href="REPLACE_WITH_GOOGLE_GROUP_JOIN_LINK">Join the tester group</a> and accept. This makes your Google account an approved tester.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">2</div>
+      <div>
+        <h3>Accept the test</h3>
+        <p>Open the <a href="https://play.google.com/apps/testing/io.yamio.app" target="_blank" rel="noopener">Become a tester</a> link and tap “Become a tester”.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <div>
+        <h3>Install &amp; play</h3>
+        <p>Install Yamio from the <a href="https://play.google.com/store/apps/details?id=io.yamio.app" target="_blank" rel="noopener">Play Store</a> and roll your first game.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- THE ASK -->
+  <div class="ask">
+    <h3>🙏 What helps us most</h3>
+    <ul>
+      <li>Open Yamio and <strong>play one quick game a day</strong> for the next two weeks</li>
+      <li>Claim your <strong>Daily Bonus</strong> and do the <strong>Daily Challenge</strong> each day</li>
+      <li>Try a <strong>multiplayer room</strong> or a round <strong>vs the bot</strong></li>
+      <li>Tell us anything that feels off — bugs, confusing bits, ideas</li>
+    </ul>
+  </div>
+
+  <!-- WHAT YOU GET TO PLAY -->
+  <h2 class="section-title">What you’ll play</h2>
+  <div class="features">
+    <div class="feat"><span class="emoji">🎲</span><span class="label">3D dice rolls</span></div>
+    <div class="feat"><span class="emoji">👥</span><span class="label">Live multiplayer</span></div>
+    <div class="feat"><span class="emoji">🤖</span><span class="label">Smart bot</span></div>
+    <div class="feat"><span class="emoji">🔮</span><span class="label">AI move tips</span></div>
+    <div class="feat"><span class="emoji">🎁</span><span class="label">Daily rewards</span></div>
+    <div class="feat"><span class="emoji">🎨</span><span class="label">Dice skins</span></div>
+  </div>
+
+  <footer>
+    Thanks for helping shape Yamio 💛<br>
+    <a href="https://yamio.io" target="_blank" rel="noopener">yamio.io</a> ·
+    <a href="privacy.html">Privacy</a>
+  </footer>
+
+</div>
+</body>
+</html>
