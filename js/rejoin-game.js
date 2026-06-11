@@ -111,9 +111,13 @@
   }
 
   // ── (B) opponent-reconnecting banner ─────────────────────────────────────
+  // Owns only the 0–GRACE_MS "reconnecting…" indicator. Once the grace window
+  // elapses the presence-grace sweeper removes the stale slot, which drops the
+  // player count and lets app.js's existing path show PLAYER LEFT — so this
+  // module deliberately does NOT surface that result itself (avoids a
+  // double-trigger).
   let banner      = null;
   let bannerFor   = null;   // playerId currently shown as reconnecting
-  let leftShown   = {};     // playerIds already surfaced as "left"
 
   function ensureBanner() {
     if (banner) return banner;
@@ -161,16 +165,12 @@
     const others  = Object.keys(players).filter(function (id) { return id !== uid; });
 
     let reconnecting = null;   // { id, secsLeft }
-    let expired      = null;   // an opponent whose grace window elapsed
-
     others.forEach(function (id) {
       const dAt = players[id] && players[id].disconnectedAt;
       if (typeof dAt !== 'number') return;
       const elapsed = Date.now() - dAt;
-      if (elapsed < GRACE_MS) {
-        if (!reconnecting) reconnecting = { id: id, secsLeft: Math.max(1, Math.ceil((GRACE_MS - elapsed) / 1000)) };
-      } else {
-        expired = id;
+      if (elapsed < GRACE_MS && !reconnecting) {
+        reconnecting = { id: id, secsLeft: Math.max(1, Math.ceil((GRACE_MS - elapsed) / 1000)) };
       }
     });
 
@@ -182,8 +182,6 @@
           window.showToast('<i class="icn icn-check icn-gold"></i> ' +
             esc(back.name || 'Opponent') + ' reconnected');
         }
-        // a player who came back is no longer "left"
-        delete leftShown[bannerFor];
       }
     }
 
@@ -193,21 +191,6 @@
       showBanner(esc(name) + ' reconnecting… ' + reconnecting.secsLeft + 's');
     } else {
       hideBanner();
-    }
-
-    // Grace window elapsed → surface the existing PLAYER LEFT result once. (The
-    // slot may linger if no sweeper removed it, so app.js's count-drop path
-    // won't necessarily fire.)
-    if (expired && !leftShown[expired]) {
-      leftShown[expired] = true;
-      const name = (players[expired] && players[expired].name) || 'A player';
-      const surviving = 1 /* me */ + others.filter(function (id) {
-        const d = players[id] && players[id].disconnectedAt;
-        return !(typeof d === 'number' && (Date.now() - d) >= GRACE_MS);
-      }).length;
-      if (typeof window.showPlayerLeftPopup === 'function') {
-        window.showPlayerLeftPopup(name, surviving);
-      }
     }
   }
 

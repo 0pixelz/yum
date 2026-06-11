@@ -21,8 +21,20 @@
   let heartbeatTimer = null;
   let lastRoomRef   = null;
 
+  // app.js declares mpMode / roomRef / playerId / isHost / allPlayers with
+  // `let` at script scope, so they are NOT exposed on window — they must be
+  // read lexically (see the matchmaking.js note on the same gotcha). Reading
+  // them as window.* (as this module originally did) always yielded undefined,
+  // which silently disabled the entire grace sweeper.
+  function L(read) { try { return read(); } catch (e) { return undefined; } }
+  const getRoomRef    = () => L(() => (typeof roomRef    !== 'undefined') ? roomRef    : null) || null;
+  const getPlayerId   = () => L(() => (typeof playerId   !== 'undefined') ? playerId   : null) || null;
+  const getMpMode     = () => L(() => (typeof mpMode     !== 'undefined') ? !!mpMode   : false) || false;
+  const getIsHost     = () => L(() => (typeof isHost     !== 'undefined') ? !!isHost   : false) || false;
+  const getAllPlayers = () => L(() => (typeof allPlayers !== 'undefined' && allPlayers) ? allPlayers : null) || null;
+
   function inRoom() {
-    try { return !!(window.mpMode && window.roomRef && window.playerId); }
+    try { return !!(getMpMode() && getRoomRef() && getPlayerId()); }
     catch(e) { return false; }
   }
 
@@ -38,8 +50,8 @@
   function clearMyDisconnect() {
     if (!inRoom()) return;
     try {
-      window.roomRef
-        .child('players/' + window.playerId + '/disconnectedAt')
+      getRoomRef()
+        .child('players/' + getPlayerId() + '/disconnectedAt')
         .set(null)
         .catch(function(){});
     } catch(e) {}
@@ -48,7 +60,7 @@
   function rewriteOnDisconnect() {
     if (!inRoom()) return;
     try {
-      const slotRef = window.roomRef.child('players/' + window.playerId);
+      const slotRef = getRoomRef().child('players/' + getPlayerId());
       // Cancel any prior handlers from createGame/joinGame, then re-register a
       // soft-disconnect handler that just stamps disconnectedAt.
       slotRef.onDisconnect().cancel().catch(function(){});
@@ -101,7 +113,7 @@
       ? window.currentHostId
       : null;
     // Steady state: host sweeps.
-    if (window.isHost === true) return true;
+    if (getIsHost() === true) return true;
     // Host vanished or is itself stale → fall back to all-clients-sweep so
     // host migration isn't a prerequisite for cleanup.
     const hostNode = hostId ? players[hostId] : null;
@@ -112,8 +124,8 @@
   }
 
   function sweepOnce() {
-    if (!inRoom() || !window.allPlayers) return;
-    const players = window.allPlayers;
+    if (!inRoom() || !getAllPlayers()) return;
+    const players = getAllPlayers();
     const ids = Object.keys(players);
     if (!ids.length) return;
     if (!shouldThisClientSweep(players)) return;
@@ -133,7 +145,7 @@
 
       // Race-safe removal: transaction reads current state and removes only
       // if the player is still flagged disconnected (and past the window).
-      window.roomRef.child('players/' + id).transaction(function(curr) {
+      getRoomRef().child('players/' + id).transaction(function(curr) {
         if (!curr) return undefined;          // already gone
         if (!curr.disconnectedAt) return undefined; // came back
         if ((Date.now() - curr.disconnectedAt) < GRACE_MS) return undefined;
@@ -149,8 +161,8 @@
       lastRoomRef = null;
       return;
     }
-    if (lastRoomRef === window.roomRef) return;
-    lastRoomRef = window.roomRef;
+    if (lastRoomRef === getRoomRef()) return;
+    lastRoomRef = getRoomRef();
     rewriteOnDisconnect();
     startHeartbeat();
     startSweeper();
@@ -182,8 +194,8 @@
       stopSweeper();
       stopHeartbeat();
       try {
-        if (window.roomRef && window.playerId) {
-          window.roomRef.child('players/' + window.playerId + '/disconnectedAt')
+        if (getRoomRef() && getPlayerId()) {
+          getRoomRef().child('players/' + getPlayerId() + '/disconnectedAt')
             .onDisconnect().cancel().catch(function(){});
         }
       } catch(e) {}
