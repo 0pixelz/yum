@@ -26,6 +26,14 @@
   const PRESENCE_FRESH_MS  = 90 * 1000;        // /presence ts within this counts as online
   const READY_TIMEOUT_MS   = 15000;            // both players must accept within this window
   const READY_START_DELAY_MS = 3000;           // brief pause after both accept before kickoff
+  // Grace window for a transient disconnect during the ready-check. Installed
+  // iOS PWAs briefly drop their Firebase socket on launch / right after a tap,
+  // which stamps disconnectedAt via onDisconnect even though the player is fine
+  // and reconnects within a second or two. Don't cancel the match until a
+  // player has stayed gone past this window (in-game presence uses 35s; the
+  // ready-check is shorter-lived, so a tighter window keeps the 15s accept flow
+  // responsive while still riding out a normal reconnect).
+  const READY_DISCONNECT_GRACE_MS = 7000;
   // Cap how many queue entries we ever pull into the client. At 1000 concurrent
   // seekers an unbounded `ref(QUEUE_PATH).on('value')` would pull the whole
   // queue down to every seeker on every join/leave — O(n²) reads. Looking at
@@ -62,6 +70,7 @@
   let mmElapsedTimer = null;
   let mmReadyShown = false;
   let mmReadyHandled = false;
+  let mmReadyDisconnectTimer = null;
   let mmReadyDeadline = 0;
   let mmReadyTickTimer = null;
   // Set true on the waiter side once we observe an addressed-to-us offer.
@@ -726,12 +735,21 @@
       const activeIds = Object.keys(players).filter(id => !players[id] || !players[id].disconnectedAt);
 
       if (activeIds.length < 2) {
+        // A player carries a disconnectedAt marker. Rather than cancel
+        // instantly, give them a grace window to reconnect — a reconnect
+        // clears disconnectedAt (presence-grace heartbeat / .info/connected),
+        // which fires this listener again with two active players and cancels
+        // the pending timer below. Only a player who stays gone past the
+        // window actually tears the match down.
         if (mmReadyShown && !mmReadyHandled) {
-          mmReadyHandled = true;
-          handleRemoteCancel('Match canceled — opponent disconnected.');
+          scheduleReadyDisconnectCancel();
         }
         return;
       }
+
+      // Both players are active (again) — drop any pending disconnect grace
+      // timer left over from a transient blip.
+      clearReadyDisconnectTimer();
 
       const oppId = activeIds.find(id => id !== mmUid) || null;
       const oppName = (oppId && players[oppId] && players[oppId].name) || 'Opponent';
@@ -835,6 +853,26 @@
     cancelFindMatch().then(() => {
       if (message) lobbyErr(message);
     });
+  }
+
+  // Arm a one-shot timer that cancels the match if a player is still flagged
+  // disconnected when it fires. The room listener clears it the moment two
+  // players are active again, so a brief reconnect rides through harmlessly.
+  function scheduleReadyDisconnectCancel() {
+    if (mmReadyDisconnectTimer || mmReadyHandled) return;
+    mmReadyDisconnectTimer = setTimeout(() => {
+      mmReadyDisconnectTimer = null;
+      if (!mmActive || mmReadyHandled) return;
+      mmReadyHandled = true;
+      handleRemoteCancel('Match canceled — opponent disconnected.');
+    }, READY_DISCONNECT_GRACE_MS);
+  }
+
+  function clearReadyDisconnectTimer() {
+    if (mmReadyDisconnectTimer) {
+      clearTimeout(mmReadyDisconnectTimer);
+      mmReadyDisconnectTimer = null;
+    }
   }
 
   async function joinQueue() {
@@ -981,6 +1019,7 @@
   }
 
   function detachRoomListener() {
+    clearReadyDisconnectTimer();
     if (mmRoomListener && mmRoomRef) {
       try { mmRoomRef.off('value', mmRoomListener); } catch (e) {}
     }
