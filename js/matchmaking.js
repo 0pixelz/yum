@@ -845,15 +845,32 @@
       'Waiting for a ' + modeLabel + ' opponent<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
 
     const queueRef = mmDb.ref(QUEUE_PATH + '/' + mmUid);
-    const entry = { uid: mmUid, name: mmName, ts: Date.now(), mode: mmMode, avatar: myAvatarId() || null };
-    try {
-      await queueRef.set(entry);
-    } catch (e) {
-      console.warn('[matchmaking] join queue failed:', e);
+    // The first write of a session can fail transiently while the App Check
+    // (reCAPTCHA) token is still being minted, or on a brief network blip —
+    // both surface here as a rejected set(). Retry a few times with backoff
+    // before giving up. The ts is rebuilt each attempt so the freshness rule
+    // (ts <= now + 5000) can't trip on a slow retry.
+    let lastErr = null;
+    let joined = false;
+    for (let attempt = 0; attempt < 3 && mmActive && !joined; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 500 * attempt));
+      if (!mmActive) return;
+      const entry = { uid: mmUid, name: mmName, ts: Date.now(), mode: mmMode, avatar: myAvatarId() || null };
+      try {
+        await queueRef.set(entry);
+        joined = true;
+      } catch (e) {
+        lastErr = e;
+        console.warn('[matchmaking] join queue attempt ' + (attempt + 1) + ' failed:', e && e.code, e);
+      }
+    }
+    if (!joined) {
+      if (!mmActive) return;
       cancelFindMatch();
       const lobby = el('lobbyOverlay');
       if (lobby) lobby.style.display = 'flex';
-      lobbyErr('Could not join queue — try again.');
+      const detail = lastErr && (lastErr.code || lastErr.message);
+      lobbyErr('Could not join queue — try again.' + (detail ? ' (' + detail + ')' : ''));
       return;
     }
 
