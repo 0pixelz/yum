@@ -294,6 +294,37 @@ function closeFirstRoll() {
   }, 900);
 }
 
+// Tear the roll-off overlay down WITHOUT broadcasting a winner or starting the
+// game. Used when the match is cancelled out from under it (an opponent
+// disconnected during who-goes-first) or when the player taps Leave. Plain
+// closeFirstRoll() can't be reused here: it would broadcast currentTurn and
+// kick off the game even though there's no valid opponent left.
+function frForceHide() {
+  if(frAutoStartTimer) { clearTimeout(frAutoStartTimer); frAutoStartTimer = null; }
+  if(mpMode && roomRef) {
+    try { roomRef.child('firstRoll').off(); } catch(e) {}
+    if(frCurrentTurnListener) {
+      try { roomRef.child('currentTurn').off('value', frCurrentTurnListener); } catch(e) {}
+      frCurrentTurnListener = null;
+    }
+  }
+  const ov = document.getElementById('firstRollOverlay');
+  if(ov) {
+    ov.classList.remove('open', 'closing');
+    ov.style.display = 'none';
+  }
+  frClosing = false;
+}
+window.frForceHide = frForceHide;
+
+// Manual escape from the roll-off. The disconnect sweep has a grace window, so
+// without this a player could sit on "Waiting for … to roll…" with no way out.
+function frLeaveGame() {
+  frForceHide();
+  if(typeof leaveGame === 'function') leaveGame();
+}
+window.frLeaveGame = frLeaveGame;
+
 function smoothFocusDiceRoller() {
   const diceSection = document.querySelector('.dice-section');
   if(!diceSection) return;
@@ -438,6 +469,11 @@ function showPlayerLeftPopup(name, survivingCount) {
     }
     return;
   }
+  // The match is being cancelled (down to one player). If the who-goes-first
+  // roll-off is still up it sits above this popup and keeps "waiting" on the
+  // player who already left — tear it down so this cancel UI is visible and
+  // actionable.
+  frForceHide();
   document.getElementById('plMsg').textContent =
     `${name} has left the game. The match has been cancelled.`;
   document.getElementById('plCountdown').textContent = '10';

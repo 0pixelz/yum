@@ -2112,6 +2112,17 @@
     display: none;
   }
 
+  /* Always-available escape from the roll-off so a player is never trapped
+     waiting on an opponent who disconnected during who-goes-first. */
+  .fr-leave {
+    margin-top: 18px;
+    background: none; border: none;
+    color: var(--muted); font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 0.8rem; letter-spacing: 1px;
+    text-decoration: underline; cursor: pointer; opacity: 0.7;
+  }
+  .fr-leave:hover { opacity: 1; }
+
   /* 3D DICE THROW OVERLAY — Yamio branded */
   #dice3dOverlay {
     position: fixed; inset: 0; z-index: 920;
@@ -2260,7 +2271,7 @@
 
   /* PLAYER LEFT POPUP */
   #playerLeftOverlay {
-    position: fixed; inset: 0; z-index: 870;
+    position: fixed; inset: 0; z-index: 890;
     background: rgba(0,0,0,0.85);
     display: none; align-items: center; justify-content: center;
     padding: 24px;
