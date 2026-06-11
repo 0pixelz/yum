@@ -1875,6 +1875,19 @@ function pushScoresToDb() {
 
 function showMpGameOver() {
   if (mpGameOverShown) return;
+  // Re-verify against the current board before committing. A game-over check
+  // scheduled 800ms earlier can be stale — e.g. during a rematch reset the
+  // previous round's full 13/13 scores briefly survive, and firing here would
+  // flip mpGameOverShown true and then suppress the NEXT game's real
+  // game-over. Only fire when every player genuinely still has a full card.
+  if (mpMode) {
+    const reallyDone = Object.keys(allPlayers).length >= 2 &&
+      Object.entries(allPlayers).every(([id, p]) => {
+        const sc = id === playerId ? scores : (p.scores || {});
+        return Object.keys(sc).length >= categories.length;
+      });
+    if (!reallyDone) return;
+  }
   mpGameOverShown = true;
   const players = Object.entries(allPlayers).map(([id, p]) => {
     const sc = id === playerId ? scores : (p.scores || {});
