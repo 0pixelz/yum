@@ -157,15 +157,14 @@
     ids().forEach(id => {
       updates['players/' + id + '/liveDice'] = null;
       updates['players/' + id + '/ready'] = true;
-    });
-
-    // Reset each player's scores via a transaction — a transaction is the
-    // right primitive here because a late score write from the previous
-    // round could otherwise clobber the reset. The transaction bails if a
-    // newer roundId is already on the player slot.
-    ids().forEach(id => {
-      const sref = roomRef.child('players/' + id + '/scores');
-      sref.transaction(() => ({})).catch(() => {});
+      // Clear scores in the SAME atomic update as the new roundId/command so a
+      // room snapshot can never expose the new round alongside the previous
+      // round's full 13/13 card. That transient state used to trip a spurious
+      // game-over in the listenRoom detector, which flipped mpGameOverShown
+      // true and then suppressed the next game's real game-over. Post-migration
+      // only the admin submitScore Cloud Function writes scores, so there's no
+      // late client write left to guard against with a per-slot transaction.
+      updates['players/' + id + '/scores'] = null;
     });
 
     roomRef.update(updates);
