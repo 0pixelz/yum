@@ -36,8 +36,22 @@
   let watchedTurnId        = null;
   let watchedTurnStartedAt = 0;
 
+  // app.js declares mpMode / roomRef / playerId / isHost / allPlayers /
+  // currentTurnId with `let` at script scope, so they are NOT exposed on
+  // window — they must be read lexically (see the matchmaking.js note on the
+  // same gotcha). Reading them as window.* (as this module originally did)
+  // always yielded undefined, which silently disabled the watchdog, host
+  // migration and room cleanup.
+  function L(read) { try { return read(); } catch (e) { return undefined; } }
+  const getRoomRef      = () => L(() => (typeof roomRef      !== 'undefined') ? roomRef      : null) || null;
+  const getPlayerId     = () => L(() => (typeof playerId     !== 'undefined') ? playerId     : null) || null;
+  const getMpMode       = () => L(() => (typeof mpMode       !== 'undefined') ? !!mpMode     : false) || false;
+  const getIsHost       = () => L(() => (typeof isHost       !== 'undefined') ? !!isHost     : false) || false;
+  const getCurrentTurnId = () => L(() => (typeof currentTurnId !== 'undefined') ? currentTurnId : null) || null;
+  const getAllPlayers   = () => L(() => (typeof allPlayers   !== 'undefined' && allPlayers) ? allPlayers : null) || null;
+
   function inRoom() {
-    try { return !!(window.mpMode && window.roomRef && window.playerId); }
+    try { return !!(getMpMode() && getRoomRef() && getPlayerId()); }
     catch(e) { return false; }
   }
 
@@ -60,13 +74,13 @@
         roomDisconnectHandle = null;
       }
 
-      const players = window.allPlayers || {};
+      const players = getAllPlayers() || {};
       const ids = Object.keys(players);
-      const aloneOrLast = ids.length <= 1 && ids[0] === window.playerId;
+      const aloneOrLast = ids.length <= 1 && ids[0] === getPlayerId();
 
       if (aloneOrLast) {
         // Last player in the room: if I drop, the whole room should go too.
-        roomDisconnectHandle = window.roomRef.onDisconnect();
+        roomDisconnectHandle = getRoomRef().onDisconnect();
         roomDisconnectHandle.remove();
       }
     } catch(e) {
@@ -104,16 +118,16 @@
   }
 
   function tickTurnWatchdog() {
-    if (!inRoom() || !window.allPlayers) return;
+    if (!inRoom() || !getAllPlayers()) return;
     // Only the host advances stale turns — keeps server-side rules tight
     // (currentTurn is host-or-self writeable) and avoids transaction storms.
-    if (!window.isHost) return;
+    if (!getIsHost()) return;
     // Honor the lobby's "no timer" toggle — when disabled, never auto-skip.
     if (window.__yumTurnTimerEnabled === false) return;
-    const turn = window.currentTurnId;
+    const turn = getCurrentTurnId();
     if (!turn) return;
 
-    const players = window.allPlayers;
+    const players = getAllPlayers();
     const ids = Object.keys(players);
     if (ids.length < 2) return;
 
@@ -129,9 +143,9 @@
     if (elapsed < TURN_TIMEOUT_MS) return;
 
     // Use a transaction so two clients can't both skip the same turn.
-    window.roomRef.child('currentTurn').transaction(function(curr) {
+    getRoomRef().child('currentTurn').transaction(function(curr) {
       if (curr !== turn) return undefined; // already advanced
-      const order = Object.entries(window.allPlayers || {})
+      const order = Object.entries(getAllPlayers() || {})
         .sort(function(a, b) { return (a[1].joined || 0) - (b[1].joined || 0); })
         .map(function(e) { return e[0]; });
       const idx = order.indexOf(turn);
@@ -139,9 +153,9 @@
       return order[(idx + 1) % order.length];
     }).then(function(res) {
       if (res && res.committed) {
-        try { window.roomRef.child('players/' + turn + '/liveDice').remove(); } catch(e) {}
+        try { getRoomRef().child('players/' + turn + '/liveDice').remove(); } catch(e) {}
         watchedTurnStartedAt = Date.now();
-        const name = (window.allPlayers[turn] || {}).name || 'Player';
+        const name = (getAllPlayers()[turn] || {}).name || 'Player';
         if (typeof window.showToast === 'function') {
           var esc = (window.escapeHtml || function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); });
           window.showToast(esc(name) + ' timed out — turn skipped');
@@ -159,7 +173,7 @@
   const HOST_STALE_MS = 20 * 1000;
 
   function isHostStale(data) {
-    const players = window.allPlayers || {};
+    const players = getAllPlayers() || {};
     const hostId = data && data.host;
     if (!hostId) return true;                  // no host recorded
     if (!players[hostId]) return true;          // host removed
@@ -183,7 +197,7 @@
   // depend on data.started.
   function migrateHostIfNeeded(data) {
     if (!data || !inRoom()) return;
-    const players = window.allPlayers || {};
+    const players = getAllPlayers() || {};
     const ids = Object.keys(players);
     if (!ids.length) return;
 
@@ -198,20 +212,23 @@
       return (players[a].joined || 0) - (players[b].joined || 0);
     });
     const candidate = order[0];
-    if (candidate !== window.playerId) return;
+    if (candidate !== getPlayerId()) return;
 
-    window.roomRef.child('host').transaction(function(curr) {
+    getRoomRef().child('host').transaction(function(curr) {
       // Someone else already migrated to a healthy host — back off.
-      const cur = window.allPlayers || {};
+      const cur = getAllPlayers() || {};
       if (curr && cur[curr]) {
         const dAt = cur[curr] && cur[curr].disconnectedAt;
         if (!(typeof dAt === 'number' && (Date.now() - dAt) > HOST_STALE_MS)) {
           return undefined;
         }
       }
-      return window.playerId;
+      return getPlayerId();
     }).then(function(res) {
       if (res && res.committed) {
+        // Update the lexical binding app.js gates on (host-only writes,
+        // watchdog, etc.), and mirror to window for any external reader.
+        try { isHost = true; } catch (e) {}
         window.isHost = true;
         if (typeof window.showToast === 'function') {
           window.showToast('You are now the host');
@@ -234,8 +251,8 @@
   function writeHeartbeat() {
     if (!inRoom()) return;
     try {
-      window.roomRef
-        .child('players/' + window.playerId + '/lastActiveAt')
+      getRoomRef()
+        .child('players/' + getPlayerId() + '/lastActiveAt')
         .set(serverNow());
     } catch(e) {}
   }
@@ -243,10 +260,10 @@
   // ── snapshot hook ─────────────────────────────────────────────────
   function installSnapshotHook() {
     if (!inRoom()) return;
-    if (hookedRef === window.roomRef) return;
+    if (hookedRef === getRoomRef()) return;
 
     // New roomRef detected — reset state and attach.
-    hookedRef = window.roomRef;
+    hookedRef = getRoomRef();
     stopTurnWatchdog();
     stopHeartbeat();
     if (roomDisconnectHandle) {
@@ -256,14 +273,18 @@
 
     hookedRef.on('value', function(snap) {
       if (!snap || !snap.exists()) {
-        if (hookedRef === window.roomRef) {
+        if (hookedRef === getRoomRef()) {
           stopTurnWatchdog();
           stopHeartbeat();
         }
         return;
       }
       const data = snap.val() || {};
-      window.allPlayers = data.players || window.allPlayers || {};
+      const _players = data.players || getAllPlayers() || {};
+      // Keep the lexical binding app.js shares fresh, and mirror to window for
+      // any external reader.
+      try { allPlayers = _players; } catch (e) {}
+      getAllPlayers() = _players;
       // Expose current host id so other modules (presence sweeper) can decide
       // whether to defer cleanup work to the host.
       window.currentHostId = (typeof data.host === 'string') ? data.host : null;
@@ -287,8 +308,8 @@
   // ── leaveGame wrapper: clean teardown + room sweep ────────────────
   const _origLeaveGame = window.leaveGame;
   window.leaveGame = function patchedLeaveGame() {
-    const ref = window.roomRef;
-    const myId = window.playerId;
+    const ref = getRoomRef();
+    const myId = getPlayerId();
 
     stopTurnWatchdog();
     stopHeartbeat();
