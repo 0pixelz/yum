@@ -3,9 +3,30 @@
 // scripts and before js/app.js.
 
 (function() {
+  // Use a first-party authDomain that matches the origin the app is served
+  // from. Google sign-in (signInWithPopup/Redirect) runs the OAuth handshake
+  // on authDomain's /__/auth/handler. When authDomain is a *different* origin
+  // than the app (e.g. yum-game.firebaseapp.com while the app runs on
+  // yamio.io), Chrome 115+ storage partitioning in installed PWAs/TWAs
+  // isolates that cross-origin handler — the credential completes but can
+  // never be read back, so the user appears signed out (no store, no sign-out
+  // button). Firebase Hosting serves the auth handler on every connected
+  // domain, so matching authDomain to the serving host keeps OAuth same-origin
+  // and fixes sign-in inside the installed app.
+  const FIRST_PARTY_AUTH_HOSTS = [
+    'yamio.io',
+    'www.yamio.io',
+    'yum-game.web.app',
+    'yum-game.firebaseapp.com'
+  ];
+  const host = (typeof location !== 'undefined' && location.hostname || '').toLowerCase();
+  const authDomain = FIRST_PARTY_AUTH_HOSTS.indexOf(host) !== -1
+    ? host
+    : 'yum-game.firebaseapp.com';
+
   window.firebaseConfig = {
     apiKey: "AIzaSyBl1XezlXttwyQLBsEJJV0nkxomzL0uhZw",
-    authDomain: "yum-game.firebaseapp.com",
+    authDomain: authDomain,
     databaseURL: "https://yum-game-default-rtdb.firebaseio.com",
     projectId: "yum-game",
     storageBucket: "yum-game.firebasestorage.app",

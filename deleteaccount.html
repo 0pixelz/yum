@@ -147,9 +147,16 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
 (function() {
+  // Match authDomain to the serving origin so Google sign-in runs same-origin
+  // (Firebase Hosting serves /__/auth/handler on every connected domain). A
+  // cross-origin authDomain breaks sign-in in installed PWAs/TWAs on Chrome
+  // 115+ because storage partitioning isolates the OAuth handler.
+  const FIRST_PARTY_AUTH_HOSTS = ['yamio.io', 'www.yamio.io', 'yum-game.web.app', 'yum-game.firebaseapp.com'];
+  const host = (location.hostname || '').toLowerCase();
+  const authDomain = FIRST_PARTY_AUTH_HOSTS.indexOf(host) !== -1 ? host : 'yum-game.firebaseapp.com';
   const firebaseConfig = {
     apiKey: "AIzaSyBl1XezlXttwyQLBsEJJV0nkxomzL0uhZw",
-    authDomain: "yum-game.firebaseapp.com",
+    authDomain: authDomain,
     databaseURL: "https://yum-game-default-rtdb.firebaseio.com",
     projectId: "yum-game",
     storageBucket: "yum-game.firebasestorage.app",
