@@ -105,7 +105,7 @@ function executeRematch() {
     .map(function (e) { return { name: e[1].name, isMe: e[0] === playerId, id: e[0] }; });
 
   if (isHost && roomRef) {
-    var updates = { rematch: null, currentTurn: null, firstRoll: null };
+    var updates = { rematch: null, currentTurn: null, firstRoll: null, firstRollDone: null };
     Object.keys(allPlayers).forEach(function (id) {
       updates['players/' + id + '/scores'] = null;
       updates['players/' + id + '/liveDice'] = null;
