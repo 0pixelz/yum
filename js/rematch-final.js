@@ -140,6 +140,7 @@
     const updates = {
       gameOver: null,
       firstRoll: null,
+      firstRollDone: null,
       currentTurn: null,
       status: 'playing',
       roundId: newRoundId,

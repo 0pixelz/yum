@@ -1555,6 +1555,27 @@ function listenRoom() {
       }
     }
 
+    // Rejoin during the who-goes-first roll-off: a player who reloads or
+    // rejoins mid roll-off skips the waiting-overlay transition above, so the
+    // overlay would never reappear and the opponent would wait on their roll
+    // forever. Until a client marks the roll-off finished (firstRollDone),
+    // re-show it — existing rolls are replayed from the room's firstRoll node.
+    if(data.started && !data.firstRollDone && mpMode && allPlayers[playerId]
+       && Object.keys(allPlayers).length >= 2) {
+      const frOv = document.getElementById('firstRollOverlay');
+      // frBroadcasted = this client already finished a roll-off for this game
+      // (it resets in showFirstRoll on rematch) — don't resurrect the overlay
+      // on a snapshot that races the firstRollDone write.
+      if(frOv && frOv.style.display !== 'flex' && !frClosing && !frBroadcasted) {
+        const sortedPlayers = Object.entries(allPlayers)
+          .sort((a,b) => a[1].joined - b[1].joined)
+          .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id }));
+        showFirstRoll(sortedPlayers, isHost
+          ? function(winnerId) { roomRef.update({ currentTurn: winnerId }); }
+          : function() {});
+      }
+    }
+
     if(data.started) {
       updateMpUI();
       renderLeaderboard();

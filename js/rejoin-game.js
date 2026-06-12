@@ -123,8 +123,10 @@
     if (banner) return banner;
     banner = document.createElement('div');
     banner.id = 'reconnectBanner';
+    // Above the who-goes-first overlay (z 880) — a disconnect during the
+    // roll-off must still surface the reconnecting countdown.
     banner.style.cssText =
-      'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:870;' +
+      'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:940;' +
       'display:none;align-items:center;gap:8px;max-width:92vw;' +
       'padding:9px 16px;border-radius:50px;' +
       'background:linear-gradient(135deg,#1a1a5e,#23234f);' +
@@ -287,6 +289,8 @@
   }
 
   async function maybeOfferRejoin() {
+    const openOv = document.getElementById('rejoinOverlay');
+    if (pending || (openOv && openOv.style.display === 'flex')) return; // already offering
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
     if (!saved || !saved.code || !saved.uid) return;
@@ -343,6 +347,17 @@
       }
     } catch (e) {}
     maybeOfferRejoin();
+    // Re-opening the browser/app often restores the page from the back/forward
+    // cache or resumes a backgrounded tab instead of reloading — the initial
+    // offer above never re-runs in that case. Re-check whenever the page comes
+    // back; maybeOfferRejoin bails instantly when there's no saved room or
+    // we're already in a game.
+    window.addEventListener('pageshow', function (e) {
+      if (e && e.persisted) maybeOfferRejoin();
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') maybeOfferRejoin();
+    });
   }
 
   if (document.readyState === 'loading') {

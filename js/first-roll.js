@@ -58,7 +58,21 @@ function showFirstRoll(players, onDone) {
     roomRef.child('firstRoll').on('value', snap => {
       const data = snap.val() || {};
       firstRollPlayers.forEach((p, i) => {
-        if(!p.isMe && data[p.id] !== undefined && frResults[i] === null) {
+        if(data[p.id] !== undefined && frResults[i] === null) {
+          if(p.isMe) {
+            // Our own roll already exists in the room — we rejoined mid
+            // roll-off after rolling. Restore it instead of letting the
+            // player roll a second time. (In the normal flow frResults is
+            // set before the Firebase write, so this never fires for self.)
+            frMyRolled = true;
+            const myDie = document.getElementById('frDie' + i);
+            if(myDie) {
+              myDie.style.cursor = 'default';
+              myDie.style.border = '';
+              myDie.classList.remove('tap-me');
+              myDie.onclick = null;
+            }
+          }
           frResults[i] = data[p.id];
           frRevealDie(i, data[p.id]);
         }
@@ -262,6 +276,11 @@ function closeFirstRoll() {
   if(mpMode && roomRef && firstRollWinnerId && !frBroadcasted) {
     frBroadcasted = true;
     try { roomRef.update({ currentTurn: firstRollWinnerId }); } catch(e) {}
+    // firstRollDone lets a client that rejoins mid-match know the roll-off
+    // already happened (listenRoom re-shows the overlay while it's unset).
+    // Written separately: the currentTurn update is rejected by the DB rules
+    // for non-host clients, and a batched write would take the flag down with it.
+    try { roomRef.child('firstRollDone').set(true).catch(function(){}); } catch(e) {}
   }
 
   ov.classList.add('closing');
@@ -427,7 +446,7 @@ function voteRematch(yes) {
 }
 
 function doMpRematch() {
-  const updates = {};
+  const updates = { firstRollDone: null };
   Object.keys(allPlayers).forEach(id => {
     updates['players/' + id + '/scores'] = {};
     updates['players/' + id + '/liveDice'] = null;

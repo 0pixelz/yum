@@ -62,6 +62,7 @@
     const updates = {
       rematchVotes: null,
       firstRoll: null,
+      firstRollDone: null,
       gameOver: null,
       status: 'playing',
       currentTurn: null,
