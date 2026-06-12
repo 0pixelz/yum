@@ -34,6 +34,19 @@
   // ready-check is shorter-lived, so a tighter window keeps the 15s accept flow
   // responsive while still riding out a normal reconnect).
   const READY_DISCONNECT_GRACE_MS = 7000;
+  // A waiter that has been claimed (a placeholder appeared in its offer slot)
+  // but never received a roomCode is stuck behind a seeker that crashed or
+  // bailed mid-create. After this window the waiter frees its own offer slot
+  // so a healthy seeker can claim it again, then re-scans the queue itself.
+  const OFFER_ROOMCODE_TIMEOUT_MS = 12000;
+  // The claim direction is one-way: only the lower-UID player ever hosts (see
+  // the `uid > mmUid` tie-break). If that designated host never shows up — its
+  // createGame failed, it left, or it's wedged — the higher-UID player would
+  // otherwise wait forever with no fallback. After this window an unmatched
+  // waiter is allowed to *reverse* the tie-break and host a lower-UID peer
+  // instead. Because only the higher-UID side ever promotes, two stuck peers
+  // can't both promote into a double-host.
+  const PROMOTE_AFTER_MS   = 8000;
   // Cap how many queue entries we ever pull into the client. At 1000 concurrent
   // seekers an unbounded `ref(QUEUE_PATH).on('value')` would pull the whole
   // queue down to every seeker on every join/leave — O(n²) reads. Looking at
@@ -77,6 +90,16 @@
   // Used to distinguish "offer never arrived" (no-op) from "offer arrived
   // then was removed before we got a roomCode" (seeker bailed → notify).
   let mmOfferSeen = false;
+  // Frees a stuck offer slot when a seeker claims us but never delivers a room.
+  let mmOfferWaitTimer = null;
+  // Fires the reversed-direction host promotion when we stay unmatched too long.
+  let mmPromoteTimer = null;
+  // Becomes true once the ready-check has seen both players present at least
+  // once. The Accept overlay can now be shown optimistically (the instant the
+  // match commits, before the other side's join propagates), so we must not
+  // treat that initial "only one player here" state as a disconnect until
+  // we've actually seen both sides land in the room.
+  let mmBothSeen = false;
 
   function el(id) { return document.getElementById(id); }
 
@@ -407,6 +430,10 @@
     mmClaimInFlight = false;
     mmAutoStartScheduled = false;
     mmOfferSeen = false;
+    mmBothSeen = false;
+    mmReadyShown = false;
+    mmReadyHandled = false;
+    clearPairingTimers();
 
     const modeLabel = chosenMode === 'powerup' ? 'Power-Up' : 'Classic';
     setSearchText('LOOKING FOR PLAYER',
@@ -495,6 +522,84 @@
     mmPresenceWatcher = null;
   }
 
+  // ── Stuck-state recovery timers ──────────────────────────────────────
+  function armPromoteTimer() {
+    clearPromoteTimer();
+    mmPromoteTimer = setTimeout(() => { mmPromoteTimer = null; tryPromote(); }, PROMOTE_AFTER_MS);
+  }
+
+  function clearPromoteTimer() {
+    if (mmPromoteTimer) { clearTimeout(mmPromoteTimer); mmPromoteTimer = null; }
+  }
+
+  // A placeholder landed in our offer slot but no roomCode followed. Give the
+  // seeker a window to deliver one; if it never does, free the slot so another
+  // seeker can claim us and re-scan the queue ourselves.
+  function armOfferWaitTimer() {
+    if (mmOfferWaitTimer) return;
+    mmOfferWaitTimer = setTimeout(async () => {
+      mmOfferWaitTimer = null;
+      if (!mmActive || mmRole) return;
+      mmOfferSeen = false;
+      try { await mmDb.ref(OFFERS_PATH + '/' + mmUid).remove(); } catch (e) {}
+      if (!mmActive || mmRole) return;
+      try {
+        const snap = await mmDb.ref(QUEUE_PATH)
+          .orderByChild('ts').limitToFirst(QUEUE_SCAN_LIMIT).once('value');
+        if (mmActive && !mmRole) await onQueueChange(snap);
+      } catch (e) {}
+      if (mmActive && !mmRole && mmInQueue) armPromoteTimer();
+    }, OFFER_ROOMCODE_TIMEOUT_MS);
+  }
+
+  function clearOfferWaitTimer() {
+    if (mmOfferWaitTimer) { clearTimeout(mmOfferWaitTimer); mmOfferWaitTimer = null; }
+  }
+
+  function clearPairingTimers() {
+    clearPromoteTimer();
+    clearOfferWaitTimer();
+  }
+
+  // Reversed-direction host promotion: an unmatched waiter that the normal
+  // (lower-UID-hosts) path never paired claims a lower-UID peer itself. Only
+  // the higher-UID side promotes, so this can never double-host with the
+  // normal direction or with another promoter.
+  async function tryPromote() {
+    // If a seeker has already claimed us (placeholder in our offer slot) we
+    // must wait for their room, not go host someone else. The offer-wait timer
+    // frees the slot and re-arms promotion if that seeker turns out to be dead.
+    if (!mmActive || mmRole || !mmInQueue || mmOfferSeen) return;
+    let snap = null;
+    try {
+      snap = await mmDb.ref(QUEUE_PATH)
+        .orderByChild('ts').limitToFirst(QUEUE_SCAN_LIMIT).once('value');
+    } catch (e) { snap = null; }
+    if (mmActive && !mmRole && snap && snap.exists()) {
+      const all = snap.val() || {};
+      const now = Date.now();
+      const candidates = Object.entries(all)
+        .filter(([uid, info]) =>
+          uid !== mmUid &&
+          uid < mmUid &&                 // reversed: we (higher UID) host them
+          info &&
+          typeof info.ts === 'number' &&
+          (now - info.ts) < STALE_MS &&
+          ((info.mode || 'normal') === mmMode)
+        )
+        .sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
+      for (const [oppUid, oppInfo] of candidates) {
+        // Stop the moment we ourselves get claimed — onMyOfferChanged (or the
+        // yield branch below) will hand us off as the waiter instead.
+        if (!mmActive || mmRole || mmOfferSeen) return;
+        const claimed = await tryClaimPromote(oppUid, oppInfo);
+        if (claimed) return;
+      }
+    }
+    // Still unmatched — keep retrying as the queue churns.
+    if (mmActive && !mmRole && !mmOfferSeen && mmInQueue) armPromoteTimer();
+  }
+
   async function onQueueChange(snap) {
     if (!mmActive || mmRole) return;
     if (!mmInQueue) return;            // only re-claim once our own entry is committed
@@ -566,6 +671,20 @@
     return false;
   }
 
+  // Atomically claim an offer slot by writing our placeholder only if empty.
+  async function winOfferSlot(offerRef) {
+    const placeholder = { from: mmUid, fromName: mmName, fromAvatar: myAvatarId() || null, ts: Date.now() };
+    try {
+      const result = await offerRef.transaction(curr => {
+        if (curr) return undefined;     // already claimed by someone else
+        return placeholder;
+      });
+      return !!(result && result.committed);
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function tryClaimOne(oppUid, oppInfo) {
     if (!mmActive) return false;
     // Belt-and-suspenders tie-break: tryClaimAny and onQueueChange both
@@ -580,20 +699,54 @@
       return false;
     }
 
-    const offerRef   = mmDb.ref(OFFERS_PATH + '/' + oppUid);
-    const placeholder = { from: mmUid, fromName: mmName, fromAvatar: myAvatarId() || null, ts: Date.now() };
-
-    let won = false;
-    try {
-      const result = await offerRef.transaction(curr => {
-        if (curr) return undefined;     // already claimed by someone else
-        return placeholder;
-      });
-      won = !!(result && result.committed);
-    } catch (e) {
-      won = false;
-    }
+    const offerRef = mmDb.ref(OFFERS_PATH + '/' + oppUid);
+    const won = await winOfferSlot(offerRef);
     if (!won || !mmActive) return false;
+    return await finishClaim(offerRef, oppUid, oppInfo);
+  }
+
+  // Reversed-direction claim used only by the promotion fallback. We (the
+  // higher UID) host a lower-UID peer the normal path never paired us with.
+  async function tryClaimPromote(oppUid, oppInfo) {
+    if (!mmActive || mmRole) return false;
+    if (typeof oppUid !== 'string' || typeof mmUid !== 'string' || oppUid >= mmUid) {
+      return false;
+    }
+
+    const offerRef = mmDb.ref(OFFERS_PATH + '/' + oppUid);
+    const won = await winOfferSlot(offerRef);
+    if (!won || !mmActive || mmRole) {
+      // We grabbed the slot but a role landed first (we got claimed) — release.
+      if (won) { try { await offerRef.remove(); } catch (e) {} }
+      return false;
+    }
+
+    // Guard the rare same-instant race where the lower-UID peer claimed us via
+    // the normal path at the very moment we promoted. If our own offer slot is
+    // now occupied, the lower UID keeps the host role: yield, release the slot
+    // we grabbed, and let our still-attached offer listener join their room as
+    // the waiter once their roomCode arrives.
+    let mineOccupied = false;
+    try {
+      const mineSnap = await mmDb.ref(OFFERS_PATH + '/' + mmUid).once('value');
+      mineOccupied = !!(mineSnap && mineSnap.exists());
+    } catch (e) {}
+    if (mineOccupied || mmOfferSeen || mmRole || !mmActive) {
+      // Mark that we've been claimed so the promotion loop stops here and the
+      // offer listener takes over to join the lower-UID peer's room as waiter.
+      mmOfferSeen = true;
+      try { await offerRef.remove(); } catch (e) {}
+      return false;
+    }
+
+    return await finishClaim(offerRef, oppUid, oppInfo);
+  }
+
+  // Shared "we won the claim → become host" tail for both the normal and the
+  // promotion claim paths. Creates the room, broadcasts the roomCode into the
+  // opponent's offer, and brings up the ready-check.
+  async function finishClaim(offerRef, oppUid, oppInfo) {
+    clearPairingTimers();
 
     setSearchText('MATCH FOUND',
       'Connecting to <b>' + escapeHtml(oppInfo.name || 'Opponent') + '</b>…');
@@ -665,6 +818,10 @@
     try { await mmDb.ref(QUEUE_PATH + '/' + mmUid).remove(); } catch (e) {}
 
     watchRoomForReady(code, 'seeker');
+    // Surface the Accept overlay the instant the match is committed, without
+    // waiting for the waiter's join to propagate. Both sides do this, so the
+    // Accept prompt appears on both screens at nearly the same moment.
+    showReadyOverlayOptimistic(oppInfo.name, oppInfo.avatar || null, 'seeker');
     return true;
   }
 
@@ -699,6 +856,38 @@
     return code;
   }
 
+  // Bring up the Accept (ready-check) overlay immediately when a match is
+  // committed — before the opponent's room join has propagated — so both
+  // players see the Accept prompt at nearly the same instant instead of the
+  // host seeing it a round-trip ahead of the joiner. watchRoomForReady then
+  // takes over and keeps both sides' ready/declined state in sync.
+  function showReadyOverlayOptimistic(oppName, oppAvatar, role) {
+    if (mmReadyShown) return;
+    mmReadyShown = true;
+    mmBothSeen = false;
+
+    const meNameEl  = el('mmReadyMeName');
+    const oppNameEl = el('mmReadyOppName');
+    if (meNameEl)  meNameEl.textContent  = mmName || 'You';
+    if (oppNameEl) oppNameEl.textContent = oppName || 'Opponent';
+    if (oppAvatar) setOppMatchmakingAvatar(oppAvatar, oppName);
+    setReadyMode(mmMode);
+    setReadyTag('me', 'pending');
+    setReadyTag('opp', 'pending');
+    setAvatarStatus('me', null);
+    setAvatarStatus('opp', null);
+    // The waiter's player slot isn't written until joinGame finishes, and a
+    // ready write before that slot exists is rejected by the rules. Keep the
+    // joiner's Accept disabled until it has actually joined (re-enabled in
+    // onMyOfferChanged once watchRoomForReady is attached); the host already
+    // owns its slot and can accept right away.
+    setReadyButtonsState(role === 'seeker' ? 'idle' : 'waiting');
+    setReadySub('Both players must tap <b>Accept</b> within 15 seconds');
+    hideSearchOverlay();
+    showReadyOverlay();
+    startReadyCountdown();
+  }
+
   // Unified room watcher used by both seeker and waiter once they share a room.
   // Shows the ready-check overlay when both players are present, then:
   //   - host (seeker) calls startGame() when both have set ready=true
@@ -706,8 +895,12 @@
   //     which the listener picks up and tears the match down
   function watchRoomForReady(code, role) {
     detachRoomListener();
-    mmReadyShown = false;
     mmReadyHandled = false;
+    // mmReadyShown is intentionally NOT reset here. The Accept overlay is shown
+    // optimistically the moment the match commits (see showReadyOverlayOptimistic),
+    // before this watcher attaches. Clearing it would re-run the first-show
+    // block on the next snapshot and restart the countdown out of sync with the
+    // other side. A fresh match clears mmReadyShown in cleanup/findMatch.
     mmRoomRef = mmDb.ref('rooms/' + code);
 
     mmRoomListener = mmRoomRef.on('value', snap => {
@@ -741,7 +934,13 @@
         // which fires this listener again with two active players and cancels
         // the pending timer below. Only a player who stays gone past the
         // window actually tears the match down.
-        if (mmReadyShown && !mmReadyHandled) {
+        //
+        // Skip this until we've seen both players land at least once: the
+        // Accept overlay is shown optimistically before the opponent's join
+        // propagates, so an early "only me here" snapshot is the normal
+        // pre-join state, not a disconnect. The 15s accept countdown still
+        // bails the match out if the opponent never actually arrives.
+        if (mmReadyShown && !mmReadyHandled && mmBothSeen) {
           scheduleReadyDisconnectCancel();
         }
         return;
@@ -749,6 +948,7 @@
 
       // Both players are active (again) — drop any pending disconnect grace
       // timer left over from a transient blip.
+      mmBothSeen = true;
       clearReadyDisconnectTimer();
 
       const oppId = activeIds.find(id => id !== mmUid) || null;
@@ -941,6 +1141,10 @@
         if (mmActive && !mmRole) await onQueueChange(snap);
       } catch (e) {}
     }
+
+    // If the normal direction didn't pair us, arm the host-promotion fallback
+    // so we don't wait forever behind a designated host that never shows up.
+    if (mmActive && !mmRole && mmInQueue) armPromoteTimer();
   }
 
   function onMyOfferChanged(snap) {
@@ -955,6 +1159,7 @@
       // never appears for either side.
       if (mmOfferSeen && !mmRole) {
         mmOfferSeen = false;
+        clearOfferWaitTimer();
         handleRemoteCancel('Match canceled — opponent dropped.');
       }
       return;
@@ -963,7 +1168,16 @@
     const offer = snap.val() || {};
     if (!offer.from || offer.from === mmUid) return;
     mmOfferSeen = true;
-    if (!offer.roomCode) return;          // claim placeholder, room not created yet
+    if (!offer.roomCode) {
+      // Claim placeholder only — the seeker hasn't created the room yet. Arm a
+      // safety timer so a seeker that crashed/bailed before delivering a
+      // roomCode doesn't leave us wedged here forever (the timer frees our
+      // offer slot and re-scans the queue).
+      armOfferWaitTimer();
+      return;
+    }
+
+    clearPairingTimers();
 
     mmRole = 'waiter';
     setSearchText('MATCH FOUND',
@@ -992,6 +1206,11 @@
     // forever while the waiter bounces back to the main menu.
     mmRoomCode = offer.roomCode;
 
+    // Surface the Accept overlay right away (Accept stays disabled until we've
+    // actually joined the room below) so the joiner sees the prompt at the same
+    // time as the host instead of waiting out the join round-trips.
+    showReadyOverlayOptimistic(offer.fromName, offer.fromAvatar || null, 'waiter');
+
     Promise.resolve().then(() => window.joinGame()).then(() => {
       // joinGame doesn't throw on a missing room — it just shows a lobby
       // error and returns. Verify we actually landed in the seeker's room
@@ -1002,6 +1221,8 @@
         return;
       }
       watchRoomForReady(offer.roomCode, 'waiter');
+      // Our player slot now exists, so accepting is valid — enable the button.
+      setReadyButtonsState('idle');
       if (mmDb && mmUid) {
         mmDb.ref(OFFERS_PATH + '/' + mmUid).remove().catch(() => {});
       }
@@ -1045,6 +1266,7 @@
     detachRoomListener();
     detachQueueWatcher();
     detachPresenceWatcher();
+    clearPairingTimers();
     stopElapsedTicker();
     stopReadyCountdown();
 
@@ -1091,6 +1313,7 @@
     detachRoomListener();
     detachQueueWatcher();
     detachPresenceWatcher();
+    clearPairingTimers();
     stopElapsedTicker();
     stopReadyCountdown();
     hideSearchOverlay();
@@ -1118,6 +1341,8 @@
     mmReadyShown = false;
     mmReadyHandled = false;
     mmOfferSeen = false;
+    mmBothSeen = false;
+    clearPairingTimers();
   }
 
   function openFindMatchModeChoice() {
