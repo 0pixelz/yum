@@ -18,6 +18,12 @@
       "README.md",
       "DEPLOYMENT.md"
     ],
+    "rewrites": [
+      {
+        "source": "/tester",
+        "destination": "/tester.html"
+      }
+    ],
     "headers": [
       {
         "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
