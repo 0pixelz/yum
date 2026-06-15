@@ -17,6 +17,26 @@
     }
   }
 
+  // Rough value you give up by permanently zeroing a category — lower means
+  // it's the cheapest to sacrifice when you're forced to strike.
+  const STRIKE_COST = {
+    ones: 2, twos: 4, threes: 6, fours: 8, fives: 10, sixes: 12,
+    yum: 7, lgStraight: 13, fourKind: 15, threeKind: 21,
+    fullHouse: 22, chance: 23, smStraight: 25
+  };
+
+  function getStrikeSuggestions() {
+    try {
+      if (!Array.isArray(categories)) return [];
+      return categories
+        .filter(cat => scores[cat.id] === undefined)
+        .map(cat => ({ cat, cost: STRIKE_COST[cat.id] != null ? STRIKE_COST[cat.id] : (cat.max || 0) }))
+        .sort((a, b) => a.cost - b.cost || a.cat.max - b.cat.max);
+    } catch(e) {
+      return [];
+    }
+  }
+
   function ensurePossibilitiesPanel() {
     let panel = document.getElementById('dicePossibilities');
     if (panel) return panel;
@@ -50,7 +70,24 @@
 
     const options = getPossibilities();
     if (!options.length) {
-      panel.innerHTML = '<div class="dp-empty">No scoring option left for this roll · strike only</div>';
+      const strikes = getStrikeSuggestions();
+      if (!strikes.length) {
+        panel.innerHTML = '<div class="dp-empty">No scoring option left for this roll · strike only</div>';
+        return;
+      }
+      const strikeChips = strikes.slice(0, 8).map(({ cat }, i) => {
+        const best = i === 0 ? ' dp-strike-best' : '';
+        const badge = i === 0 ? '<span class="dp-best-badge">Best</span>' : '';
+        return `<div class="dp-chip dp-strike-chip${best}" onclick="openModal('${cat.id}')">
+          <span class="dp-icon">${categoryIcon(cat)}</span>
+          <span class="dp-name">${cat.name}</span>
+          ${badge}
+        </div>`;
+      }).join('');
+      panel.innerHTML = `
+        <div class="dp-title dp-strike-title">No score left · strike one (gives up the least first)</div>
+        <div class="dp-list">${strikeChips}</div>
+      `;
       return;
     }
 
