@@ -816,8 +816,12 @@
     }
     owned.push(id);
     setOwnedSkins(owned);
-    equipSkin(id);
-    if (typeof showToast === 'function') showToast(`Unlocked ${skin.name}!`);
+    if (typeof window.showSkinUnlockedPopup === 'function') {
+      window.showSkinUnlockedPopup({ id, name: skin.name, style: skin.previewStyle }, equipSkin);
+    } else {
+      equipSkin(id);
+      if (typeof showToast === 'function') showToast(`Unlocked ${skin.name}!`);
+    }
   }
 
   function equipSkin(id) {

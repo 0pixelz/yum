@@ -153,8 +153,14 @@
     }
     list.push(id);
     setOwned(list);
-    window.equipSkin(id);
-    toast(`${skin.name} unlocked!`);
+    // Celebrate the unlock and let the player choose whether to equip it now,
+    // rather than silently swapping their dice with no feedback.
+    if (typeof window.showSkinUnlockedPopup === 'function') {
+      window.showSkinUnlockedPopup({ id, name: skin.name, style: skin.style });
+    } else {
+      window.equipSkin(id);
+      toast(`${skin.name} unlocked!`);
+    }
   };
 
   function ensureStoreOverlay() {
