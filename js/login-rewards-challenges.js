@@ -94,19 +94,28 @@
   function applyRemoteCreditState(remote) {
     if (!remote) return false;
     const local = creditState();
-    const localEarned = Math.max(0, Number(local.earned) || 0);
-    const localSpent  = Math.max(0, Number(local.spent)  || 0);
-    const remoteEarned = Math.max(0, Number(remote.earned) || 0);
-    const remoteSpent  = Math.max(0, Number(remote.spent)  || 0);
-    // Cumulative counters are monotonic, so take the max from each side.
-    const earned = Math.max(localEarned, remoteEarned);
-    const spent  = Math.max(localSpent, remoteSpent);
-    const credits = Math.max(0, earned - spent);
-    const localCredits = Math.max(0, Number(local.credits) || 0);
-    if (credits === localCredits && earned === localEarned && spent === localSpent) return false;
+    // Credits are server-authoritative: every mutation runs through a Cloud
+    // Function and the security rules block client writes to
+    // /users/$uid/creditWallet (the parent rule only permits deletes). The
+    // local wallet is therefore a read-only mirror, so adopt the server's
+    // figures wholesale — INCLUDING downward. The old max-merge kept a stale or
+    // legacy-inflated local balance forever, which let the store offer
+    // purchases the server then rejected: tapping Unlock did nothing even
+    // though the balance "looked" high enough.
+    const remoteEarned  = Math.max(0, Number(remote.earned) || 0);
+    const remoteSpent   = Math.max(0, Number(remote.spent)  || 0);
+    const remoteCredits = remote.credits != null
+      ? Math.max(0, Number(remote.credits) || 0)
+      : Math.max(0, remoteEarned - remoteSpent);
+    const localEarned   = Math.max(0, Number(local.earned)  || 0);
+    const localSpent    = Math.max(0, Number(local.spent)   || 0);
+    const localCredits  = Math.max(0, Number(local.credits) || 0);
+    if (remoteCredits === localCredits && remoteEarned === localEarned && remoteSpent === localSpent) return false;
     saveCreditState({
-      credits, earned, spent,
-      lastReason: local.lastReason || remote.lastReason || '',
+      credits: remoteCredits,
+      earned: remoteEarned,
+      spent: remoteSpent,
+      lastReason: remote.lastReason || local.lastReason || '',
       updatedAt: Date.now()
     });
     return true;
@@ -130,17 +139,14 @@
     const ref = userCreditRef();
     if (!ref) return Promise.resolve(false);
     creditHydratePromise = ref.once('value').then(snap => {
-      const remote = snap.val();
-      const before = creditState();
+      // The wallet is server-owned — the client cannot write it (rules block
+      // it), so there is nothing to push up. Just mirror the server's state.
+      // A resolved read of null means the server has no wallet yet, which is
+      // authoritatively zero credits (purchaseSkin treats a missing wallet the
+      // same way). Mirror that explicitly so a legacy client-only balance that
+      // the server never recorded can't linger and offer unaffordable buys.
+      const remote = snap.val() || { credits: 0, earned: 0, spent: 0 };
       const changed = applyRemoteCreditState(remote);
-      const localEarned = Math.max(0, Number(before.earned) || 0);
-      const localSpent  = Math.max(0, Number(before.spent)  || 0);
-      const remoteEarned = Math.max(0, Number((remote && remote.earned)) || 0);
-      const remoteSpent  = Math.max(0, Number((remote && remote.spent))  || 0);
-      // If we have local progress the server hasn't seen yet, push it up.
-      if (localEarned > remoteEarned || localSpent > remoteSpent || !remote) {
-        pushCreditState();
-      }
       if (changed) {
         window.dispatchEvent(new CustomEvent('yumCreditsChanged', { detail: creditState() }));
         refreshChallengeButtonText();
