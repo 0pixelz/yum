@@ -176,17 +176,13 @@
   }
 
   async function signInWithGoogle() {
+    // Popup only. signInWithRedirect breaks in storage-partitioned browsers
+    // (iOS Safari, Chrome 115+ PWAs): on return Firebase can't read the
+    // sessionStorage state it saved and shows a full-page "Unable to process
+    // request due to missing initial state" error instead of signing in.
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    try {
-      return await auth.signInWithPopup(provider);
-    } catch (e) {
-      if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) {
-        await auth.signInWithRedirect(provider);
-        return null;
-      }
-      throw e;
-    }
+    return await auth.signInWithPopup(provider);
   }
 
   async function deleteAccount() {
@@ -231,6 +227,9 @@
 
   btn.addEventListener('click', deleteAccount);
 
+  // Clear any leftover/broken redirect from an older session so it doesn't
+  // resurface the storage-partitioned "missing initial state" error. We sign in
+  // with a popup now, so a successful redirect result just continues deletion.
   auth.getRedirectResult().then(result => {
     if (result && result.user) deleteAccount();
   }).catch(() => {});
