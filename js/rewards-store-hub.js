@@ -467,7 +467,10 @@
     if (typeof window.dboPerformBonusClaim === 'function') {
       window.dboPerformBonusClaim();
     }
-    setTimeout(render, 60);
+    // performBonusClaim flips the local state synchronously (optimistic
+    // update), so re-render right away for an instant button change. It also
+    // calls window.rhRenderHub itself once the server reconciles.
+    render();
   }
 
   function claimChallengeFromHub(id) {
@@ -489,6 +492,12 @@
 
   window.openRewardsHub = openHub;
   window.rhCloseHub = closeHub;
+  // Let other modules (e.g. the daily-bonus claim flow) refresh the hub in
+  // place when they change shared state.
+  window.rhRenderHub = function() {
+    const ov = document.getElementById('rewardsHubOverlay');
+    if (ov && ov.classList.contains('open')) render();
+  };
   window.rhClaimDailyBonus = claimBonusFromHub;
   window.rhClaimChallenge = claimChallengeFromHub;
   window.rhEquipSkin = equipSkinFromHub;

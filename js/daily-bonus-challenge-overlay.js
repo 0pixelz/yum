@@ -505,18 +505,47 @@
     if (ov) ov.classList.remove('open');
   }
 
+  // Re-render the Rewards & Store hub in place if it's the surface that's open.
+  function refreshHubIfOpen() {
+    if (typeof window.rhRenderHub === 'function') {
+      try { window.rhRenderHub(); } catch (e) {}
+    }
+  }
+
   async function performBonusClaim() {
     if (!isLoggedIn()) return toast('Sign in with Google to claim daily bonus');
     migrateLegacyKeys();
 
-    // Server is the source of truth for the streak/reward. Calling
-    // claimDailyBonus does the date + streak check, applies the reward to
-    // /users/$uid/creditWallet, and returns the new state — we mirror it
-    // into localStorage so the UI updates immediately.
     if (!window.YumCloud || typeof window.YumCloud.claimDailyBonus !== 'function') {
       toast('Daily bonus unavailable — reload and try again');
       return;
     }
+
+    // Already claimed locally — bail before touching anything (also guards
+    // against an accidental double-tap, since the first tap flips this state).
+    const info = streakInfo();
+    if (info.claimed) {
+      toast('Daily bonus already claimed today');
+      return;
+    }
+
+    // ── Optimistic update ──────────────────────────────────────────────
+    // Flip the button to its claimed state and pop the confirmation toast the
+    // instant the button is pressed — no waiting on the network. The server
+    // is still the source of truth (claimDailyBonus does the date/streak check
+    // and applies the reward to /users/$uid/creditWallet); we reconcile its
+    // result below, or roll this back if the call genuinely fails.
+    const dateKey      = BONUS_DATE_KEY();
+    const streakKey    = BONUS_STREAK_KEY();
+    const prevDate     = localStorage.getItem(dateKey);
+    const prevStreak   = localStorage.getItem(streakKey);
+    const expectReward = info.reward;
+
+    localStorage.setItem(dateKey, todayISO());
+    localStorage.setItem(streakKey, String(info.nextStreak));
+    toast(`Daily bonus claimed: +${expectReward} credits`);
+    renderBonusOverlay();
+    refreshHubIfOpen();
 
     let result;
     try {
@@ -524,26 +553,31 @@
     } catch (err) {
       const msg = String((err && err.message) || '');
       if (/already claimed/i.test(msg)) {
-        toast('Daily bonus already claimed today');
+        // Server agrees today is claimed (e.g. claimed on another device) —
+        // the optimistic state is correct, so leave it in place.
       } else {
+        // Genuine failure — undo the optimistic flip and tell the user.
+        if (prevDate === null) localStorage.removeItem(dateKey);
+        else localStorage.setItem(dateKey, prevDate);
+        if (prevStreak === null) localStorage.removeItem(streakKey);
+        else localStorage.setItem(streakKey, prevStreak);
         toast('Could not claim bonus — check your connection');
+        renderBonusOverlay();
+        refreshHubIfOpen();
       }
-      renderBonusOverlay();
       return;
     }
 
+    // Reconcile with the authoritative server state and pull the updated
+    // wallet so the credit pill catches up.
     if (result && result.lastDate && typeof result.streak === 'number') {
       persistBonusState(result.lastDate, result.streak);
     }
     if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
       try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
     }
-    if (result && typeof result.reward === 'number') {
-      toast(`Daily bonus claimed: +${result.reward} credits`);
-    } else {
-      toast('Daily bonus claimed');
-    }
     renderBonusOverlay();
+    refreshHubIfOpen();
     if (typeof window.yumRefreshMenuButtons === 'function') window.yumRefreshMenuButtons();
   }
 
