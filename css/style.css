@@ -1319,7 +1319,7 @@
     position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
     background: var(--panel); border: 1px solid rgba(78,205,196,0.3);
     color: var(--white); padding: 10px 20px; border-radius: 30px;
-    font-weight: 700; font-size: 0.85rem; z-index: 600;
+    font-weight: 700; font-size: 0.85rem; z-index: 10001;
     opacity: 0; transition: opacity 0.3s; pointer-events:none;
     white-space: nowrap;
   }
