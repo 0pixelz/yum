@@ -152,6 +152,20 @@
 
   window.hydrateYumCreditsFromFirebase = hydrateCreditsFromFirebase;
 
+  // Apply an authoritative wallet snapshot returned by a Cloud Function (e.g.
+  // purchaseSkin) straight away, so the balance reflects a deduction the
+  // instant the call resolves instead of waiting on a separate Firebase read
+  // that may be skipped or stale.
+  window.applyYumCreditWallet = function applyYumCreditWallet(remote) {
+    if (!remote) return false;
+    const changed = applyRemoteCreditState(remote);
+    if (changed) {
+      window.dispatchEvent(new CustomEvent('yumCreditsChanged', { detail: creditState() }));
+      refreshChallengeButtonText();
+    }
+    return changed;
+  };
+
   window.getYumCredits = function getYumCredits() {
     if (!isLoggedIn()) return 0;
     const st = creditState();
