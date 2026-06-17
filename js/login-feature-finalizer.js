@@ -124,16 +124,29 @@
       return toast('Store unavailable — reload and try again');
     }
     try {
-      await window.YumCloud.purchaseSkin({ skinId: id });
+      const resp = await window.YumCloud.purchaseSkin({ skinId: id });
+      // The server returns the authoritative post-purchase wallet. Apply it
+      // immediately so the deducted balance shows even if the follow-up
+      // hydrate is skipped or races, which previously let credits never drop.
+      if (resp && typeof window.applyYumCreditWallet === 'function') {
+        window.applyYumCreditWallet({ credits: resp.credits, earned: resp.earned, spent: resp.spent });
+      }
     } catch (err) {
       const msg = String((err && err.message) || '');
       if (/already owned/i.test(msg)) {
+        // Already paid for on another device — unlock locally, no charge.
         list.push(id);
         setOwned(list);
         window.equipSkin(id);
         return;
       }
-      return toast('Purchase failed — not enough credits');
+      // Any other failure (insufficient credits, network) must NOT unlock the
+      // skin. Re-sync so a stale local balance stops offering a purchase the
+      // server will keep rejecting.
+      if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+        try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
+      }
+      return toast('Not enough credits for this skin');
     }
     if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
       try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}

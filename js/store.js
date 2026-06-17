@@ -792,12 +792,20 @@
     }
 
     try {
-      await window.YumCloud.purchaseSkin({ skinId: id });
+      const resp = await window.YumCloud.purchaseSkin({ skinId: id });
+      if (resp && typeof window.applyYumCreditWallet === 'function') {
+        window.applyYumCreditWallet({ credits: resp.credits, earned: resp.earned, spent: resp.spent });
+      }
     } catch (err) {
       const msg = String((err && err.message) || '');
       if (/already owned/i.test(msg)) {
+        owned.push(id);
+        setOwnedSkins(owned);
         equipSkin(id);
         return;
+      }
+      if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+        try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
       }
       if (typeof showToast === 'function') showToast('Purchase failed — not enough credits');
       return;

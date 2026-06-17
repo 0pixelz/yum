@@ -343,7 +343,14 @@ exports.purchaseSkin = onCall(async (req) => {
   });
 
   if (!result.committed) {
-    throw new HttpsError('failed-precondition', 'cannot purchase (already owned or insufficient credits)');
+    // Disambiguate the two abort reasons. Collapsing them into one message
+    // lets the client mistake "insufficient credits" for "already owned" and
+    // hand the skin over without charging, so report them distinctly.
+    const current = (await userRef.once('value')).val() || {};
+    if ((current.skins || {})[skinId]) {
+      throw new HttpsError('already-exists', 'skin already owned');
+    }
+    throw new HttpsError('failed-precondition', 'insufficient credits');
   }
   const after = result.snapshot.val();
   return {
