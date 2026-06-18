@@ -152,9 +152,18 @@
   }
 
   window.signInWithGoogle = async function signInWithGoogle() {
+    // Resolve the auth instance synchronously so the click's user-activation
+    // is still "alive" when signInWithPopup() opens its window. Any await
+    // before the popup (loading the SDK, signing out) breaks the gesture chain
+    // and iOS Safari blocks the popup — which previously dropped us into the
+    // broken signInWithRedirect path (the "missing initial state" full-page
+    // error). The auth SDK is already loaded at startup by firebase-init.js,
+    // so getAuthInstance() only ever needs its async branch in edge cases.
     let auth;
     try {
-      auth = await getAuthInstance();
+      if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
+      if (!window.firebase) throw new Error('Firebase SDK not loaded');
+      auth = firebase.auth ? firebase.auth() : await getAuthInstance();
     } catch(e) {
       failToast(e);
       return;
@@ -165,20 +174,13 @@
     provider.addScope('profile');
     provider.setCustomParameters({ prompt: 'select_account' });
 
-    // If signed in anonymously (from the eager auth in firebase-init.js), sign
-    // out first. signInWithPopup/Redirect won't link or merge — it would just
-    // swap users, but some Firebase configs throw 'credential-already-in-use'
-    // or 'admin-restricted-operation' on the swap. Clearing first is reliable.
-    try {
-      const cur = auth.currentUser;
-      if (cur && cur.isAnonymous) await auth.signOut();
-    } catch(e) {}
-
-    // Try popup first in every environment, including installed PWAs/TWAs.
-    // signInWithRedirect is unreliable in installed PWAs on Chrome 115+ because
-    // storage partitioning isolates the firebaseapp.com auth handler from the
-    // app origin, so getRedirectResult() returns null on the way back and the
-    // user never gets connected.
+    // Use popup only. We deliberately do NOT sign out the eager anonymous user
+    // first (that extra await would break the gesture) — signInWithPopup swaps
+    // the current user for the Google account on its own. We also deliberately
+    // do NOT fall back to signInWithRedirect: in storage-partitioned browsers
+    // (iOS Safari, Chrome 115+ installed PWAs) the redirect handler can't read
+    // the sessionStorage state it saved, so it renders "Unable to process
+    // request due to missing initial state" instead of completing sign-in.
     try {
       const result = await auth.signInWithPopup(provider);
       const user = result && result.user;
@@ -189,20 +191,10 @@
       if (window.showToast) showToast('Signed in with Google');
     } catch(popupErr) {
       const popupCode = (popupErr && popupErr.code) || '';
-      const isPopupOnly = popupCode === 'auth/popup-blocked'
-        || popupCode === 'auth/popup-closed-by-user'
-        || popupCode === 'auth/cancelled-popup-request'
-        || popupCode === 'auth/operation-not-supported-in-this-environment'
-        || popupCode === 'auth/web-storage-unsupported';
-      if (!isPopupOnly) {
-        failToast(popupErr);
-        return;
-      }
-      try {
-        await auth.signInWithRedirect(provider);
-      } catch(redirectErr) {
-        failToast(redirectErr);
-      }
+      // Quietly ignore the user simply dismissing the popup.
+      if (popupCode === 'auth/popup-closed-by-user'
+        || popupCode === 'auth/cancelled-popup-request') return;
+      failToast(popupErr);
     }
   };
 
@@ -239,6 +231,10 @@
     return true;
   }
 
+  // We no longer call signInWithRedirect (popup only), but a returning user may
+  // still land here with a leftover/broken redirect from an older session. Read
+  // and clear it without surfacing the storage-partitioned "missing initial
+  // state" error to the user — popup sign-in is the supported path now.
   async function finishRedirectSignIn() {
     try {
       const auth = await getAuthInstance();
@@ -247,8 +243,7 @@
         captureGoogleUser(result.user, { toast: true });
       }
     } catch(e) {
-      console.warn('Google redirect sign-in failed:', e && e.code, e);
-      if (window.showToast && e && e.code) showToast('Google sign-in failed: ' + e.code);
+      console.warn('Ignoring stale Google redirect result:', e && e.code, e);
     }
   }
 
