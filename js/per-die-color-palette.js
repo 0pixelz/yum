@@ -149,19 +149,30 @@
 
   function applyPerDieColors() {
     if (!isClassicActive()) return;
-    // Don't stamp host's colours onto the dice when showing an opponent's turn.
-    // myDiceUI is false while showOpponentDiceInRoller is active.
-    if (typeof myDiceUI !== 'undefined' && !myDiceUI) return;
-    // Same for the single-player bot's turn — leave the bot's classic dice alone.
-    if (typeof botMode !== 'undefined' && botMode &&
-        typeof playerTurn !== 'undefined' && !playerTurn) return;
     keepDiceDots();
+    // When showing an opponent's turn (myDiceUI false) or the single-player
+    // bot's turn, don't stamp the host's per-die colours onto the dice. We must
+    // still run, though, so held dice get the gold highlight and any stale
+    // inline colours from our own turn are cleared — otherwise leftover
+    // `!important` backgrounds would stop the opponent's held dice from turning
+    // gold (the same colour they show on our turn).
+    const showingOther =
+      (typeof myDiceUI !== 'undefined' && !myDiceUI) ||
+      (typeof botMode !== 'undefined' && botMode &&
+       typeof playerTurn !== 'undefined' && !playerTurn);
     const colors = getColors();
     document.querySelectorAll('.dice-section .die[data-i]').forEach(el => {
       if (el.classList.contains('held')) {
         el.style.setProperty('background', 'var(--gold)', 'important');
         el.style.setProperty('color', '#111', 'important');
         el.style.setProperty('border', 'none', 'important');
+        return;
+      }
+      if (showingOther) {
+        // Leave the opponent/bot's non-held dice to the default styling.
+        el.style.removeProperty('background');
+        el.style.removeProperty('color');
+        el.style.removeProperty('border');
         return;
       }
       const i = Number(el.getAttribute('data-i'));
