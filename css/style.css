@@ -774,23 +774,23 @@
     background: var(--bg);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 24px;
+    padding: 16px;
   }
   .lobby-title {
     font-family: 'Bebas Neue', cursive;
-    font-size: 3rem; letter-spacing: 6px;
+    font-size: 2.4rem; letter-spacing: 4px;
     color: var(--gold);
     text-shadow: 0 0 30px rgba(245,166,35,0.5);
     margin-bottom: 6px;
   }
-  .lobby-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 32px; letter-spacing:1px; }
+  .lobby-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 22px; letter-spacing:1px; }
   .lobby-input {
-    width: 100%; max-width: 320px;
+    width: 100%; max-width: 300px;
     background: var(--card); border: 2px solid rgba(255,255,255,0.15);
-    border-radius: 12px; padding: 14px 16px;
+    border-radius: 12px; padding: 11px 14px;
     color: var(--white); font-family: 'Nunito', sans-serif;
-    font-size: 1.1rem; font-weight: 700;
-    outline: none; margin-bottom: 12px;
+    font-size: 0.95rem; font-weight: 700;
+    outline: none; margin-bottom: 9px;
     text-align: center;
     transition: border-color 0.2s;
   }
@@ -803,11 +803,11 @@
   }
   .lobby-input--flash { animation: lobbyInputFlash 0.9s ease-in-out 2; }
   .lobby-btn {
-    width: 100%; max-width: 320px;
-    padding: 16px; border-radius: 50px; border: none;
+    width: 100%; max-width: 300px;
+    padding: 12px; border-radius: 50px; border: none;
     font-family: 'Nunito', sans-serif; font-weight: 800;
-    font-size: 1.05rem; letter-spacing: 1px;
-    cursor: pointer; margin-bottom: 10px;
+    font-size: 0.92rem; letter-spacing: 1px;
+    cursor: pointer; margin-bottom: 8px;
     transition: transform 0.1s, opacity 0.2s;
   }
   .lobby-btn:active { transform: scale(0.97); }
@@ -1152,9 +1152,9 @@
     .mm-radar { width: 48px; height: 48px; }
     .mm-radar-core { width: 32px; height: 32px; font-size: 0.82rem; }
   }
-  .lobby-divider { color: var(--muted); font-size: 0.8rem; margin: 8px 0; letter-spacing: 2px; }
+  .lobby-divider { color: var(--muted); font-size: 0.78rem; margin: 4px 0; letter-spacing: 2px; }
   .lobby-err { color: var(--accent); font-size: 0.82rem; margin-top: 6px; min-height: 20px; text-align: center; }
-  .lobby-legal { margin-top: 18px; font-size: 0.74rem; color: var(--muted); text-align: center; opacity: 0.85; }
+  .lobby-legal { margin-top: 12px; font-size: 0.72rem; color: var(--muted); text-align: center; opacity: 0.85; }
   .lobby-legal a { color: var(--muted); text-decoration: underline; }
   .lobby-legal-sep { margin: 0 8px; opacity: 0.6; }
   .app-version { margin-top: 10px; font-size: 0.66rem; color: var(--muted); text-align: center; opacity: 0.5; letter-spacing: 0.5px; }
