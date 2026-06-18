@@ -280,12 +280,17 @@ function renderDice(justRolled) {
     const wasRolled = justRolled && !held[i];
     const faceChanged = el.textContent !== face;
     if(wasRolled || faceChanged) {
-      el.classList.remove('die-spin', 'die-rolled-same');
       // Cancel any in-flight roll animation so a back-to-back re-trigger
       // (e.g. powerup reroll followed by an immediate roll) reliably restarts.
+      // This MUST run before the class is removed: once 'die-spin' is gone the
+      // animation is no longer associated with the element, so getAnimations()
+      // would return [] and the cancel would be a no-op — leaving only the
+      // reflow to restart it, which is unreliable on some engines (iOS Safari)
+      // and makes the spin intermittently fail to replay on rapid rolls.
       if (typeof el.getAnimations === 'function') {
         el.getAnimations().forEach(a => { try { a.cancel(); } catch(e){} });
       }
+      el.classList.remove('die-spin', 'die-rolled-same');
       void el.offsetWidth; // force reflow
       el.classList.add('die-spin');
       if(wasRolled && !faceChanged) el.classList.add('die-rolled-same');
