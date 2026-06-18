@@ -88,7 +88,7 @@
     s.id = 'rewardsStoreHubStyles';
     s.textContent = `
       .main-rewards-hub-btn {
-        position: fixed; top: 14px; right: 14px;
+        position: fixed; top: 8px; right: 14px;
         z-index: 600;
         width: auto;
         border: 1px solid rgba(245,166,35,.42);
