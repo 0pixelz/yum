@@ -409,12 +409,13 @@ function tryPowerupDieClick(i) {
     // and a same-value reroll wouldn't trigger via faceChanged either).
     const el = document.getElementById('diceRow').querySelector(`[data-i="${i}"]`);
     if (el) {
-      el.classList.remove('die-spin', 'die-rolled-same');
-      if (typeof el.getAnimations === 'function') {
-        el.getAnimations().forEach(a => { try { a.cancel(); } catch(e){} });
+      if (typeof window.spinDie === 'function') {
+        window.spinDie(el, false);
+      } else {
+        el.classList.remove('die-spin', 'die-rolled-same');
+        void el.offsetWidth;
+        el.classList.add('die-spin');
       }
-      void el.offsetWidth;
-      el.classList.add('die-spin');
     }
     refreshDieFreezeVisual();
     renderPowerupBar();
