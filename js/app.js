@@ -270,6 +270,57 @@ function toggleHold(i) {
 
 let lastRolledMask = 0b11111; // track which dice were just rolled (all by default)
 
+// Plays the dice "roll" spin on a single die element.
+//
+// History: this used to be driven purely by toggling the CSS `.die-spin`
+// class (remove → force reflow → re-add). That restart trick is unreliable on
+// iOS Safari — the class flips but the @keyframes animation frequently fails to
+// actually replay, so the dice just snapped to their new value and looked
+// completely static. Driving the animation imperatively through the Web
+// Animations API (`el.animate`) starts a brand-new animation on every call with
+// no dependence on reflow timing or the CSS cascade, so it replays every time —
+// including back-to-back rapid rolls. We keep the CSS-class path as a fallback
+// for the rare engine without `el.animate`.
+window.spinDie = function(el, flash) {
+  if (!el) return;
+  // Stop any spin/flash already running so a rapid re-roll restarts cleanly.
+  if (typeof el.getAnimations === 'function') {
+    el.getAnimations().forEach(a => {
+      const tag = (a && (a.id || (a.animationName))) || '';
+      if (tag === 'dieRoll' || tag === 'dieSameFlash') {
+        try { a.cancel(); } catch (e) {}
+      }
+    });
+  }
+  // Clear any lingering CSS-driven spin classes so they can't double up.
+  el.classList.remove('die-spin', 'die-rolled-same');
+
+  if (typeof el.animate === 'function') {
+    const spin = el.animate([
+      { transform: 'scale(0.5)  rotate(-180deg)', opacity: 0.25, offset: 0 },
+      { transform: 'scale(1.22) rotate(120deg)',  opacity: 1,    offset: 0.30 },
+      { transform: 'scale(0.9)  rotate(-40deg)',  opacity: 1,    offset: 0.55 },
+      { transform: 'scale(1.08) rotate(15deg)',   opacity: 1,    offset: 0.78 },
+      { transform: 'scale(1)    rotate(0deg)',    opacity: 1,    offset: 1 }
+    ], { duration: 450, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' });
+    spin.id = 'dieRoll';
+    if (flash) {
+      const fl = el.animate([
+        { boxShadow: '0 0 0 0 rgba(245,166,35,0)',    offset: 0 },
+        { boxShadow: '0 0 0 6px rgba(245,166,35,0.55)', offset: 0.35 },
+        { boxShadow: '0 0 0 0 rgba(245,166,35,0)',    offset: 1 }
+      ], { duration: 550, easing: 'ease-out' });
+      fl.id = 'dieSameFlash';
+    }
+    return;
+  }
+
+  // Fallback for engines without the Web Animations API.
+  void el.offsetWidth; // force reflow so the class re-add restarts the keyframes
+  el.classList.add('die-spin');
+  if (flash) el.classList.add('die-rolled-same');
+};
+
 function renderDice(justRolled) {
   const row = document.getElementById('diceRow');
   dice.forEach((v,i) => {
@@ -280,20 +331,10 @@ function renderDice(justRolled) {
     const wasRolled = justRolled && !held[i];
     const faceChanged = el.textContent !== face;
     if(wasRolled || faceChanged) {
-      // Cancel any in-flight roll animation so a back-to-back re-trigger
-      // (e.g. powerup reroll followed by an immediate roll) reliably restarts.
-      // This MUST run before the class is removed: once 'die-spin' is gone the
-      // animation is no longer associated with the element, so getAnimations()
-      // would return [] and the cancel would be a no-op — leaving only the
-      // reflow to restart it, which is unreliable on some engines (iOS Safari)
-      // and makes the spin intermittently fail to replay on rapid rolls.
-      if (typeof el.getAnimations === 'function') {
-        el.getAnimations().forEach(a => { try { a.cancel(); } catch(e){} });
-      }
-      el.classList.remove('die-spin', 'die-rolled-same');
-      void el.offsetWidth; // force reflow
-      el.classList.add('die-spin');
-      if(wasRolled && !faceChanged) el.classList.add('die-rolled-same');
+      // Imperatively (re)play the roll spin. window.spinDie uses the Web
+      // Animations API so it restarts reliably even on iOS Safari, where the
+      // old CSS class+reflow restart left the dice looking static.
+      window.spinDie(el, wasRolled && !faceChanged);
     }
     el.textContent = face;
     if (typeof window.applyDieSkinAttr === 'function') window.applyDieSkinAttr(el, i);
