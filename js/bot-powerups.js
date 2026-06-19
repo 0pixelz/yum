@@ -202,8 +202,8 @@ function _botPowerupTakeTurn() {
         _botApplyLucky_andReplan(luckyI, m => move1 = m);
       }
 
-      _botThink('Holding ' + botHeld.filter(Boolean).length + ' dice…');
-      showBotDiceInRoller(botDice, botHeld, false);
+      // Hold the chosen dice one at a time, then roll again.
+      botHoldOneAtATime(botHeld.slice(), () => {
 
       // Roll 2
       setTimeout(() => {
@@ -218,16 +218,17 @@ function _botPowerupTakeTurn() {
           _botApplyLucky_andReplan(luckyI2, m => move2 = m);
         }
 
+        const targetHeld2 = botHeld.slice();
         _botThink('Roll 2 of 3…');
+        botHeld = [false,false,false,false,false];
         showBotDiceInRoller(botDice, botHeld, true);
 
         setTimeout(() => {
-          _botThink('Holding ' + botHeld.filter(Boolean).length + ' dice…');
-          showBotDiceInRoller(botDice, botHeld, false);
+          botHoldOneAtATime(targetHeld2, () => {
 
           // Roll 3
           setTimeout(() => {
-            botDice = botDice.map((v,i) => botHeld[i] ? v : randDie());
+            botDice = botDice.map((v,i) => targetHeld2[i] ? v : randDie());
             botHeld = [true,true,true,true,true];
             _botThink('Roll 3 of 3…');
             showBotDiceInRoller(botDice, botHeld, true);
@@ -267,8 +268,10 @@ function _botPowerupTakeTurn() {
               _botCommitFinal(finalMove, finalScore);
             }, 900);
           }, 700);
+          }); // end botHoldOneAtATime (roll 2)
         }, 700);
       }, 800);
+      }); // end botHoldOneAtATime (roll 1)
     }, 900);
   }, 500);
 }
