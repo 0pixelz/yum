@@ -2343,41 +2343,68 @@ function botTakeTurn() {
     setTimeout(() => {
       const move1 = botChooseBestMove();
       if(!move1) { finishBotTurn(null); return; }
-      // Show which dice bot is holding
-      botHeld = move1.held.map(v => v !== 0);
-      document.getElementById('botThinkMsg').textContent = 'Holding ' + botHeld.filter(Boolean).length + ' dice…';
-      showBotDiceInRoller(botDice, botHeld, false);
+      // Hold the chosen dice one at a time, then roll again
+      botHoldOneAtATime(move1.held.map(v => v !== 0), () => {
 
-      // Roll 2
-      setTimeout(() => {
-        botDice = move1.held.map((v,i) => v === 0 ? randDie() : v);
-        const move2 = botChooseBestMove();
-        botHeld = move2 ? move2.held.map(v => v !== 0) : [true,true,true,true,true];
-        document.getElementById('botThinkMsg').textContent = 'Roll 2 of 3…';
-        showBotDiceInRoller(botDice, botHeld, true);
-
+        // Roll 2
         setTimeout(() => {
-          document.getElementById('botThinkMsg').textContent = 'Holding ' + botHeld.filter(Boolean).length + ' dice…';
-          showBotDiceInRoller(botDice, botHeld, false);
+          botDice = move1.held.map((v,i) => v === 0 ? randDie() : v);
+          const move2 = botChooseBestMove();
+          const targetHeld2 = move2 ? move2.held.map(v => v !== 0) : [true,true,true,true,true];
+          document.getElementById('botThinkMsg').textContent = 'Roll 2 of 3…';
+          botHeld = [false,false,false,false,false];
+          showBotDiceInRoller(botDice, botHeld, true);
 
-          // Roll 3
           setTimeout(() => {
-            if(!move2) { finishBotTurn(null); return; }
-            botDice = move2.held.map((v,i) => v === 0 ? randDie() : v);
-            botHeld = [true,true,true,true,true];
-            document.getElementById('botThinkMsg').textContent = 'Roll 3 of 3…';
-            showBotDiceInRoller(botDice, botHeld, true);
+            botHoldOneAtATime(targetHeld2, () => {
 
-            setTimeout(() => {
-              const finalMove = botChooseBestMove();
-              document.getElementById('botThinkMsg').textContent = 'Scoring…';
-              finishBotTurn(finalMove);
-            }, 900);
-          }, 700);
-        }, 700);
-      }, 800);
+              // Roll 3
+              setTimeout(() => {
+                if(!move2) { finishBotTurn(null); return; }
+                botDice = move2.held.map((v,i) => v === 0 ? randDie() : v);
+                botHeld = [true,true,true,true,true];
+                document.getElementById('botThinkMsg').textContent = 'Roll 3 of 3…';
+                showBotDiceInRoller(botDice, botHeld, true);
+
+                setTimeout(() => {
+                  const finalMove = botChooseBestMove();
+                  document.getElementById('botThinkMsg').textContent = 'Scoring…';
+                  finishBotTurn(finalMove);
+                }, 900);
+              }, 700);
+            });
+          }, 600);
+        }, 800);
+      });
     }, 900);
   }, 500);
+}
+
+// Animate the bot holding its chosen dice one at a time rather than all at
+// once, so the human can watch each die get locked in.
+function botHoldOneAtATime(targetHeld, onComplete) {
+  const toHold = [];
+  for(let i = 0; i < 5; i++) if(targetHeld[i]) toHold.push(i);
+
+  botHeld = [false,false,false,false,false];
+  showBotDiceInRoller(botDice, botHeld, false);
+
+  if(toHold.length === 0) { if(onComplete) setTimeout(onComplete, 200); return; }
+
+  let idx = 0;
+  const step = () => {
+    botHeld[toHold[idx]] = true;
+    document.getElementById('botThinkMsg').textContent =
+      'Holding ' + botHeld.filter(Boolean).length + ' dice…';
+    showBotDiceInRoller(botDice, botHeld, false);
+    idx++;
+    if(idx < toHold.length) {
+      setTimeout(step, 380);
+    } else if(onComplete) {
+      setTimeout(onComplete, 380);
+    }
+  };
+  setTimeout(step, 300);
 }
 
 let botHeld = [false,false,false,false,false];
