@@ -202,6 +202,17 @@
   }
 
   function getAvailableCredits() {
+    // Credits are server-authoritative and live in the credit wallet
+    // (daily bonus + daily challenges + achievements), mirrored locally by
+    // login-rewards-challenges.js. Read that wallet so the Skin Store button
+    // and grid reflect the real, accumulating balance — the legacy
+    // "one credit per unlocked achievement" math below stayed frozen at the
+    // achievement count and never grew with bonuses/challenges, which is why
+    // the balance looked stuck (e.g. always 1). Fall back to the legacy count
+    // only when the wallet helper isn't available (e.g. signed out).
+    if (typeof window.getYumCredits === 'function') {
+      return window.getYumCredits();
+    }
     return Math.max(0, getUnlockedAchievementCount() - getSpentCredits());
   }
 
@@ -887,6 +898,15 @@
     addStoreButtonToAchievements();
     applySkin();
     refreshStoreButton();
+    // The credit wallet is server-authoritative and grows from daily bonuses
+    // and challenges, not just achievements. Refresh the button label (and the
+    // store grid if it's open) whenever the wallet changes so the displayed
+    // balance keeps up instead of looking stuck.
+    window.addEventListener('yumCreditsChanged', () => {
+      refreshStoreButton();
+      const overlay = document.getElementById('skinStoreOverlay');
+      if (overlay && overlay.classList.contains('open')) renderSkinStore();
+    });
   }
 
   window.openSkinStore = openSkinStore;
