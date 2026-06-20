@@ -2381,30 +2381,40 @@ function botTakeTurn() {
 }
 
 // Animate the bot holding its chosen dice one at a time rather than all at
-// once, so the human can watch each die get locked in.
+// once, so the human can watch each die get locked in. The gap between holds
+// is deliberately wide enough that each die visibly locks in on its own — a
+// shorter gap made consecutive holds blur together and look simultaneous.
+let _botHoldTimer = null;
+const BOT_HOLD_GAP = 550;   // ms between each die being held
+const BOT_HOLD_START = 350; // ms before the first die is held
 function botHoldOneAtATime(targetHeld, onComplete) {
+  // Cancel any hold sequence still in flight so two can never render at once
+  // (overlapping sequences would flip several dice in the same frame).
+  if(_botHoldTimer) { clearTimeout(_botHoldTimer); _botHoldTimer = null; }
+
   const toHold = [];
   for(let i = 0; i < 5; i++) if(targetHeld[i]) toHold.push(i);
 
   botHeld = [false,false,false,false,false];
   showBotDiceInRoller(botDice, botHeld, false);
 
-  if(toHold.length === 0) { if(onComplete) setTimeout(onComplete, 200); return; }
+  if(toHold.length === 0) { if(onComplete) _botHoldTimer = setTimeout(onComplete, 200); return; }
 
   let idx = 0;
   const step = () => {
+    // Lock in exactly one die per frame, then pause before the next.
     botHeld[toHold[idx]] = true;
     document.getElementById('botThinkMsg').textContent =
       'Holding ' + botHeld.filter(Boolean).length + ' dice…';
     showBotDiceInRoller(botDice, botHeld, false);
     idx++;
     if(idx < toHold.length) {
-      setTimeout(step, 380);
+      _botHoldTimer = setTimeout(step, BOT_HOLD_GAP);
     } else if(onComplete) {
-      setTimeout(onComplete, 380);
+      _botHoldTimer = setTimeout(onComplete, BOT_HOLD_GAP);
     }
   };
-  setTimeout(step, 300);
+  _botHoldTimer = setTimeout(step, BOT_HOLD_START);
 }
 
 let botHeld = [false,false,false,false,false];
