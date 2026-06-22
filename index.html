@@ -131,6 +131,13 @@
           <div class="pup-pick-desc">Earn and use power-ups during your match</div>
         </div>
       </button>
+      <button class="pup-pick-btn" onclick="chooseBotMode('megayam')" style="--pup-col:#c084fc">
+        <div class="pup-pick-icon"><i class="icn icn-trophy"></i></div>
+        <div class="pup-pick-info">
+          <div class="pup-pick-name">Mega Yam Game</div>
+          <div class="pup-pick-desc">Extra YAMs after your first score +100 bonus each</div>
+        </div>
+      </button>
     </div>
     <button class="lobby-btn lobby-btn-solo" style="max-width:280px;margin:14px auto 0" onclick="closeBotModeChoice()"><i class="icn icn-close"></i> Cancel</button>
   </div>
@@ -457,7 +464,22 @@
       </div>
 
       <div class="howto-section">
-        <div class="howto-section-title">5 · Tips</div>
+        <div class="howto-section-title">5 · Mega Yam Mode <span class="howto-badge"><i class="icn icn-trophy"></i> OPTIONAL</span></div>
+        <p class="howto-para">
+          Mega Yam is an alternate scoring mode for vs Bot. Pick it from the
+          mode selector in the bot menu. Standard rules apply — but rolling
+          more than one YAM really pays off.
+        </p>
+        <ul class="howto-list">
+          <li>Score your first <b>YAM</b> (5-of-a-kind) in the YAM! box as usual.</li>
+          <li>Every <b>extra YAM</b> you roll after that earns a <b>+100 Mega Yam bonus</b>.</li>
+          <li>The YAM! box is already used, so you must <b>strike the extra YAM into another open category</b> (it scores there too — e.g. five 4s in Fours, or as a Full House).</li>
+          <li>No bonus if your YAM! box was <b>struck for 0</b> — you have to bank a real YAM first.</li>
+        </ul>
+      </div>
+
+      <div class="howto-section">
+        <div class="howto-section-title">6 · Tips</div>
         <ul class="howto-list">
           <li>Tap <b>PREDICT</b> after a roll for AI-suggested holds and best scores.</li>
           <li>In multiplayer, tap an opponent's name to peek at their scorecard.</li>
@@ -518,6 +540,7 @@
 <script src="js/powerup-mode.js"></script>
 <script src="js/bot-powerups.js"></script>
 <script src="js/powerup-history.js"></script>
+<script src="js/mega-yam-mode.js"></script>
 <script src="js/turn-timeout.js"></script>
 <script src="js/report-block.js"></script>
 <script src="js/friends.js"></script>
