@@ -28,6 +28,29 @@
     return Object.values(counts(d)).some(v => v === 5);
   }
 
+  // Real-Yahtzee scoring: the YAM! box is worth 50 (not the app's default
+  // 30) in this mode, matching the printed Yahtzee scorecard. We mutate the
+  // shared category object while Mega Yam is active and restore it on exit,
+  // so the modal, suggestions, bot, and totals all stay consistent.
+  const YAM_BOX_SCORE = 50;
+  const yumCat = (typeof categories !== 'undefined')
+    ? categories.find(c => c.id === 'yum') : null;
+  const YUM_ORIG = yumCat
+    ? { calc: yumCat.calc, max: yumCat.max, hint: yumCat.hint } : null;
+
+  function applyYahtzeeScoring(on) {
+    if (!yumCat || !YUM_ORIG) return;
+    if (on) {
+      yumCat.calc = d => Object.values(counts(d)).some(v => v === 5) ? YAM_BOX_SCORE : 0;
+      yumCat.max  = YAM_BOX_SCORE;
+      yumCat.hint = '5 of a kind → 50 pts';
+    } else {
+      yumCat.calc = YUM_ORIG.calc;
+      yumCat.max  = YUM_ORIG.max;
+      yumCat.hint = YUM_ORIG.hint;
+    }
+  }
+
   function celebrate(isPlayer, total) {
     try { if (window.SFX && typeof SFX.yum === 'function') SFX.yum(); } catch (e) {}
     const who = isPlayer ? 'You' : (typeof botName !== 'undefined' ? botName : 'Bot');
@@ -140,6 +163,7 @@
     startVsBot = function (mode) {
       window.megaYamMode = (mode === 'megayam');
       resetMegaYam();
+      applyYahtzeeScoring(window.megaYamMode);
       _megaOrigStartVsBot(mode);
     };
   }
@@ -159,6 +183,7 @@
     quitGame = function () {
       window.megaYamMode = false;
       resetMegaYam();
+      applyYahtzeeScoring(false);
       _megaOrigQuitGame();
     };
   }
@@ -167,6 +192,7 @@
     leaveGame = function () {
       window.megaYamMode = false;
       resetMegaYam();
+      applyYahtzeeScoring(false);
       _megaOrigLeaveGame();
     };
   }
