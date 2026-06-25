@@ -75,6 +75,7 @@
 
     playerIds().forEach(id => {
       updates[`players/${id}/scores`] = {};
+      updates[`players/${id}/megaYamBonus`] = null;
       updates[`players/${id}/liveDice`] = null;
       updates[`players/${id}/ready`] = true;
     });

@@ -1528,14 +1528,18 @@ function listenRoom() {
     const gm = data.gameMode || 'normal';
     const normalBtn  = document.getElementById('mpModeNormalBtn');
     const powerupBtn = document.getElementById('mpModePowerupBtn');
+    const megaYamBtn = document.getElementById('mpModeMegaYamBtn');
     const modeInfo   = document.getElementById('mpModeInfo');
     if(normalBtn && powerupBtn) {
       normalBtn.classList.toggle('active', gm === 'normal');
       powerupBtn.classList.toggle('active', gm === 'powerup');
+      if(megaYamBtn) megaYamBtn.classList.toggle('active', gm === 'megayam');
       normalBtn.disabled  = !isHost;
       powerupBtn.disabled = !isHost;
-      if(modeInfo) modeInfo.textContent = gm === 'powerup'
-        ? 'Roll 5-of-a-kind to earn power-ups!'
+      if(megaYamBtn) megaYamBtn.disabled = !isHost;
+      if(modeInfo) modeInfo.textContent =
+          gm === 'powerup' ? 'Roll 5-of-a-kind to earn power-ups!'
+        : gm === 'megayam' ? 'YAM = 50 · +100 for every extra YAM you roll'
         : 'Standard rules, no power-ups';
     }
 
@@ -1565,6 +1569,13 @@ function listenRoom() {
       document.getElementById('leaderboard').style.display = 'block';
       document.getElementById('mpCodeBadge').textContent = roomCode;
       scores = {}; playerScoreDice = {}; // reset local scores
+
+      // Activate / clear Mega Yam mode for this room before first render so
+      // the scorecard and modal preview show the right YAM value (50).
+      window.megaYamMode = ((data.gameMode || 'normal') === 'megayam');
+      if (typeof resetMegaYam === 'function') resetMegaYam();
+      if (typeof applyYahtzeeScoring === 'function') applyYahtzeeScoring(window.megaYamMode);
+
       renderScores();
       syncDiceUI();
 
@@ -1625,6 +1636,15 @@ function listenRoom() {
     if(data.started) {
       updateMpUI();
       renderLeaderboard();
+
+      // Re-activate Mega Yam if Firebase says so but local state was lost
+      // (e.g. page reload mid-game).
+      const _gmMega = ((data.gameMode || 'normal') === 'megayam');
+      if (window.megaYamMode !== _gmMega) {
+        window.megaYamMode = _gmMega;
+        if (typeof applyYahtzeeScoring === 'function') applyYahtzeeScoring(_gmMega);
+        renderScores();
+      }
 
       // Re-activate power-up mode if Firebase says so but local state was lost
       // (e.g. page reload mid-game — the waiting-overlay transition won't fire again)
@@ -1834,11 +1854,12 @@ function updateMpUI() {
 
 function renderLeaderboard() {
   const sorted = Object.entries(allPlayers).sort((a,b) => {
-    return calcTotal(b[1].scores||{}) - calcTotal(a[1].scores||{});
+    return (calcTotal(b[1].scores||{}) + (b[1].megaYamBonus||0))
+         - (calcTotal(a[1].scores||{}) + (a[1].megaYamBonus||0));
   });
   const rows = sorted.map(([id, p], i) => {
     const sc = p.scores || {};
-    const total = calcTotal(sc);
+    const total = calcTotal(sc) + (p.megaYamBonus || 0);
     const filled = Object.keys(sc).length;
     const isMe = id === playerId;
     const isTurn = id === currentTurnId;
@@ -1958,7 +1979,7 @@ function showMpGameOver() {
   mpGameOverShown = true;
   const players = Object.entries(allPlayers).map(([id, p]) => {
     const sc = id === playerId ? scores : (p.scores || {});
-    return { name: p.name, score: calcTotal(sc), isMe: id === playerId };
+    return { name: p.name, score: calcTotal(sc) + (p.megaYamBonus || 0), isMe: id === playerId };
   }).sort((a,b) => b.score - a.score);
   showGameOver(players);
 }
@@ -1990,7 +2011,13 @@ confirmScore = async function() {
       selectedScore = serverScore;
       scores[categoryId] = serverScore;
       playerScoreDice[categoryId] = dice.slice();
-      if (categoryId === 'yum' && serverScore === 30) SFX.yum();
+      // Mega Yam: the server returns the new running bonus when an extra YAM
+      // is struck into another category. Celebrate it (the authoritative
+      // value syncs into the leaderboard via the room snapshot).
+      if (resp && typeof resp.megaBonus === 'number') {
+        try { SFX.yum(); } catch (e) {}
+        showToast('MEGA YAM! +100 bonus');
+      } else if (categoryId === 'yum' && (serverScore === 30 || serverScore === 50)) SFX.yum();
       else if (serverScore === 0) SFX.scratch();
       else SFX.score();
       clearDice();
@@ -2258,7 +2285,7 @@ function renderBotLeaderboard() {
     : '';
   const botLbAvatar = '<div class="lb-avatar lb-avatar-bot"><i class="icn icn-bot"></i></div>';
   document.getElementById('lbRows').innerHTML = `
-    <div class="lb-row me" style="cursor:pointer" onclick="openOppViewer('me', playerName, scores, playerScoreDice)">
+    <div class="lb-row me" style="cursor:pointer" onclick="openOppViewer('me', playerName, scores, playerScoreDice, window.megaYamPlayerBonus?megaYamPlayerBonus():0)">
       <div class="lb-rank">${pLeading?'1':'2'}</div>
       <div style="width:8px"></div>
       ${myLbAvatar}
@@ -2269,7 +2296,7 @@ function renderBotLeaderboard() {
       <div class="lb-filled">${pFilled}/13</div>
       <div class="lb-score">${pTotal}</div>
     </div>
-    <div class="lb-row" style="cursor:pointer;background:rgba(168,85,247,0.07)" onclick="openOppViewer('bot','${botName}',botScores,botScoreDice)">
+    <div class="lb-row" style="cursor:pointer;background:rgba(168,85,247,0.07)" onclick="openOppViewer('bot','${botName}',botScores,botScoreDice, window.megaYamBotBonus?megaYamBotBonus():0)">
       <div class="lb-rank">${pLeading?'2':'1'}</div>
       <div style="width:8px"></div>
       ${botLbAvatar}
@@ -2579,8 +2606,8 @@ rollDice = function() {
 // ─── OPPONENT SCORECARD VIEWER ───────────────────────────────────────
 let botScoreDice = {}; // stores dice used per category for bot
 
-function openOppViewer(targetId, targetName, targetScores, targetScoreDice) {
-  const total = calcTotal(targetScores);
+function openOppViewer(targetId, targetName, targetScores, targetScoreDice, megaBonus) {
+  const total = calcTotal(targetScores) + (megaBonus || 0);
   let avatarHtml;
   if (targetId === 'bot') {
     avatarHtml = '<i class="icn icn-bot"></i>';
@@ -3128,11 +3155,13 @@ function syncDiceUI() {
 function viewMpOpponent(id) {
   const p = allPlayers[id];
   if(!p) return;
-  openOppViewer(id, p.name, p.scores || {}, {});
+  openOppViewer(id, p.name, p.scores || {}, {}, p.megaYamBonus || 0);
 }
 
 function viewMpSelf() {
-  openOppViewer('me', playerName, scores, playerScoreDice);
+  const myBonus = (typeof allPlayers !== 'undefined' && allPlayers[playerId])
+    ? (allPlayers[playerId].megaYamBonus || 0) : 0;
+  openOppViewer('me', playerName, scores, playerScoreDice, myBonus);
 }
 
 

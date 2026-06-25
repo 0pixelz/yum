@@ -449,6 +449,7 @@ function doMpRematch() {
   const updates = { firstRollDone: null };
   Object.keys(allPlayers).forEach(id => {
     updates['players/' + id + '/scores'] = {};
+    updates['players/' + id + '/megaYamBonus'] = null;
     updates['players/' + id + '/liveDice'] = null;
   });
   roomRef.update(updates);
