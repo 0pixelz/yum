@@ -166,6 +166,7 @@
       // only the admin submitScore Cloud Function writes scores, so there's no
       // late client write left to guard against with a per-slot transaction.
       updates['players/' + id + '/scores'] = null;
+      updates['players/' + id + '/megaYamBonus'] = null;
     });
 
     roomRef.update(updates);

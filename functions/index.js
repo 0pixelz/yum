@@ -165,6 +165,23 @@ exports.submitScore = onCall(async (req) => {
 
   const score = SCORE_CALC[categoryId](dice);
 
+  // ── Mega Yam mode ──────────────────────────────────────────────────
+  // Real-Yahtzee scoring: the YAM! box is worth 50 (not 30). Once a real
+  // YAM is banked, every additional 5-of-a-kind struck into another
+  // category earns a +100 bonus chip, tracked in /players/$uid/megaYamBonus
+  // (kept outside /scores so it never inflates the 13-category count).
+  let finalScore = score;
+  let megaBonusTotal = null;
+  if (room.gameMode === 'megayam') {
+    const isFiveKind = Object.values(counts(dice)).some((v) => v === 5);
+    if (categoryId === 'yum' && isFiveKind) {
+      finalScore = 50;
+    } else if (isFiveKind && categoryId !== 'yum' &&
+               player.scores && player.scores.yum > 0) {
+      megaBonusTotal = (player.megaYamBonus || 0) + 100;
+    }
+  }
+
   const order = Object.entries(room.players || {})
     .sort((a, b) => (a[1].joined || 0) - (b[1].joined || 0))
     .map((e) => e[0]);
@@ -172,14 +189,17 @@ exports.submitScore = onCall(async (req) => {
   const nextTurn = order.length > 0 ? order[(idx + 1) % order.length] : uid;
 
   const updates = {};
-  updates['players/' + uid + '/scores/' + categoryId] = score;
+  updates['players/' + uid + '/scores/' + categoryId] = finalScore;
+  if (megaBonusTotal !== null) {
+    updates['players/' + uid + '/megaYamBonus'] = megaBonusTotal;
+  }
   updates['players/' + uid + '/serverDice'] = null;
   updates['players/' + uid + '/liveDice'] = null;
   updates['currentTurn'] = nextTurn;
   updates['rollCount'] = 0;
   await roomRef.update(updates);
 
-  return { score, nextTurn };
+  return { score: finalScore, nextTurn, megaBonus: megaBonusTotal };
 });
 
 // ─── claimDailyBonus ─────────────────────────────────────────────────

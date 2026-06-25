@@ -138,6 +138,9 @@
             "score": {
               ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000"
             },
+            "megaYamBonus": {
+              ".validate": "(!newData.exists()) || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000)"
+            },
             "scorecard": {
               ".validate": false
             },

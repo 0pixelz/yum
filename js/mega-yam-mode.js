@@ -1,10 +1,17 @@
 // ─── MEGA YAM MODE ───────────────────────────────────────────────────
-// Alternate scoring mode (vs Bot / solo). Once your YAM! box is filled
-// with a real YAM (not a strike), every additional 5-of-a-kind you roll
-// earns a +100 MEGA YAM bonus — but, just like the YAM box is already
-// used, you must "strike" the extra YAM into another open category
-// (joker placement). The bonus stacks on top of your normal scorecard.
-// Normal / Power-Up modes are left untouched.
+// Alternate scoring mode (vs Bot and multiplayer). The YAM! box is worth
+// 50 (real-Yahtzee value). Once a real YAM is banked, every additional
+// 5-of-a-kind you roll earns a +100 MEGA YAM bonus — but, just like the
+// YAM box is already used, you must "strike" the extra YAM into another
+// open category (joker placement). The bonus stacks on top of the normal
+// scorecard. Normal / Power-Up modes are left untouched.
+//
+// vs Bot: the bonus is tracked client-side here (bonusPlayer / bonusBot).
+// Multiplayer: scoring is server-authoritative — the submitScore Cloud
+// Function writes YAM=50 and increments /players/$uid/megaYamBonus, which
+// every client reads off the room snapshot (see app.js leaderboard/total
+// sites). This module only handles the vs Bot path + the shared 50-pt
+// YAM scoring toggle and the local header total.
 (function () {
   'use strict';
 
@@ -50,6 +57,18 @@
       yumCat.hint = YUM_ORIG.hint;
     }
   }
+  window.applyYahtzeeScoring = applyYahtzeeScoring;
+
+  // The local player's current Mega Yam bonus. In vs Bot it's tracked
+  // client-side (bonusPlayer); in multiplayer the Cloud Function is
+  // authoritative and the value rides on the room snapshot.
+  function selfBonus() {
+    if (typeof mpMode !== 'undefined' && mpMode) {
+      return (typeof allPlayers !== 'undefined' && typeof playerId !== 'undefined'
+        && allPlayers[playerId] && allPlayers[playerId].megaYamBonus) || 0;
+    }
+    return bonusPlayer;
+  }
 
   function celebrate(isPlayer, total) {
     try { if (window.SFX && typeof SFX.yum === 'function') SFX.yum(); } catch (e) {}
@@ -71,7 +90,11 @@
 
     _megaOrigConfirmScore();
 
-    if (window.megaYamMode &&
+    // Multiplayer scoring is server-authoritative (the Cloud Function awards
+    // the bonus and the MP confirmScore path celebrates it), so only run the
+    // client-side award in vs Bot / solo here.
+    const isMp = (typeof mpMode !== 'undefined' && mpMode);
+    if (!isMp && window.megaYamMode &&
         sel !== null && sel !== undefined &&
         id && id !== 'yum' &&
         hadYam && isYam(dSet)) {
@@ -105,14 +128,16 @@
   const _megaOrigUpdateTotals = updateTotals;
   updateTotals = function (upperTotal, bonusEarned) {
     _megaOrigUpdateTotals(upperTotal, bonusEarned);
-    if (!window.megaYamMode || bonusPlayer <= 0) return;
+    if (!window.megaYamMode) return;
+    const sb = selfBonus();
+    if (sb <= 0) return;
     const gt = document.getElementById('grandTotal');
     if (gt) {
       const base = parseInt(gt.textContent, 10) || 0;
-      gt.textContent = base + bonusPlayer;
+      gt.textContent = base + sb;
     }
     const pl = document.getElementById('progressLabel');
-    if (pl) pl.textContent += ` · +${bonusPlayer} Mega Yam`;
+    if (pl) pl.textContent += ` · +${sb} Mega Yam`;
   };
 
   // ── Bot leaderboard hook (fix both rows + ranks for the bonus) ───────

@@ -108,6 +108,7 @@ function executeRematch() {
     var updates = { rematch: null, currentTurn: null, firstRoll: null, firstRollDone: null };
     Object.keys(allPlayers).forEach(function (id) {
       updates['players/' + id + '/scores'] = null;
+      updates['players/' + id + '/megaYamBonus'] = null;
       updates['players/' + id + '/liveDice'] = null;
     });
     roomRef.update(updates).then(function () {
