@@ -65,7 +65,7 @@
   let mmDb     = null;
   let mmUid    = null;
   let mmName   = null;
-  let mmMode   = 'normal';        // 'normal' | 'powerup'
+  let mmMode   = 'normal';        // 'normal' | 'powerup' | 'megayam'
   let mmOfferRef = null;
   let mmOfferListener = null;
   let mmRoomRef = null;
@@ -135,6 +135,9 @@
     if (mode === 'powerup') {
       badge.classList.add('mm-mode-powerup');
       badge.innerHTML = '<i class="icn icn-bolt"></i> <span id="mmReadyModeText">POWER-UP 1V1</span>';
+    } else if (mode === 'megayam') {
+      badge.classList.remove('mm-mode-powerup');
+      badge.innerHTML = '<i class="icn icn-trophy"></i> <span id="mmReadyModeText">MEGA YAM 1V1</span>';
     } else {
       badge.classList.remove('mm-mode-powerup');
       badge.innerHTML = '<i class="icn icn-gamepad"></i> <span id="mmReadyModeText">CLASSIC 1V1</span>';
@@ -230,6 +233,9 @@
     if (mode === 'powerup') {
       badge.classList.add('mm-mode-powerup');
       badge.innerHTML = '<i class="icn icn-bolt"></i> <span id="mmModeBadgeText">POWER-UP 1V1</span>';
+    } else if (mode === 'megayam') {
+      badge.classList.remove('mm-mode-powerup');
+      badge.innerHTML = '<i class="icn icn-trophy"></i> <span id="mmModeBadgeText">MEGA YAM 1V1</span>';
     } else {
       badge.classList.remove('mm-mode-powerup');
       badge.innerHTML = '<i class="icn icn-gamepad"></i> <span id="mmModeBadgeText">CLASSIC 1V1</span>';
@@ -405,7 +411,7 @@
     const name = getLobbyName();
     if (!name) return;
 
-    const chosenMode = (mode === 'powerup') ? 'powerup' : 'normal';
+    const chosenMode = (mode === 'powerup' || mode === 'megayam') ? mode : 'normal';
 
     lobbyErr('<i class="icn icn-dice"></i> Connecting…');
 
@@ -435,7 +441,7 @@
     mmReadyHandled = false;
     clearPairingTimers();
 
-    const modeLabel = chosenMode === 'powerup' ? 'Power-Up' : 'Classic';
+    const modeLabel = chosenMode === 'powerup' ? 'Power-Up' : chosenMode === 'megayam' ? 'Mega Yam' : 'Classic';
     setSearchText('LOOKING FOR PLAYER',
       'Searching for a ' + modeLabel + ' opponent<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
     setModeBadge(chosenMode);
@@ -1078,7 +1084,7 @@
   async function joinQueue() {
     if (!mmActive) return;
 
-    const modeLabel = mmMode === 'powerup' ? 'Power-Up' : 'Classic';
+    const modeLabel = mmMode === 'powerup' ? 'Power-Up' : mmMode === 'megayam' ? 'Mega Yam' : 'Classic';
     setSearchText('LOOKING FOR PLAYER',
       'Waiting for a ' + modeLabel + ' opponent<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
 
