@@ -35,33 +35,19 @@
     return Object.values(counts(d)).some(v => v === 5);
   }
 
-  // Real-Yahtzee scoring: the YAM! box is worth 50 (not the app's default
-  // 30) in this mode, matching the printed Yahtzee scorecard. We mutate the
-  // shared category object while Mega Yam is active and restore it on exit,
-  // so the modal, suggestions, bot, and totals all stay consistent.
-  const YAM_BOX_SCORE = 50;
-  const yumCat = (typeof categories !== 'undefined')
-    ? categories.find(c => c.id === 'yum') : null;
-  const YUM_ORIG = yumCat
-    ? { calc: yumCat.calc, max: yumCat.max, hint: yumCat.hint } : null;
-
+  // Category point values (YAM=50, straights 30/40, upper bonus 35 in this
+  // mode) are owned by scoring-rules.js, which is mode-aware and re-applies
+  // them on an interval. applyYahtzeeScoring just forces an immediate
+  // re-render so the switch takes effect without waiting for that interval.
   function applyYahtzeeScoring(on) {
-    if (!yumCat || !YUM_ORIG) return;
-    if (on) {
-      yumCat.calc = d => Object.values(counts(d)).some(v => v === 5) ? YAM_BOX_SCORE : 0;
-      yumCat.max  = YAM_BOX_SCORE;
-      yumCat.hint = '5 of a kind → 50 pts';
-    } else {
-      yumCat.calc = YUM_ORIG.calc;
-      yumCat.max  = YUM_ORIG.max;
-      yumCat.hint = YUM_ORIG.hint;
-    }
+    if (typeof renderScores === 'function') renderScores();
   }
   window.applyYahtzeeScoring = applyYahtzeeScoring;
 
   // The local player's current Mega Yam bonus. In vs Bot it's tracked
   // client-side (bonusPlayer); in multiplayer the Cloud Function is
-  // authoritative and the value rides on the room snapshot.
+  // authoritative and the value rides on the room snapshot. scoring-rules.js
+  // reads this to fold the bonus into the grand total.
   function selfBonus() {
     if (typeof mpMode !== 'undefined' && mpMode) {
       return (typeof allPlayers !== 'undefined' && typeof playerId !== 'undefined'
@@ -69,6 +55,7 @@
     }
     return bonusPlayer;
   }
+  window.megaYamSelfBonus = selfBonus;
 
   function celebrate(isPlayer, total) {
     try { if (window.SFX && typeof SFX.yum === 'function') SFX.yum(); } catch (e) {}
@@ -124,21 +111,9 @@
     };
   }
 
-  // ── Header grand-total hook ──────────────────────────────────────────
-  const _megaOrigUpdateTotals = updateTotals;
-  updateTotals = function (upperTotal, bonusEarned) {
-    _megaOrigUpdateTotals(upperTotal, bonusEarned);
-    if (!window.megaYamMode) return;
-    const sb = selfBonus();
-    if (sb <= 0) return;
-    const gt = document.getElementById('grandTotal');
-    if (gt) {
-      const base = parseInt(gt.textContent, 10) || 0;
-      gt.textContent = base + sb;
-    }
-    const pl = document.getElementById('progressLabel');
-    if (pl) pl.textContent += ` · +${sb} Mega Yam`;
-  };
+  // Header grand-total: scoring-rules.js owns updateTotals (it re-installs
+  // its own on every render) and folds in window.megaYamSelfBonus(), so we
+  // don't wrap updateTotals here — it would just be overwritten.
 
   // ── Bot leaderboard hook (fix both rows + ranks for the bonus) ───────
   if (typeof renderBotLeaderboard === 'function') {
