@@ -29,6 +29,105 @@
 <body>
 
 <!-- ============================================================
+     SPLASH / LOADING SCREEN — shows before the main menu
+     Self-contained: inline CSS + markup paint instantly (no FOUC),
+     bouncing dice + Yamio logo, then fades into the lobby.
+     ============================================================ -->
+<style id="yamio-splash-style">
+  #yamioSplash{
+    position:fixed; inset:0; z-index:100000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:34px;
+    background:radial-gradient(circle at 50% 36%, #26264c 0%, #1a1a2e 58%, #111120 100%);
+    transition:opacity .55s ease, visibility .55s ease;
+  }
+  #yamioSplash.yamio-splash--hide{ opacity:0; visibility:hidden; pointer-events:none; }
+  .yamio-splash-logo{ display:flex; align-items:center; gap:14px; animation:yamioLogoIn .7s cubic-bezier(.2,.8,.2,1) both; }
+  .yamio-splash-logo .mark{ width:60px; height:60px; filter:drop-shadow(0 6px 16px rgba(245,166,35,.45)); }
+  .yamio-splash-logo .txt{
+    font-family:'Bebas Neue', cursive; font-size:4rem; line-height:1; letter-spacing:5px;
+    background:linear-gradient(135deg,#f5a623,#e94560);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 2px 24px rgba(245,166,35,.22);
+  }
+  @keyframes yamioLogoIn{ from{opacity:0; transform:translateY(14px) scale(.94)} to{opacity:1; transform:none} }
+  .yamio-splash-dice{ display:flex; gap:14px; }
+  .yamio-die{ width:38px; height:38px; animation:yamioBounce 1s ease-in-out infinite; }
+  .yamio-die svg{ width:100%; height:100%; filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)); }
+  .yamio-die:nth-child(1){ animation-delay:0s }
+  .yamio-die:nth-child(2){ animation-delay:.12s }
+  .yamio-die:nth-child(3){ animation-delay:.24s }
+  .yamio-die:nth-child(4){ animation-delay:.36s }
+  .yamio-die:nth-child(5){ animation-delay:.48s }
+  @keyframes yamioBounce{
+    0%,100%{ transform:translateY(0) rotate(0deg) }
+    30%{ transform:translateY(-26px) rotate(-12deg) }
+    60%{ transform:translateY(0) rotate(7deg) }
+  }
+  .yamio-splash-tag{
+    font-family:'Nunito', sans-serif; color:#8899aa; letter-spacing:3px;
+    font-size:.78rem; text-transform:uppercase; animation:yamioPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes yamioPulse{ 0%,100%{opacity:.35} 50%{opacity:1} }
+  @media (prefers-reduced-motion: reduce){
+    .yamio-die, .yamio-splash-logo, .yamio-splash-tag{ animation:none }
+  }
+</style>
+
+<div id="yamioSplash" role="status" aria-label="Loading Yamio">
+  <div class="yamio-splash-logo">
+    <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+      <defs>
+        <linearGradient id="yamioSplashGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#f5a623"/><stop offset="100%" stop-color="#e94560"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="32" cy="58" rx="22" ry="3.5" fill="rgba(0,0,0,0.35)"/>
+      <rect x="10" y="8" width="44" height="44" rx="9" fill="url(#yamioSplashGold)" stroke="#5a2a08" stroke-width="1.2"/>
+      <circle cx="21" cy="19" r="2.9" fill="#3a1a05"/><circle cx="43" cy="19" r="2.9" fill="#3a1a05"/>
+      <circle cx="21" cy="30" r="2.9" fill="#3a1a05"/><circle cx="43" cy="30" r="2.9" fill="#3a1a05"/>
+      <circle cx="21" cy="41" r="2.9" fill="#3a1a05"/><circle cx="43" cy="41" r="2.9" fill="#3a1a05"/>
+    </svg>
+    <span class="txt">Yamio</span>
+  </div>
+
+  <div class="yamio-splash-dice" aria-hidden="true">
+    <!-- face 1 -->
+    <div class="yamio-die"><svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" fill="#f7f7fb" stroke="rgba(0,0,0,.12)" stroke-width="2"/><circle cx="50" cy="50" r="9" fill="#e94560"/></svg></div>
+    <!-- face 2 -->
+    <div class="yamio-die"><svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" fill="#f7f7fb" stroke="rgba(0,0,0,.12)" stroke-width="2"/><circle cx="32" cy="32" r="9" fill="#1a1a2e"/><circle cx="68" cy="68" r="9" fill="#1a1a2e"/></svg></div>
+    <!-- face 3 -->
+    <div class="yamio-die"><svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" fill="#f7f7fb" stroke="rgba(0,0,0,.12)" stroke-width="2"/><circle cx="30" cy="30" r="9" fill="#1a1a2e"/><circle cx="50" cy="50" r="9" fill="#1a1a2e"/><circle cx="70" cy="70" r="9" fill="#1a1a2e"/></svg></div>
+    <!-- face 4 -->
+    <div class="yamio-die"><svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" fill="#f7f7fb" stroke="rgba(0,0,0,.12)" stroke-width="2"/><circle cx="32" cy="32" r="9" fill="#1a1a2e"/><circle cx="68" cy="32" r="9" fill="#1a1a2e"/><circle cx="32" cy="68" r="9" fill="#1a1a2e"/><circle cx="68" cy="68" r="9" fill="#1a1a2e"/></svg></div>
+    <!-- face 5 -->
+    <div class="yamio-die"><svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" fill="#f7f7fb" stroke="rgba(0,0,0,.12)" stroke-width="2"/><circle cx="32" cy="32" r="9" fill="#1a1a2e"/><circle cx="68" cy="32" r="9" fill="#1a1a2e"/><circle cx="50" cy="50" r="9" fill="#f5a623"/><circle cx="32" cy="68" r="9" fill="#1a1a2e"/><circle cx="68" cy="68" r="9" fill="#1a1a2e"/></svg></div>
+  </div>
+
+  <div class="yamio-splash-tag">Rolling the dice…</div>
+</div>
+
+<script>
+  (function(){
+    var MIN_MS = 2000;          // minimum time the splash stays visible
+    var SAFETY_MS = 6000;       // hard cap so it can never get stuck
+    var start = Date.now();
+    function hide(){
+      var s = document.getElementById('yamioSplash');
+      if(!s || s.classList.contains('yamio-splash--hide')) return;
+      s.classList.add('yamio-splash--hide');
+      setTimeout(function(){ if(s && s.parentNode) s.parentNode.removeChild(s); }, 650);
+    }
+    function whenReady(){
+      var wait = Math.max(0, MIN_MS - (Date.now() - start));
+      setTimeout(hide, wait);
+    }
+    if(document.readyState === 'complete') whenReady();
+    else window.addEventListener('load', whenReady);
+    setTimeout(hide, SAFETY_MS);
+  })();
+</script>
+
+<!-- ============================================================
      SVG SPRITE — brand & icon definitions referenced via <use>
      ============================================================ -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
