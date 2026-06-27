@@ -173,11 +173,18 @@ exports.submitScore = onCall(async (req) => {
   let finalScore = score;
   let megaBonusTotal = null;
   if (room.gameMode === 'megayam') {
+    // Real-Yahtzee values (match js/scoring-rules.js YAHTZEE_RULES):
+    // YAM 50, small straight 30, large straight 40.
     const isFiveKind = Object.values(counts(dice)).some((v) => v === 5);
     if (categoryId === 'yum' && isFiveKind) {
       finalScore = 50;
-    } else if (isFiveKind && categoryId !== 'yum' &&
-               player.scores && player.scores.yum > 0) {
+    } else if (categoryId === 'smStraight' && score > 0) {
+      finalScore = 30;
+    } else if (categoryId === 'lgStraight' && score > 0) {
+      finalScore = 40;
+    }
+    if (isFiveKind && categoryId !== 'yum' &&
+        player.scores && player.scores.yum > 0) {
       megaBonusTotal = (player.megaYamBonus || 0) + 100;
     }
   }
