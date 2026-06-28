@@ -424,6 +424,7 @@
   </h1>
   <div class="progress-bar-wrap"><div class="progress-bar-fill" id="globalProgress" style="width:0%"></div></div>
   <div class="progress-label" id="progressLabel">0% Complete · 0 pts</div>
+  <div class="game-mode-badge gm-classic" id="gameModeBadge" style="display:none"><i class="icn icn-gamepad"></i> <span id="gameModeBadgeText">CLASSIC</span></div>
 </header>
 
 <div class="dice-section" style="margin:12px">
@@ -473,6 +474,7 @@
     </div>
 
     <div class="howto-body">
+      <div class="howto-mode-banner gm-classic" id="howtoModeBanner" style="display:none"></div>
       <div class="howto-intro">
         Yamio is a Yam / Yahtzee-style dice game. Roll five dice, hold the ones you like,
         and pick a category to score. Fill all 13 categories — biggest total wins.
@@ -523,7 +525,7 @@
         </ul>
       </div>
 
-      <div class="howto-section">
+      <div class="howto-section" id="howtoPowerupSection">
         <div class="howto-section-title">4 · Power-Up Mode <span class="howto-badge"><i class="icn icn-bolt"></i> OPTIONAL</span></div>
         <p class="howto-para">
           Power-Up Mode is a fun alternate mode for vs Bot and multiplayer.
@@ -568,7 +570,7 @@
         </div>
       </div>
 
-      <div class="howto-section">
+      <div class="howto-section" id="howtoMegaYamSection">
         <div class="howto-section-title">5 · Mega Yam Mode <span class="howto-badge"><i class="icn icn-trophy"></i> OPTIONAL</span></div>
         <p class="howto-para">
           Mega Yam is an alternate scoring mode for vs Bot and multiplayer.
@@ -652,6 +654,7 @@
 <script src="js/report-block.js"></script>
 <script src="js/friends.js"></script>
 <script src="js/how-to-play.js"></script>
+<script src="js/game-mode-display.js"></script>
 <script src="js/tactile-roll.js"></script>
 <script src="js/tester-daily-nudge.js"></script>
 <script src="js/version.js"></script>

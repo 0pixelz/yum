@@ -58,6 +58,33 @@
     margin-top: 4px;
     letter-spacing: 1px;
   }
+  /* In-game badge naming the active mode (Classic / Power-Up / Mega Yam) */
+  .game-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 3px 12px;
+    border-radius: 50px;
+    font-family: 'Bebas Neue', cursive;
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    line-height: 1;
+    background: rgba(78,205,196,0.12);
+    border: 1px solid rgba(78,205,196,0.4);
+    color: #4ecdc4;
+  }
+  .game-mode-badge .icn { font-size: 0.9rem; }
+  .game-mode-badge.gm-powerup {
+    background: rgba(245,166,35,0.14);
+    border-color: rgba(245,166,35,0.45);
+    color: var(--gold);
+  }
+  .game-mode-badge.gm-megayam {
+    background: rgba(192,132,252,0.15);
+    border-color: rgba(192,132,252,0.5);
+    color: #c084fc;
+  }
   .sound-toggle {
     position: absolute;
     top: 14px;
@@ -2711,6 +2738,59 @@
     letter-spacing: 1.5px;
     vertical-align: middle;
   }
+  /* "Now playing" banner at the top of How to Play, themed per mode */
+  .howto-mode-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(78,205,196,0.12);
+    border: 1px solid rgba(78,205,196,0.4);
+  }
+  .howto-mode-banner-label {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 0.62rem;
+    letter-spacing: 2px;
+    color: var(--muted);
+  }
+  .howto-mode-banner-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.15rem;
+    letter-spacing: 2px;
+    color: #4ecdc4;
+  }
+  .howto-mode-banner-desc {
+    font-size: 0.8rem;
+    color: var(--white);
+    opacity: 0.85;
+  }
+  .howto-mode-banner.gm-powerup {
+    background: rgba(245,166,35,0.13);
+    border-color: rgba(245,166,35,0.45);
+  }
+  .howto-mode-banner.gm-powerup .howto-mode-banner-mode { color: var(--gold); }
+  .howto-mode-banner.gm-megayam {
+    background: rgba(192,132,252,0.14);
+    border-color: rgba(192,132,252,0.5);
+  }
+  .howto-mode-banner.gm-megayam .howto-mode-banner-mode { color: #c084fc; }
+
+  /* Emphasise the rules for the mode you're actually playing */
+  .howto-section-active {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-left: -14px;
+    margin-right: -14px;
+  }
+  .howto-section-dim { opacity: 0.55; }
   .howto-para {
     margin: 0 0 8px;
     font-size: 0.85rem;
