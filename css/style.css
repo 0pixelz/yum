@@ -2183,6 +2183,63 @@
     background: rgba(255,255,255,0.12); color: var(--white);
   }
 
+  /* "What you can score" suggestions strip inside the 3D overlay */
+  #dice3dOverlay .d3d-suggest {
+    display: none;
+    flex-direction: column; align-items: center; gap: 6px;
+    padding: 4px 14px 0;
+  }
+  #dice3dOverlay .d3d-suggest.show {
+    display: flex;
+    animation: d3dOppPop 0.3s ease;
+  }
+  #dice3dOverlay .d3d-sug-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 0.82rem; letter-spacing: 2px;
+    color: var(--green); opacity: 0.9;
+  }
+  #dice3dOverlay .d3d-sug-title.d3d-sug-strike-title { color: var(--accent); }
+  #dice3dOverlay .d3d-sug-list {
+    display: flex; flex-wrap: wrap;
+    justify-content: center; gap: 8px;
+    max-width: 560px;
+  }
+  #dice3dOverlay .d3d-sug-chip {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.05);
+    color: var(--white);
+    font-family: 'Nunito', sans-serif; font-weight: 700;
+    font-size: 0.85rem; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  #dice3dOverlay .d3d-sug-chip:hover { background: rgba(255,255,255,0.12); }
+  #dice3dOverlay .d3d-sug-chip:active { transform: scale(0.95); }
+  #dice3dOverlay .d3d-sug-chip.d3d-sug-best {
+    border-color: rgba(78,205,196,0.6);
+    background: linear-gradient(135deg, rgba(78,205,196,0.22), rgba(245,166,35,0.16));
+  }
+  #dice3dOverlay .d3d-sug-chip.d3d-sug-strike {
+    border-color: rgba(233,69,96,0.4);
+  }
+  #dice3dOverlay .d3d-sug-name { color: var(--white); }
+  #dice3dOverlay .d3d-sug-pts {
+    color: var(--gold); font-weight: 900;
+    text-shadow: 0 0 10px rgba(245,166,35,0.45);
+  }
+  #dice3dOverlay .d3d-sug-badge {
+    font-size: 0.6rem; letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--green);
+    background: rgba(78,205,196,0.16);
+    border-radius: 8px; padding: 2px 6px;
+  }
+  #dice3dOverlay .d3d-sug-strike .d3d-sug-badge {
+    color: var(--accent); background: rgba(233,69,96,0.16);
+  }
+
 
   /* REMATCH VOTE */
   #rematchVoteBar {

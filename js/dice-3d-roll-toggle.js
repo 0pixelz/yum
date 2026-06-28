@@ -147,15 +147,20 @@
       if (typeof rollsLeft !== 'undefined' && rollsLeft <= 0) return;
 
       const unheldIdx = [];
+      const heldValues = [];
       for (let i = 0; i < dice.length; i++) {
         if (!held[i]) unheldIdx.push(i);
+        else if (dice[i] > 0) heldValues.push(dice[i]);
       }
       if (unheldIdx.length === 0) return original();
 
       if (window.__yum3dRollInFlight) return;
       window.__yum3dRollInFlight = true;
+      window.__yum3dPendingScore = null;
 
-      window.throw3DDice(unheldIdx.length).then(results => {
+      // Pass the kept dice so the overlay can park them on a side shelf
+      // (like the 2D roller) and preview what the full hand can score.
+      window.throw3DDice(unheldIdx.length, { held: heldValues, suggest: true }).then(results => {
         window.__yum3dRollInFlight = false;
         if (!Array.isArray(results) || results.length !== unheldIdx.length) {
           original();
@@ -180,6 +185,14 @@
             dice: dice, held: held, roll: 3 - rollsLeft,
             skin: skinId, perDieColors: pdc, ts: Date.now()
           });
+        }
+
+        // If the player tapped a suggestion chip in the 3D overlay, open that
+        // category's score modal now that the rolled dice are in game state.
+        const pick = window.__yum3dPendingScore;
+        window.__yum3dPendingScore = null;
+        if (pick && typeof openModal === 'function') {
+          setTimeout(() => { try { openModal(pick); } catch (e) {} }, 60);
         }
       }).catch(err => {
         window.__yum3dRollInFlight = false;
