@@ -176,15 +176,12 @@ function counts(d) {
 }
 
 function cycleDie(i) {
-  // In multiplayer or vs bot, tapping die toggles hold
-  if(mpMode || botMode) {
-    toggleHold(i);
-    return;
-  }
-  dice[i] = dice[i] === 0 ? 1 : (dice[i] % 6) + 1;
-  rolled = dice.some(v => v > 0);
-  renderDice();
-  renderScores();
+  // Tapping a die holds/unholds it — in every mode. We deliberately do
+  // NOT let players set a die's value by hand: that would be cheating.
+  // Dice values come only from rolling (or the camera scan), so the roll
+  // is always fair. Holding a not-yet-rolled die is a no-op (toggleHold
+  // guards on dice[i] === 0), which nudges players to roll first.
+  toggleHold(i);
 }
 
 let _yumRollInFlight = false;
