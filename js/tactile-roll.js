@@ -41,7 +41,13 @@
       '.tr-shelf-break{display:none;order:1;flex:0 0 100%;min-width:100%;width:100%;height:0;}',
       '.dice-section .dice-row .die-wrap:has(.die.held){order:2;}',
       '.dice-section .dice-row:has(.die.held) .tr-shelf-break{display:flex;align-items:center;justify-content:center;height:auto;margin:8px 0 2px;border-top:1px dashed rgba(245,166,35,.35);}',
-      '.dice-section .dice-row:has(.die.held) .tr-shelf-break::before{content:"\\270B KEPT \\2014 tap to roll the rest";font:800 .6rem "Nunito",sans-serif;letter-spacing:1px;color:var(--gold);opacity:.85;text-transform:uppercase;padding-top:6px;}'
+      '.dice-section .dice-row:has(.die.held) .tr-shelf-break::before{content:"\\270B KEPT \\2014 tap to roll the rest";font:800 .6rem "Nunito",sans-serif;letter-spacing:1px;color:var(--gold);opacity:.85;text-transform:uppercase;padding-top:6px;}',
+      /* No rolls left: collapse back to one row so the whole hand is
+         visible together for scoring (overrides the shelf split above). */
+      '.dice-section .dice-row.tr-no-rolls:has(.die.held){flex-wrap:nowrap !important;}',
+      '.dice-section .dice-row.tr-no-rolls .die-wrap:has(.die.held){order:0 !important;}',
+      '.dice-section .dice-row.tr-no-rolls .tr-shelf-break{display:none !important;}',
+      '.dice-section .dice-row.tr-no-rolls .die.held{transform:none !important;}'
     ].join('');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -85,6 +91,7 @@
     var label = btn.querySelector('.tr-roll-label');
     var pips = btn.querySelectorAll('.tr-roll-pips i');
     var rc = document.getElementById('rollCount');
+    var row = document.getElementById('diceRow');
     var txt = rc ? rc.textContent.trim() : '';
     var m = txt.match(/Rolls:\s*(\d)\s*\/\s*3/);
 
@@ -97,6 +104,9 @@
       if (left === 0) btn.setAttribute('disabled', '');
       else btn.removeAttribute('disabled');
       if (rc) rc.classList.add('tr-hide'); // pips replace the redundant count
+      // No rolls left → collapse the kept shelf so the whole hand is on
+      // one line and easy to read before scoring.
+      if (row) row.classList.toggle('tr-no-rolls', left === 0);
     } else {
       // Non-standard status ("Waiting for X to roll…", scanning, etc.)
       // Leave the button neutral and let the status text show through.
@@ -105,6 +115,7 @@
       btn.classList.remove('tr-empty');
       btn.removeAttribute('disabled');
       if (rc) rc.classList.remove('tr-hide');
+      if (row) row.classList.remove('tr-no-rolls');
     }
   }
 
