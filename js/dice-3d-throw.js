@@ -70,7 +70,7 @@
   let flyTweens = [];              // {body, fromP, toP, fromQ, toQ, t, dur, onDone}
   let actionsEl = null;            // bottom action row (reroll / done)
   const TRAY_TOP = 0.16;           // top surface height of the kept shelf
-  const SHELF_X = -(WALL_SIDE - 0.42);
+  // SHELF_X depends on WALL_SIDE (declared further down); set after it.
 
   // Opponent-roll text strip — used by the "who goes first" flow so the
   // player can see what their opponent(s) rolled while throwing their own
@@ -113,6 +113,10 @@
   const DRAG_Z_MIN   = WALL_BACK  + DIE_HALF + 0.05;
   const DRAG_Z_MAX   = WALL_FRONT - DIE_HALF - 0.05;
   const clamp = (v, lo, hi) => v < lo ? lo : (v > hi ? hi : v);
+
+  // X position of the kept-dice shelf (just inside the left wall). Declared here
+  // so it resolves WALL_SIDE without hitting its temporal dead zone.
+  const SHELF_X = -(WALL_SIDE - 0.42);
 
   // ── Sound effects ────────────────────────────────────────────────
   // Reuses the global `soundEnabled` flag and yumSound localStorage key set in
