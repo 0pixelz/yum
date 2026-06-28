@@ -358,35 +358,6 @@ function smoothFocusDiceRoller() {
   }, 1600);
 }
 
-// ─── API KEY MANAGEMENT ──────────────────────────────────────────────
-function getApiKey() {
-  return localStorage.getItem('yum_api_key') || '';
-}
-
-function saveApiKey() {
-  const key = document.getElementById('apiKeyInput').value.trim();
-  if(key) {
-    localStorage.setItem('yum_api_key', key);
-    document.getElementById('apiKeyWrap').classList.remove('show');
-    setStatus('ok', '<i class="icn icn-check icn-green"></i> API key saved! Try scanning again.');
-  }
-}
-
-function showApiKeyPrompt() {
-  const wrap = document.getElementById('apiKeyWrap');
-  wrap.classList.add('show');
-  const saved = getApiKey();
-  if(saved) document.getElementById('apiKeyInput').value = saved;
-  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-// Load saved key on startup
-window.addEventListener('DOMContentLoaded', () => {
-  const saved = getApiKey();
-  if(saved) document.getElementById('apiKeyInput').value = saved;
-});
-
-
 // ─── MULTIPLAYER REMATCH VOTING ──────────────────────────────────────
 let rematchVoteRef = null;
 let myRematchVote = null;
