@@ -178,8 +178,8 @@ function counts(d) {
 function cycleDie(i) {
   // Tapping a die holds/unholds it — in every mode. We deliberately do
   // NOT let players set a die's value by hand: that would be cheating.
-  // Dice values come only from rolling (or the camera scan), so the roll
-  // is always fair. Holding a not-yet-rolled die is a no-op (toggleHold
+  // Dice values come only from rolling, so the roll is always fair.
+  // Holding a not-yet-rolled die is a no-op (toggleHold
   // guards on dice[i] === 0), which nudges players to roll first.
   toggleHold(i);
 }
@@ -773,156 +773,6 @@ renderDice = function(justRolled){
 };
 
 
-// ─── CAMERA DICE SCAN ───────────────────────────────────────────────
-async function handleCamImage(event) {
-  const file = event.target.files[0];
-  if(!file) return;
-
-  const preview = document.getElementById('camPreview');
-  preview.src = URL.createObjectURL(file);
-  preview.style.display = 'block';
-  setStatus('loading', '<i class="icn icn-search"></i> Analysing dice…');
-
-  try {
-    const results = await scanDiceFromImage(file);
-    if(!results || results.length === 0) {
-      setStatus('err', '<i class="icn icn-close"></i> Could not detect dice — try better lighting & flat surface');
-      event.target.value = ''; return;
-    }
-    for(let i=0;i<5;i++) { dice[i] = i < results.length ? results[i] : 0; held[i] = false; }
-    rolled = dice.some(v=>v>0);
-    renderDice(); renderScores();
-    const count = results.length;
-    if(count === 5) {
-      const dHtml = results.map(v=>`<span style="display:inline-block;width:18px;height:18px;vertical-align:-4px">${dieIcon(v)}</span>`).join(' ');
-      setStatus('ok', `<i class="icn icn-check"></i> Detected: ${dHtml}`);
-    } else {
-      setStatus('ok', `<i class="icn icn-warn"></i> Found ${count} dice — set rest manually`);
-    }
-  } catch(err) {
-    console.error(err);
-    setStatus('err', '<i class="icn icn-close"></i> Scan failed — try again with better lighting');
-  }
-  event.target.value = '';
-}
-
-// ── FREE dice scanner using canvas pixel analysis ─────────────────────
-function scanDiceFromImage(file) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const MAX = 600;
-      const scale = Math.min(MAX/img.width, MAX/img.height, 1);
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      const imageData = ctx.getImageData(0, 0, w, h);
-      resolve(detectDiceFromPixels(imageData, w, h));
-    };
-    img.onerror = () => resolve(null);
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-function detectDiceFromPixels(imageData, w, h) {
-  const data = imageData.data;
-  const grey = new Uint8Array(w * h);
-  for(let i=0;i<w*h;i++) {
-    grey[i] = Math.round(0.299*data[i*4] + 0.587*data[i*4+1] + 0.114*data[i*4+2]);
-  }
-  let sum=0;
-  for(let i=0;i<grey.length;i++) sum+=grey[i];
-  const avg = sum/grey.length;
-  const diceThresh = avg + 20;
-
-  const visited = new Uint8Array(w*h);
-  const blobs = [];
-
-  function floodFill(startX, startY) {
-    const stack=[[startX,startY]];
-    let minX=startX,maxX=startX,minY=startY,maxY=startY,count=0;
-    while(stack.length){
-      const [x,y]=stack.pop();
-      const idx=y*w+x;
-      if(x<0||x>=w||y<0||y>=h||visited[idx]||grey[idx]<diceThresh) continue;
-      visited[idx]=1; count++;
-      minX=Math.min(minX,x); maxX=Math.max(maxX,x);
-      minY=Math.min(minY,y); maxY=Math.max(maxY,y);
-      stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
-    }
-    return {minX,maxX,minY,maxY,count};
-  }
-
-  for(let y=0;y<h;y+=2){
-    for(let x=0;x<w;x+=2){
-      const idx=y*w+x;
-      if(!visited[idx]&&grey[idx]>=diceThresh){
-        const blob=floodFill(x,y);
-        const bw=blob.maxX-blob.minX+1, bh=blob.maxY-blob.minY+1;
-        const area=bw*bh;
-        const minD=Math.min(w,h)*0.07, maxD=Math.min(w,h)*0.6;
-        if(bw>minD&&bh>minD&&bw<maxD&&bh<maxD&&blob.count>area*0.35&&Math.max(bw/bh,bh/bw)<2.5)
-          blobs.push(blob);
-      }
-    }
-  }
-
-  if(blobs.length===0) return null;
-
-  // Take up to 5 largest, sort left-to-right
-  const dieFaces = blobs
-    .sort((a,b)=>(b.maxX-b.minX)*(b.maxY-b.minY)-(a.maxX-a.minX)*(a.maxY-a.minY))
-    .slice(0,5)
-    .sort((a,b)=>a.minX-b.minX);
-
-  const results=[];
-  for(const face of dieFaces){
-    const pad=Math.round((face.maxX-face.minX)*0.05)+2;
-    const faceGrey=[];
-    for(let y=face.minY+pad;y<=face.maxY-pad;y++)
-      for(let x=face.minX+pad;x<=face.maxX-pad;x++)
-        faceGrey.push(grey[y*w+x]);
-    if(!faceGrey.length){results.push(1);continue;}
-    const faceMean=faceGrey.reduce((a,b)=>a+b,0)/faceGrey.length;
-    const dotLevel=faceMean-30;
-
-    const faceVisited={};
-    let dots=0;
-    function dotFlood(sx,sy){
-      const stack=[[sx,sy]]; let cnt=0;
-      while(stack.length){
-        const [x,y]=stack.pop();
-        const key=y*10000+x;
-        if(x<face.minX+pad||x>face.maxX-pad||y<face.minY+pad||y>face.maxY-pad) continue;
-        if(faceVisited[key]||grey[y*w+x]>dotLevel) continue;
-        faceVisited[key]=1; cnt++;
-        stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
-      }
-      return cnt;
-    }
-    const faceArea=(face.maxX-face.minX)*(face.maxY-face.minY);
-    for(let y=face.minY+pad;y<=face.maxY-pad;y+=1){
-      for(let x=face.minX+pad;x<=face.maxX-pad;x+=1){
-        const key=y*10000+x;
-        if(!faceVisited[key]&&grey[y*w+x]<dotLevel){
-          const sz=dotFlood(x,y);
-          if(sz>faceArea*0.004&&sz<faceArea*0.12) dots++;
-        }
-      }
-    }
-    results.push(Math.max(1,Math.min(6,dots||1)));
-  }
-  return results.length>0?results:null;
-}
-
-function setStatus(type, msg) {
-  const el = document.getElementById('camStatus');
-  el.innerHTML = msg;
-  el.className = type;
-}
 
 
 function dieIcon(n) {
@@ -3143,9 +2993,7 @@ async function scanQrCode(event) {
 function syncDiceUI() {
   const restricted = mpMode || botMode;
   const dieLabel  = document.querySelector('.die-label');
-  const scanLabel = document.querySelector('label[for="camInput"]');
   if(dieLabel)  dieLabel.style.display  = restricted ? 'none' : '';
-  if(scanLabel) scanLabel.style.display = restricted ? 'none' : '';
 }
 
 
