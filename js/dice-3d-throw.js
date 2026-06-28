@@ -1,8 +1,10 @@
 // 3D dice throw overlay — drag-and-flick gesture, Three.js + cannon-es.
 // Exposes window.throw3DDie() → Promise<1-6>. Falls back to random on failure.
-// Also exposes window.throw3DDice(count) → Promise<number[]> for auto-tossing
+// Also exposes window.throw3DDice(count, opts) → Promise<number[]> for tossing
 // several smaller dice at once (used by the in-game roll button when the
-// "Roll dice in 3D" preference is enabled).
+// "Roll dice in 3D" preference is enabled). opts.held is an array of kept face
+// values, parked on a side shelf like the 2D roller; opts.suggest (default on)
+// shows a "what you can score" strip once the rolled dice settle.
 (function () {
   'use strict';
 
@@ -43,6 +45,14 @@
   let multiMats = null;
   let multiLanes = [];             // pre-computed {dx,dz} fan offsets per die
   let multiLastDragP = null;
+  // Suggestions / kept-shelf state for the in-game multi roll.
+  let multiSuggest = false;        // show the "what you can score" strip on settle
+  let multiHeldValues = [];        // face values the player is keeping this roll
+  let multiSettledResults = null;  // rolled faces after the dice come to rest
+  let heldMeshes = [];             // visual-only "kept" dice parked to the side
+  let heldTray = null;             // little shelf the kept dice rest on
+  let heldGeom = null;
+  const HELD_SIZE = 0.5;
 
   // Opponent-roll text strip — used by the "who goes first" flow so the
   // player can see what their opponent(s) rolled while throwing their own
@@ -398,6 +408,7 @@
       '<div class="d3d-title">YAMIO</div>' +
       '<div class="d3d-opp-rolls" id="dice3dOppRolls"></div>' +
       '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas></div>' +
+      '<div class="d3d-suggest" id="dice3dSuggest"></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
       '<button class="d3d-cancel" id="dice3dCancel">Skip throw</button>';
     document.body.appendChild(overlay);
@@ -415,6 +426,15 @@
         return;
       }
       if (multiResolve) {
+        // Dice have already settled and we're showing suggestions — "Continue"
+        // commits the real rolled faces, not a fresh random toss.
+        if (multiSettledResults) {
+          const r = multiResolve; multiResolve = null;
+          const res = multiSettledResults; multiSettledResults = null;
+          closeOverlay();
+          r(res);
+          return;
+        }
         const r = multiResolve; multiResolve = null;
         const n = multiDiceBodies.length || 5;
         const arr = [];
@@ -844,12 +864,21 @@
         const results = multiDiceBodies.map(topFaceFor);
         statusEl.innerHTML = 'You rolled <b style="color:var(--gold)">' +
           results.join(' · ') + '</b>!';
-        setTimeout(() => {
-          if (!multiResolve) return;
-          const r = multiResolve; multiResolve = null;
-          closeOverlay();
-          r(results);
-        }, 700);
+        if (multiSuggest) {
+          // Hold the overlay open and show what this hand (kept + rolled) can
+          // score. The player taps a suggestion to score, or "Continue".
+          multiSettledResults = results;
+          const hand = (multiHeldValues || []).concat(results);
+          renderSuggest(hand);
+          if (cancelBtn) cancelBtn.textContent = 'Continue ▸';
+        } else {
+          setTimeout(() => {
+            if (!multiResolve) return;
+            const r = multiResolve; multiResolve = null;
+            closeOverlay();
+            r(results);
+          }, 700);
+        }
       }
     }
   }
@@ -866,7 +895,12 @@
       multiPointerSamples = [];
       multiLastDragP = null;
       multiLanes = [];
+      multiSuggest = false;
+      multiHeldValues = [];
+      multiSettledResults = null;
       teardownMultiDice();
+      teardownHeld();
+      clearSuggest();
       if (dieMesh) dieMesh.visible = true;
       // Restore interactive UI for the next non-spectator open.
       if (cancelBtn) cancelBtn.style.display = '';
@@ -889,6 +923,154 @@
     for (const b of multiDiceBodies) { try { world && world.removeBody(b); } catch (_) {} }
     multiDiceMeshes = [];
     multiDiceBodies = [];
+  }
+
+  // ── Kept ("held") dice shelf ─────────────────────────────────────
+  // Mirrors the 2D roller's two-lane shelf: dice the player is keeping are
+  // parked off to the side, value-up, instead of being re-thrown. These are
+  // visual-only (no physics body) so a flicked throw never collides with them.
+  // BoxGeometry material order [+X,-X,+Y,-Y,+Z,-Z] maps to FACE_NUMBERS, so a
+  // given number sits on a known local cube face.
+  const NUM_TO_NORMAL = {
+    1: [ 1, 0, 0], 6: [-1, 0, 0],
+    2: [ 0, 1, 0], 5: [ 0,-1, 0],
+    3: [ 0, 0, 1], 4: [ 0, 0,-1]
+  };
+  function quatForFaceUp(num, yaw) {
+    const n = NUM_TO_NORMAL[num] || [0, 1, 0];
+    const from = new THREE.Vector3(n[0], n[1], n[2]);
+    const up = new THREE.Vector3(0, 1, 0);
+    const q = new THREE.Quaternion().setFromUnitVectors(from, up);
+    if (yaw) {
+      const yq = new THREE.Quaternion().setFromAxisAngle(up, yaw);
+      q.premultiply(yq);
+    }
+    return q;
+  }
+
+  function teardownHeld() {
+    for (const m of heldMeshes) { try { scene && scene.remove(m); } catch (_) {} }
+    heldMeshes = [];
+    if (heldTray) { try { scene.remove(heldTray); } catch (_) {} heldTray = null; }
+  }
+
+  function setupHeldDice(values) {
+    teardownHeld();
+    multiHeldValues = Array.isArray(values) ? values.filter(v => v > 0) : [];
+    if (!multiHeldValues.length) return;
+    if (!multiMats) buildMultiAssets(0.62); // ensures shared face materials exist
+    if (!heldGeom) heldGeom = makeRoundedBoxGeometry(HELD_SIZE, HELD_SIZE * 0.13, 6);
+
+    const count = multiHeldValues.length;
+    // A slim "shelf" along the left edge of the play area, raised a touch so the
+    // kept dice read as set aside rather than in play.
+    const shelfX = -(WALL_SIDE - 0.42);
+    const trayTop = 0.16;
+    const span = Math.min(3.0, count * 0.62);
+    const z0 = -1.0 - span / 2;
+
+    const trayMat = new THREE.MeshStandardMaterial({
+      color: 0x2a1c4a, roughness: 0.6, metalness: 0.15,
+      emissive: 0xf5a623, emissiveIntensity: 0.06
+    });
+    heldTray = new THREE.Mesh(
+      new THREE.BoxGeometry(HELD_SIZE + 0.34, trayTop, span + 0.5),
+      trayMat
+    );
+    heldTray.position.set(shelfX, trayTop / 2, z0 + span / 2);
+    heldTray.receiveShadow = true;
+    scene.add(heldTray);
+
+    for (let i = 0; i < count; i++) {
+      const mesh = new THREE.Mesh(heldGeom, multiMats);
+      mesh.castShadow = true;
+      const z = count === 1 ? (z0 + span / 2) : (z0 + (i / (count - 1)) * span);
+      mesh.position.set(shelfX, trayTop + HELD_SIZE / 2, z);
+      // Small per-die yaw so the kept hand looks hand-placed, not robotic.
+      const yaw = ((i * 37) % 21 - 10) * (Math.PI / 180);
+      mesh.quaternion.copy(quatForFaceUp(multiHeldValues[i], yaw));
+      scene.add(mesh);
+      heldMeshes.push(mesh);
+    }
+  }
+
+  // ── "What you can score" suggestions strip ───────────────────────
+  // Reuses possibilities.js's computation against the fully-known hand (kept
+  // dice + the faces that just settled). Tapping a chip defers a score open:
+  // we finalize the roll first (so the toggle writes the dice back), then the
+  // toggle opens the score modal for the chosen category.
+  function _escSug(s) {
+    if (typeof window.escapeHtml === 'function') return window.escapeHtml(s);
+    return String(s).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function renderSuggest(hand) {
+    if (!overlay) return;
+    const el = overlay.querySelector('#dice3dSuggest');
+    if (!el) return;
+    let opts = [];
+    try {
+      if (typeof window.computeDicePossibilities === 'function') {
+        opts = window.computeDicePossibilities(hand) || [];
+      }
+    } catch (_) { opts = []; }
+
+    if (opts.length) {
+      const chips = opts.slice(0, 6).map(({ cat, points }, i) => {
+        const best = i === 0 ? ' d3d-sug-best' : '';
+        const badge = i === 0 ? '<span class="d3d-sug-badge">Best</span>' : '';
+        return '<button class="d3d-sug-chip' + best + '" data-cat="' + _escSug(cat.id) + '">' +
+          '<span class="d3d-sug-name">' + _escSug(cat.name) + '</span>' +
+          '<span class="d3d-sug-pts">' + (points | 0) + '</span>' + badge +
+          '</button>';
+      }).join('');
+      el.innerHTML = '<div class="d3d-sug-title">Tap to score</div>' +
+        '<div class="d3d-sug-list">' + chips + '</div>';
+    } else {
+      // No category scores this hand — surface the cheapest strike instead.
+      let strikes = [];
+      try {
+        if (typeof window.computeStrikeSuggestions === 'function') {
+          strikes = window.computeStrikeSuggestions() || [];
+        }
+      } catch (_) { strikes = []; }
+      if (!strikes.length) { el.innerHTML = ''; el.classList.remove('show'); return; }
+      const chips = strikes.slice(0, 6).map(({ cat }, i) => {
+        const best = i === 0 ? ' d3d-sug-best' : '';
+        const badge = i === 0 ? '<span class="d3d-sug-badge">Cheapest</span>' : '';
+        return '<button class="d3d-sug-chip d3d-sug-strike' + best + '" data-cat="' +
+          _escSug(cat.id) + '"><span class="d3d-sug-name">' + _escSug(cat.name) +
+          '</span>' + badge + '</button>';
+      }).join('');
+      el.innerHTML = '<div class="d3d-sug-title d3d-sug-strike-title">No score — strike one</div>' +
+        '<div class="d3d-sug-list">' + chips + '</div>';
+    }
+
+    el.classList.add('show');
+    el.querySelectorAll('.d3d-sug-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const catId = btn.getAttribute('data-cat');
+        // Tell the toggle to open this category's score modal once the rolled
+        // dice have been written back into the game state.
+        if (catId) window.__yum3dPendingScore = catId;
+        finalizeMultiSettled();
+      });
+    });
+  }
+
+  function clearSuggest() {
+    if (!overlay) return;
+    const el = overlay.querySelector('#dice3dSuggest');
+    if (el) { el.innerHTML = ''; el.classList.remove('show'); }
+  }
+
+  // Commit the settled roll: resolves throw3DDice() with the real faces.
+  function finalizeMultiSettled() {
+    if (!multiResolve || !multiSettledResults) return;
+    const r = multiResolve; multiResolve = null;
+    const res = multiSettledResults; multiSettledResults = null;
+    closeOverlay();
+    r(res);
   }
 
   function buildMultiAssets(size) {
@@ -1126,6 +1308,10 @@
       }
       mode = 'single';
       teardownMultiDice();
+      teardownHeld();
+      clearSuggest();
+      multiSuggest = false;
+      multiSettledResults = null;
       if (dieMesh) dieMesh.visible = true;
       resetDie();
       statusEl.textContent = 'Drag the dice and flick to throw';
@@ -1159,7 +1345,8 @@
 
   // Auto-toss `count` smaller dice in the same 3D scene. Resolves with an
   // array of face values (1..6) in the same order the dice were spawned.
-  window.throw3DDice = function (count) {
+  window.throw3DDice = function (count, opts) {
+    const o = opts || {};
     const n = Math.max(1, Math.min(5, (count | 0) || 5));
     const randomArr = () => {
       const a = [];
@@ -1177,8 +1364,16 @@
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
       if (dieMesh) dieMesh.visible = false;
       setupMultiDice(n);
+      // Mirror the 2D roller: park kept dice on a side shelf (value-up) and,
+      // when asked, show "what you can score" once the rest settle.
+      multiSuggest = o.suggest !== false;
+      multiSettledResults = null;
+      clearSuggest();
+      setupHeldDice(o.held);
       if (_onOpenCb) { try { _onOpenCb(n); } catch (_) {} }
-      statusEl.textContent = 'Grab the dice and flick to throw';
+      statusEl.textContent = (multiHeldValues && multiHeldValues.length)
+        ? 'Kept dice are on the shelf — flick to roll the rest'
+        : 'Grab the dice and flick to throw';
       cancelBtn.textContent = 'Skip throw';
       overlay.style.display = 'flex';
       requestAnimationFrame(() => {
@@ -1220,6 +1415,10 @@
         catch (e) { console.warn('3D dice init failed (spectator)', e); return null; }
       }
       mode = 'spectator';
+      multiSuggest = false;
+      multiSettledResults = null;
+      teardownHeld();
+      clearSuggest();
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
       if (dieMesh) dieMesh.visible = false;
       setupMultiDice(n);

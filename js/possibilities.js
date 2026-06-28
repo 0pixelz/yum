@@ -2,14 +2,19 @@
 // Shows small, live scoring options for the current dice using only unfilled categories.
 
 (function() {
-  function getPossibilities() {
+  // Score options for a given hand using only unfilled categories. Defaults to
+  // the live global `dice`, but accepts any 5-die array so other surfaces (e.g.
+  // the 3D roll overlay) can preview the same suggestions for a hand that isn't
+  // written back into the game state yet.
+  function getPossibilities(hand) {
     try {
-      if (!Array.isArray(dice) || !dice.every(v => v > 0)) return [];
+      const d = Array.isArray(hand) ? hand : dice;
+      if (!Array.isArray(d) || !d.every(v => v > 0)) return [];
       if (!Array.isArray(categories)) return [];
 
       return categories
         .filter(cat => scores[cat.id] === undefined)
-        .map(cat => ({ cat, points: cat.calc(dice) }))
+        .map(cat => ({ cat, points: cat.calc(d) }))
         .filter(item => item.points > 0)
         .sort((a, b) => b.points - a.points || b.cat.max - a.cat.max);
     } catch(e) {
@@ -136,4 +141,9 @@
   } else {
     initPossibilities();
   }
+
+  // Public helpers so other surfaces (e.g. the 3D roll overlay) can reuse the
+  // exact same scoring/strike suggestions for an arbitrary hand.
+  window.computeDicePossibilities = function (hand) { return getPossibilities(hand); };
+  window.computeStrikeSuggestions = function () { return getStrikeSuggestions(); };
 })();
