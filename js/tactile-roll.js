@@ -34,14 +34,25 @@
       '.tr-roll-pips i.spent{background:rgba(255,255,255,.22);box-shadow:none;transform:scale(.8);}',
       '.btn-roll.tr-empty{filter:grayscale(.5) brightness(.82);opacity:.85;}',
       '.roll-count.tr-hide{display:none;}',
+      /* Reserve the two-lane height at all times so holding a die never
+         grows the card and resizes the screen — the row keeps a constant
+         height and just re-flows internally. Centred so the single row and
+         the split layout sit in the same place. */
+      '.dice-section .dice-row.dice-row{min-height:208px !important;align-items:center !important;align-content:center !important;}',
       /* two-lane "kept" shelf — only splits when dice are held, so the
          default single row enforced by dice-size-fix.js is preserved.
-         :has() outranks that rule's plain selector, so wrap wins here. */
+         :has() outranks that rule's plain selector, so wrap wins here.
+         Held dice rise to the TOP lane; the rolling dice drop below. */
       '.dice-section .dice-row:has(.die.held){flex-wrap:wrap !important;}',
       '.tr-shelf-break{display:none;order:1;flex:0 0 100%;min-width:100%;width:100%;height:0;}',
-      '.dice-section .dice-row .die-wrap:has(.die.held){order:2;}',
-      '.dice-section .dice-row:has(.die.held) .tr-shelf-break{display:flex;align-items:center;justify-content:center;height:auto;margin:8px 0 2px;border-top:1px dashed rgba(245,166,35,.35);}',
+      '.dice-section .dice-row .die-wrap:has(.die.held){order:0;}',
+      '.dice-section .dice-row:has(.die.held) .die-wrap:not(:has(.die.held)){order:2;}',
+      '.dice-section .dice-row:has(.die.held) .tr-shelf-break{display:flex;align-items:center;justify-content:center;height:auto;margin:6px 0;border-top:1px dashed rgba(245,166,35,.35);}',
       '.dice-section .dice-row:has(.die.held) .tr-shelf-break::before{content:"\\270B KEPT \\2014 tap to roll the rest";font:800 .6rem "Nunito",sans-serif;letter-spacing:1px;color:var(--gold);opacity:.85;text-transform:uppercase;padding-top:6px;}',
+      /* Held dice live in the top lane, so their button is redundant —
+         shrink it and label it RELEASE instead of HOLD. */
+      '.dice-section .die-hold-btn.held-active{font-size:0 !important;letter-spacing:0;padding:2px 8px !important;}',
+      '.dice-section .die-hold-btn.held-active::after{content:"RELEASE";display:inline-block;font:800 .5rem "Nunito",sans-serif;letter-spacing:.5px;color:#111;}',
       /* No rolls left: collapse back to one row so the whole hand is
          visible together for scoring (overrides the shelf split above). */
       '.dice-section .dice-row.tr-no-rolls:has(.die.held){flex-wrap:nowrap !important;}',
