@@ -69,6 +69,7 @@
   let turnResolve = null;          // resolves the interactive-turn promise
   let flyTweens = [];              // {body, fromP, toP, fromQ, toQ, t, dur, onDone}
   let actionsEl = null;            // bottom action row (reroll / done)
+  let keptEl = null;               // 2D "kept" dice faces shown under the header
   const TRAY_TOP = 0.16;           // top surface height of the kept shelf
   // SHELF_X depends on WALL_SIDE (declared further down); set after it.
 
@@ -429,6 +430,7 @@
     overlay.innerHTML =
       '<div class="d3d-title">YAMIO</div>' +
       '<div class="d3d-opp-rolls" id="dice3dOppRolls"></div>' +
+      '<div class="d3d-kept" id="dice3dKept"></div>' +
       '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas></div>' +
       '<div class="d3d-suggest" id="dice3dSuggest"></div>' +
       '<div class="d3d-actions" id="dice3dActions"></div>' +
@@ -439,6 +441,7 @@
     statusEl = overlay.querySelector('#dice3dStatus');
     cancelBtn = overlay.querySelector('#dice3dCancel');
     actionsEl = overlay.querySelector('#dice3dActions');
+    keptEl = overlay.querySelector('#dice3dKept');
     _renderOppRolls();
     cancelBtn.addEventListener('click', () => {
       if (mode === 'spectator') {
@@ -911,6 +914,7 @@
       teardownHeld();
       clearSuggest();
       clearActions();
+      clearKept();
       if (dieMesh) dieMesh.visible = true;
       // Restore interactive UI for the next non-spectator open.
       if (cancelBtn) cancelBtn.style.display = '';
@@ -966,26 +970,15 @@
   }
   function removeTray() { teardownHeld(); }
 
+  function removeTray() { teardownHeld(); }
+
   const TURN_DIE_SIZE = 0.62;
   const TURN_DIE_HALF = TURN_DIE_SIZE / 2;
 
-  // Kept dice line up in a horizontal row across the BACK of the play area, so
-  // they read as a "kept" rack near the top of the screen (just under the
-  // header) — no tray/table, the dice rest straight on the felt.
-  const SHELF_Z = -3.4;
-  // World position of kept-die slot `slot` of `count` in that back row.
-  function shelfPos(slot, count) {
-    const maxSpan = (DRAG_X_LIMIT * 2) * 0.92;
-    const span = Math.min(maxSpan, Math.max(1, count) * 0.74);
-    const x0 = -span / 2;
-    const x = count <= 1 ? 0 : (x0 + (slot / (count - 1)) * span);
-    return { x: x, y: TURN_DIE_HALF, z: SHELF_Z };
-  }
-
-  // No physical tray any more — keep the hook so callers stay simple, but it
-  // just clears any leftover tray mesh from older sessions.
-  function ensureTray(count) { removeTray(); }
-
+  // ── Kept dice → flat 2D faces under the header ───────────────────
+  // Kept dice leave the 3D floor and show as clear 2D faces in the band under
+  // the YAMIO header (easier to read than perspective dice). The physics body
+  // is parked off-screen; only the in-play dice stay on the felt.
   function keptIndices() {
     const out = [];
     for (let i = 0; i < multiDiceBodies.length; i++) {
@@ -994,28 +987,61 @@
     return out;
   }
 
-  // Position every kept die onto the shelf. `animate` flies them there (used
-  // when the player taps to keep/unkeep); otherwise they snap (initial setup).
-  function relayoutShelf(animate) {
+  // Hide a kept die's 3D representation and park its body out of the way.
+  function parkKeptBody(b, meshIdx) {
+    b.type = CANNON.Body.STATIC;
+    b.collisionResponse = false;
+    b.velocity.set(0, 0, 0);
+    b.angularVelocity.set(0, 0, 0);
+    b.position.set(0, -30, 0);
+    b._spinAxis = null;
+    const m = multiDiceMeshes[meshIdx];
+    if (m) m.visible = false;
+  }
+
+  // Return a die to the felt (value-up) so it can be re-thrown next roll.
+  function placeFloorDie(b, meshIdx) {
+    const m = multiDiceMeshes[meshIdx];
+    if (m) m.visible = true;
+    b.type = CANNON.Body.KINEMATIC;
+    b.collisionResponse = true;
+    b.velocity.set(0, 0, 0);
+    b.angularVelocity.set(0, 0, 0);
+    const nonKept = multiDiceBodies.filter(x => !x._kept).length;
+    const x = clamp(((nonKept - 1) - 2) * 0.7, -DRAG_X_LIMIT, DRAG_X_LIMIT);
+    b.position.set(x, TURN_DIE_HALF, 0.4);
+    b.quaternion.copy(quatForFaceUp(b._value || 1, 0));
+  }
+
+  // Render the kept dice as 2D faces in the header band. `animateIdx` is the
+  // body index that just flew up, so only it plays the fly-in animation.
+  function renderKeptRow(animateIdx) {
+    if (!keptEl) return;
     const kept = keptIndices();
-    ensureTray(kept.length);
-    for (let s = 0; s < kept.length; s++) {
-      const b = multiDiceBodies[kept[s]];
-      const pos = shelfPos(s, kept.length);
-      const yaw = ((kept[s] * 37) % 21 - 10) * (Math.PI / 180);
-      const q = quatForFaceUp(b._value, yaw);
-      if (animate) {
-        // Kept dice stay non-colliding on the shelf so later throws pass
-        // through them instead of knocking the rack around.
-        startFly(b, pos, q, () => { b.collisionResponse = false; });
-      } else {
-        b.type = CANNON.Body.KINEMATIC;
-        b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0);
-        b.position.set(pos.x, pos.y, pos.z);
-        b.quaternion.copy(q);
-        b.collisionResponse = false;
-      }
-    }
+    if (!kept.length) { keptEl.innerHTML = ''; keptEl.classList.remove('show'); return; }
+    const faceHtml = (v) => {
+      if (typeof dieIcon === 'function') { try { return dieIcon(v); } catch (_) {} }
+      if (typeof window.dieIcon === 'function') { try { return window.dieIcon(v); } catch (_) {} }
+      return '<span class="d3d-kept-glyph">' + (['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][v] || '') + '</span>';
+    };
+    const cells = kept.map(i => {
+      const cls = 'd3d-kept-die' + (i === animateIdx ? ' d3d-kept-in' : '');
+      return '<button class="' + cls + '" data-idx="' + i + '" title="Tap to release">' +
+        faceHtml(multiDiceBodies[i]._value) + '</button>';
+    }).join('');
+    keptEl.innerHTML = '<span class="d3d-kept-label">KEPT · tap to release</span>' +
+      '<div class="d3d-kept-row">' + cells + '</div>';
+    keptEl.classList.add('show');
+    keptEl.querySelectorAll('.d3d-kept-die').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        if (!isNaN(idx)) unholdDie(idx);
+      });
+    });
+  }
+
+  function clearKept() {
+    if (keptEl) { keptEl.innerHTML = ''; keptEl.classList.remove('show'); }
   }
 
   // Smoothly move a (kinematic) die body from where it is to a target pose.
@@ -1102,8 +1128,9 @@
       body.angularVelocity.set(0, 0, 0);
       world.addBody(body);
       multiDiceBodies.push(body);
+      if (kept) parkKeptBody(body, i); // already-kept dice show as 2D faces up top
     }
-    relayoutShelf(false); // snap kept dice onto the shelf
+    renderKeptRow();      // paint any kept dice into the header band
     armNonKept();         // park the rest ready to flick
   }
 
@@ -1146,33 +1173,30 @@
     } catch (_) {}
   }
 
-  // Tap a settled in-play die → keep it (fly to the shelf).
+  // Tap a settled in-play die → keep it: it leaves the felt and pops up as a
+  // 2D face in the header band.
   function holdDie(idx) {
     const b = multiDiceBodies[idx];
     if (!b || b._kept) return;
     b._kept = true;
     b._value = topFaceFor(b);
-    b.type = CANNON.Body.KINEMATIC;
-    b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0);
-    relayoutShelf(true);
+    parkKeptBody(b, idx);
+    renderKeptRow(idx);   // animate this die flying up to the row
     turnSfx('hold');
     renderActions();
+    updateSettleStatus();
   }
 
-  // Tap a kept die → release it back to the floor (it'll re-roll next throw).
+  // Tap a kept face → release it back onto the felt (re-rolls next throw).
   function unholdDie(idx) {
     const b = multiDiceBodies[idx];
     if (!b || !b._kept) return;
     b._kept = false;
-    // Find a free floor spot among the now-in-play dice.
-    const nonKept = multiDiceBodies.filter(x => !x._kept).length;
-    const spread = (nonKept - 1);
-    const x = clamp((spread - 2) * 0.62, -DRAG_X_LIMIT, DRAG_X_LIMIT);
-    const target = { x: x, y: TURN_DIE_HALF, z: 0.4 };
-    startFly(b, target, b.quaternion.clone());
-    relayoutShelf(true); // recompact the remaining kept dice
+    placeFloorDie(b, idx);
+    renderKeptRow();
     turnSfx('unhold');
     renderActions();
+    updateSettleStatus();
   }
 
   function handleSettleTap(ev) {
@@ -1183,12 +1207,20 @@
     if (!hits.length) return;
     const idx = multiDiceMeshes.indexOf(hits[0].object);
     if (idx < 0) return;
-    if (multiDiceBodies[idx]._kept) unholdDie(idx);
-    else holdDie(idx);
+    if (multiDiceBodies[idx]._kept) return; // kept dice are released via their 2D face
+    holdDie(idx);
   }
 
   function fullHandValues() {
     return multiDiceBodies.map(b => b._kept ? b._value : (b._value || topFaceFor(b)));
+  }
+
+  function updateSettleStatus() {
+    if (!turnSettled || !statusEl) return;
+    const rolled = multiDiceBodies.filter(b => !b._kept).map(b => b._value);
+    statusEl.innerHTML = rolled.length
+      ? ('Rolled <b style="color:var(--gold)">' + rolled.join(' · ') + '</b> · tap a die to keep it')
+      : 'All dice kept — pick a score';
   }
 
   // Dice have come to rest: lock in the rolled faces, show what the hand can
@@ -1199,10 +1231,8 @@
       const b = multiDiceBodies[i];
       if (!b._kept) b._value = topFaceFor(b);
     }
-    const rolled = multiDiceBodies.filter(b => !b._kept).map(b => b._value);
-    statusEl.innerHTML = rolled.length
-      ? ('Rolled <b style="color:var(--gold)">' + rolled.join(' · ') + '</b> · tap a die to keep it')
-      : 'All dice kept — pick a score';
+    updateSettleStatus();
+    renderKeptRow();
     renderSuggest(fullHandValues());
     renderActions();
   }
@@ -1612,6 +1642,7 @@
       teardownHeld();
       clearSuggest();
       clearActions();
+      clearKept();
       multiSuggest = false;
       multiSettledResults = null;
       interactiveTurn = false;
@@ -1767,6 +1798,7 @@
       teardownHeld();
       clearSuggest();
       clearActions();
+      clearKept();
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
       if (dieMesh) dieMesh.visible = false;
       setupMultiDice(n);
