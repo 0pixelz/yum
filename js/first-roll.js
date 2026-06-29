@@ -10,6 +10,22 @@ let frBroadcasted = false;
 let frClosing = false;
 const FR_AUTO_START_DELAY = 3000;
 
+// Build the avatar bubble HTML for a roll-off player. Uses the shared
+// YumAvatars system (Google photo / chosen die avatar) when available, and
+// falls back to an initials bubble for bots or players without an avatar.
+function frAvatarMarkup(p) {
+  try {
+    if (window.YumAvatars) {
+      if (p.isMe) return window.YumAvatars.markupForProfile();
+      if (p.avatar) return window.YumAvatars.markup(p.avatar, p.name);
+    }
+  } catch(e) {}
+  const s = String(p.name || 'P').trim();
+  const parts = s.split(/\s+/);
+  const initials = ((parts[0] || 'P')[0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+  return `<span class="ya-initials">${initials}</span>`;
+}
+
 function showFirstRoll(players, onDone) {
   firstRollPlayers = players;
   firstRollCallback = onDone;
@@ -27,7 +43,10 @@ function showFirstRoll(players, onDone) {
     const col = document.createElement('div');
     col.className = 'fr-player';
     col.innerHTML = `
-      <div class="fr-name">${p.name}${p.isMe?' (you)':''}</div>
+      <div class="fr-head">
+        <div class="fr-avatar">${frAvatarMarkup(p)}</div>
+        <div class="fr-name">${p.name}${p.isMe?' (you)':''}</div>
+      </div>
       <div class="fr-die" id="frDie${i}">–</div>
       <div class="fr-score" id="frScore${i}"></div>`;
     if(i < players.length - 1) {
@@ -434,7 +453,7 @@ function doMpRematch() {
   // First roll
   const sortedPlayers = Object.entries(allPlayers)
     .sort((a,b) => a[1].joined - b[1].joined)
-    .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id }));
+    .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id, avatar: p.avatar || null }));
   setTimeout(() => {
     if(isHost) {
       showFirstRoll(sortedPlayers, function(winnerId) {

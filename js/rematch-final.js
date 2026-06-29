@@ -33,7 +33,7 @@
   function sortedPlayersForFirstRoll() {
     return Object.entries(playersObj())
       .sort((a, b) => (a[1].joined || 0) - (b[1].joined || 0))
-      .map(([id, p]) => ({ id, name: p.name || 'Player', isMe: id === playerId }));
+      .map(([id, p]) => ({ id, name: p.name || 'Player', isMe: id === playerId, avatar: p.avatar || null }));
   }
 
   function clearVoteTimer() {
