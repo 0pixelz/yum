@@ -2285,10 +2285,16 @@
     position: absolute; top: 0; left: 0; right: 0; z-index: 3;
     display: none;
     flex-direction: column; align-items: center; gap: 6px;
-    padding: 10px 12px 16px;
+    padding: 12px 12px 18px;
     pointer-events: none;
-    background: linear-gradient(to bottom,
-      rgba(8,9,26,0.62) 0%, rgba(8,9,26,0.28) 62%, rgba(8,9,26,0) 100%);
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgba(78,205,196,0.10), rgba(78,205,196,0) 60%),
+      linear-gradient(to bottom,
+        rgba(22,33,62,0.92) 0%, rgba(15,52,96,0.55) 52%, rgba(10,12,32,0) 100%);
+    border-bottom: 1px solid rgba(245,166,35,0.18);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
   }
   #dice3dOverlay .d3d-kept.show { display: flex; }
   #dice3dOverlay .d3d-kept-label {
