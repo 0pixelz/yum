@@ -414,6 +414,64 @@
     return tex;
   }
 
+  // Full-screen gradient backdrop for the scene — deep navy with a soft brand
+  // glow up top, so the background reads as a lit room instead of flat black.
+  function makeBackgroundTexture() {
+    const W = 512, H = 512;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0,    '#202d52');
+    g.addColorStop(0.42, '#141d3a');
+    g.addColorStop(1,    '#070a1c');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    // soft teal glow near the top centre
+    const teal = ctx.createRadialGradient(W * 0.5, H * 0.26, 18, W * 0.5, H * 0.26, H * 0.55);
+    teal.addColorStop(0, 'rgba(78,205,196,0.12)');
+    teal.addColorStop(1, 'rgba(78,205,196,0)');
+    ctx.fillStyle = teal;
+    ctx.fillRect(0, 0, W, H);
+    // faint warm gold lift lower-centre, under the dice
+    const gold = ctx.createRadialGradient(W * 0.5, H * 0.72, 20, W * 0.5, H * 0.72, H * 0.5);
+    gold.addColorStop(0, 'rgba(245,166,35,0.08)');
+    gold.addColorStop(1, 'rgba(245,166,35,0)');
+    ctx.fillStyle = gold;
+    ctx.fillRect(0, 0, W, H);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  // Equirectangular gradient used only to light/reflect the dice (via PMREM),
+  // giving them soft warm + teal highlights without any external HDR file.
+  function makeEnvEquirect() {
+    const W = 256, H = 128;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0,   '#46588a');
+    g.addColorStop(0.5, '#1b2444');
+    g.addColorStop(1,   '#0a0e22');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const warm = ctx.createRadialGradient(W * 0.68, H * 0.30, 4, W * 0.68, H * 0.30, 66);
+    warm.addColorStop(0, 'rgba(255,196,90,0.75)');
+    warm.addColorStop(1, 'rgba(255,196,90,0)');
+    ctx.fillStyle = warm;
+    ctx.fillRect(0, 0, W, H);
+    const teal = ctx.createRadialGradient(W * 0.26, H * 0.34, 4, W * 0.26, H * 0.34, 58);
+    teal.addColorStop(0, 'rgba(78,205,196,0.5)');
+    teal.addColorStop(1, 'rgba(78,205,196,0)');
+    ctx.fillStyle = teal;
+    ctx.fillRect(0, 0, W, H);
+    const tex = new THREE.CanvasTexture(c);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    return tex;
+  }
+
   // Resolves once 'Bebas Neue' is loaded (or after a short timeout) so the
   // floor texture is painted with the brand font, not the fallback.
   function ensureBrandFont() {
@@ -468,9 +526,9 @@
 
   function initScene() {
     scene = new THREE.Scene();
-    // Very dark navy — matches the main lobby background
-    scene.fog = new THREE.Fog(0x08091a, 12, 26);
-    scene.background = new THREE.Color(0x0d0f24);
+    // Deep navy fog so the play area fades into the gradient backdrop.
+    scene.fog = new THREE.Fog(0x0a0c20, 14, 30);
+    scene.background = makeBackgroundTexture();
 
     const w = canvasEl.clientWidth || 1;
     const h = canvasEl.clientHeight || 1;
@@ -486,29 +544,46 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // Filmic tone mapping for richer, less "flat" colour on the dice + felt.
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const key = new THREE.DirectionalLight(0xffffff, 1.15);
+    // Image-based lighting from a generated gradient env so the dice pick up
+    // soft warm/teal highlights (no external HDR needed). Best-effort.
+    let envTex = null;
+    try {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      pmrem.compileEquirectangularShader && pmrem.compileEquirectangularShader();
+      envTex = pmrem.fromEquirectangular(makeEnvEquirect()).texture;
+      scene.environment = envTex;
+      pmrem.dispose();
+    } catch (e) { console.warn('3D env setup skipped', e); }
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const key = new THREE.DirectionalLight(0xffffff, 1.2);
     key.position.set(4, 9, 6);
     key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.radius = 3;
+    key.shadow.bias = -0.0004;
     const s = 5;
     key.shadow.camera.left = -s; key.shadow.camera.right = s;
     key.shadow.camera.top = s;   key.shadow.camera.bottom = -s;
     key.shadow.camera.near = 1;  key.shadow.camera.far = 25;
     scene.add(key);
     // Warm gold rim light + teal fill — matches brand accents
-    const rim = new THREE.DirectionalLight(0xf5a623, 0.45);
+    const rim = new THREE.DirectionalLight(0xf5a623, 0.5);
     rim.position.set(-5, 4, -3);
     scene.add(rim);
-    const fill = new THREE.DirectionalLight(0x4ecdc4, 0.18);
+    const fill = new THREE.DirectionalLight(0x4ecdc4, 0.2);
     fill.position.set(3, 2, -6);
     scene.add(fill);
 
-    // Branded floor: dark navy + the Yamio main-screen logo baked into the texture
+    // Branded floor: dark navy + the Yamio main-screen logo baked into the
+    // texture, with a hint of gloss so it catches the lights.
     const floorTex = makeFloorTexture();
     const floorMat = new THREE.MeshStandardMaterial({
-      map: floorTex, roughness: 0.88, metalness: 0.04
+      map: floorTex, roughness: 0.7, metalness: 0.12, envMapIntensity: 0.5
     });
     floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), floorMat);
     floorMesh.rotation.x = -Math.PI / 2;
@@ -528,8 +603,9 @@
     const geo = makeRoundedBoxGeometry(DIE_SIZE, DIE_BEVEL, 6);
     const mats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
       map: makeFaceTexture(n),
-      roughness: 0.28,
-      metalness: 0.12,
+      roughness: 0.26,
+      metalness: 0.18,
+      envMapIntensity: 0.85,
       color: 0xffffff
     }));
     dieMesh = new THREE.Mesh(geo, mats);
@@ -1398,8 +1474,9 @@
     if (!multiMats) {
       multiMats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
         map: makeFaceTexture(n),
-        roughness: 0.28,
-        metalness: 0.12,
+        roughness: 0.26,
+        metalness: 0.18,
+        envMapIntensity: 0.85,
         color: 0xffffff
       }));
     }
