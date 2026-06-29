@@ -332,12 +332,12 @@
     c.width = S; c.height = S;
     const ctx = c.getContext('2d');
 
-    // Very dark blue background — matches the main lobby (almost black with a
-    // faint navy lift in the upper center).
+    // Navy-blue felt — matches the holding-area band so the throw table reads
+    // blue, not black.
     const g = ctx.createRadialGradient(S/2, S * 0.40, 80, S/2, S * 0.55, S * 0.72);
-    g.addColorStop(0,    '#10132e');
-    g.addColorStop(0.55, '#0a0c1f');
-    g.addColorStop(1,    '#05061a');
+    g.addColorStop(0,    '#21356b');
+    g.addColorStop(0.55, '#162a50');
+    g.addColorStop(1,    '#0f2040');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, S, S);
 
@@ -347,8 +347,10 @@
     ctx.beginPath(); ctx.arc(S/2, S * 0.58, S * 0.34, 0, Math.PI * 2); ctx.stroke();
 
     // ── Yamio brand logo (dice mark + wordmark, like the main lobby) ──
+    // Larger on the 4K canvas → more texels per letter → stays sharp when the
+    // floor is viewed at a grazing angle.
     const text = 'YAMIO';
-    const fontSize = 280;
+    const fontSize = 360;
     const letterSpacing = fontSize * 0.18;            // matches CSS letter-spacing
     ctx.font = `900 ${fontSize}px 'Bebas Neue', 'Impact', 'Arial Narrow', sans-serif`;
     ctx.textBaseline = 'middle';
@@ -378,11 +380,11 @@
     wordGrad.addColorStop(0.55, '#f5871a');
     wordGrad.addColorStop(1,    BRAND.accent);
 
-    // Warm orange glow pass under the letters — tighter blur so the
-    // saturated color isn't diluted into a beige halo.
+    // Soft glow pass under the letters — kept light so the edges stay crisp
+    // instead of fuzzing into a halo.
     ctx.save();
-    ctx.shadowColor = 'rgba(239,122,18,0.55)';
-    ctx.shadowBlur = 36;
+    ctx.shadowColor = 'rgba(239,122,18,0.45)';
+    ctx.shadowBlur = 14;
     ctx.fillStyle = wordGrad;
     let x = wordX;
     for (let i = 0; i < text.length; i++) {
@@ -391,7 +393,7 @@
     }
     ctx.restore();
 
-    // Two crisp gradient passes for extra punch (no shadow)
+    // Crisp gradient passes for sharp, punchy letters (no shadow)
     ctx.fillStyle = wordGrad;
     for (let pass = 0; pass < 2; pass++) {
       x = wordX;
@@ -400,9 +402,10 @@
         x += widths[i] + letterSpacing;
       }
     }
-    // Dark outline so the letters pop against the very dark floor
-    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-    ctx.lineWidth = 4;
+    // Crisp dark outline so the letters pop against the felt
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.lineWidth = 5;
     x = wordX;
     for (let i = 0; i < text.length; i++) {
       ctx.strokeText(text[i], x, cy);
@@ -422,9 +425,10 @@
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0,    '#202d52');
-    g.addColorStop(0.42, '#141d3a');
-    g.addColorStop(1,    '#070a1c');
+    // Navy → blue, matching the holding-area band (no near-black bottom).
+    g.addColorStop(0,    '#243766');
+    g.addColorStop(0.5,  '#173153');
+    g.addColorStop(1,    '#0f2849');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
     // soft teal glow near the top centre
@@ -526,8 +530,8 @@
 
   function initScene() {
     scene = new THREE.Scene();
-    // Deep navy fog so the play area fades into the gradient backdrop.
-    scene.fog = new THREE.Fog(0x0a0c20, 14, 30);
+    // Navy fog matching the backdrop so the play area fades into blue, not black.
+    scene.fog = new THREE.Fog(0x122544, 16, 32);
     scene.background = makeBackgroundTexture();
 
     const w = canvasEl.clientWidth || 1;
@@ -579,9 +583,13 @@
     fill.position.set(3, 2, -6);
     scene.add(fill);
 
-    // Branded floor: dark navy + the Yamio main-screen logo baked into the
-    // texture, with a hint of gloss so it catches the lights.
+    // Branded floor: navy-blue felt + the Yamio logo baked into the texture,
+    // with a hint of gloss so it catches the lights.
     const floorTex = makeFloorTexture();
+    try {
+      const maxAniso = renderer.capabilities.getMaxAnisotropy();
+      if (maxAniso) floorTex.anisotropy = maxAniso; // keeps the floor logo sharp at grazing angles
+    } catch (_) {}
     const floorMat = new THREE.MeshStandardMaterial({
       map: floorTex, roughness: 0.7, metalness: 0.12, envMapIntensity: 0.5
     });
@@ -590,9 +598,10 @@
     floorMesh.receiveShadow = true;
     scene.add(floorMesh);
 
-    // Outer near-black surround so the play area sits in deep darkness
+    // Outer surround — navy (not black) so the table edges blend into the
+    // gradient backdrop instead of going dark.
     const surroundMat = new THREE.MeshStandardMaterial({
-      color: 0x07081a, roughness: 0.98, metalness: 0.0
+      color: 0x0e1c3a, roughness: 0.95, metalness: 0.0
     });
     const surround = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), surroundMat);
     surround.rotation.x = -Math.PI / 2;
