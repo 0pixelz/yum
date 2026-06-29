@@ -2278,11 +2278,16 @@
     opacity: 0.8;
   }
 
-  /* Kept dice shown as flat 2D faces in the band under the header */
+  /* Kept dice shown as flat 2D faces, floated over the dark top of the 3D
+     scene so they don't squeeze the canvas. */
   #dice3dOverlay .d3d-kept {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 3;
     display: none;
-    flex-direction: column; align-items: center; gap: 5px;
-    padding: 6px 12px 8px;
+    flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 12px 16px;
+    pointer-events: none;
+    background: linear-gradient(to bottom,
+      rgba(8,9,26,0.62) 0%, rgba(8,9,26,0.28) 62%, rgba(8,9,26,0) 100%);
   }
   #dice3dOverlay .d3d-kept.show { display: flex; }
   #dice3dOverlay .d3d-kept-label {
@@ -2292,13 +2297,14 @@
   }
   #dice3dOverlay .d3d-kept-row {
     display: flex; flex-wrap: wrap;
-    justify-content: center; gap: 8px;
+    justify-content: center; gap: 9px;
   }
   #dice3dOverlay .d3d-kept-die {
-    width: 42px; height: 42px;
+    width: 46px; height: 46px;
     padding: 0; border: none; background: transparent;
-    border-radius: 10px; cursor: pointer;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.45);
+    border-radius: 11px; cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     transition: transform 0.12s;
   }
   #dice3dOverlay .d3d-kept-die:active { transform: scale(0.9); }
