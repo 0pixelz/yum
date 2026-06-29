@@ -1446,7 +1446,7 @@ function listenRoom() {
       if(isHost) {
         const sortedPlayers = Object.entries(allPlayers)
           .sort((a,b) => a[1].joined - b[1].joined)
-          .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id }));
+          .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id, avatar: p.avatar || null }));
         showFirstRoll(sortedPlayers, function(winnerId) {
           roomRef.update({ currentTurn: winnerId });
         });
@@ -1454,7 +1454,7 @@ function listenRoom() {
         // Non-host: show the overlay and wait for result from Firebase
         const sortedPlayers = Object.entries(allPlayers)
           .sort((a,b) => a[1].joined - b[1].joined)
-          .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id }));
+          .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id, avatar: p.avatar || null }));
         showFirstRoll(sortedPlayers, function() {});
       }
     }
@@ -1473,7 +1473,7 @@ function listenRoom() {
       if(frOv && frOv.style.display !== 'flex' && !frClosing && !frBroadcasted) {
         const sortedPlayers = Object.entries(allPlayers)
           .sort((a,b) => a[1].joined - b[1].joined)
-          .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id }));
+          .map(([id, p]) => ({ name: p.name, isMe: id === playerId, id, avatar: p.avatar || null }));
         showFirstRoll(sortedPlayers, isHost
           ? function(winnerId) { roomRef.update({ currentTurn: winnerId }); }
           : function() {});

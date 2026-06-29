@@ -102,7 +102,7 @@ function executeRematch() {
 
   var sortedPlayers = Object.entries(allPlayers)
     .sort(function (a, b) { return a[1].joined - b[1].joined; })
-    .map(function (e) { return { name: e[1].name, isMe: e[0] === playerId, id: e[0] }; });
+    .map(function (e) { return { name: e[1].name, isMe: e[0] === playerId, id: e[0], avatar: e[1].avatar || null }; });
 
   if (isHost && roomRef) {
     var updates = { rematch: null, currentTurn: null, firstRoll: null, firstRollDone: null };
