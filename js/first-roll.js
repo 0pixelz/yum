@@ -41,17 +41,17 @@ function showFirstRoll(players, onDone) {
   container.innerHTML = '';
   players.forEach((p, i) => {
     const col = document.createElement('div');
-    col.className = 'fr-player';
+    col.className = 'fro-player';
     col.innerHTML = `
-      <div class="fr-head">
-        <div class="fr-avatar">${frAvatarMarkup(p)}</div>
-        <div class="fr-name">${p.name}${p.isMe?' (you)':''}</div>
+      <div class="fro-head">
+        <div class="fro-avatar">${frAvatarMarkup(p)}</div>
+        <div class="fro-name">${p.name}${p.isMe?' (you)':''}</div>
       </div>
-      <div class="fr-die" id="frDie${i}">–</div>
-      <div class="fr-score" id="frScore${i}"></div>`;
+      <div class="fro-die" id="frDie${i}">–</div>
+      <div class="fro-score" id="frScore${i}"></div>`;
     if(i < players.length - 1) {
       const vs = document.createElement('div');
-      vs.className = 'fr-vs'; vs.textContent = 'VS';
+      vs.className = 'fro-vs'; vs.textContent = 'VS';
       container.appendChild(col);
       container.appendChild(vs);
     } else {
