@@ -969,32 +969,22 @@
   const TURN_DIE_SIZE = 0.62;
   const TURN_DIE_HALF = TURN_DIE_SIZE / 2;
 
-  // World position of kept-die slot `slot` of `count` along the side shelf.
+  // Kept dice line up in a horizontal row across the BACK of the play area, so
+  // they read as a "kept" rack near the top of the screen (just under the
+  // header) — no tray/table, the dice rest straight on the felt.
+  const SHELF_Z = -3.4;
+  // World position of kept-die slot `slot` of `count` in that back row.
   function shelfPos(slot, count) {
-    const span = Math.min(3.0, Math.max(1, count) * 0.62);
-    const z0 = -1.0 - span / 2;
-    const z = count <= 1 ? (z0 + span / 2) : (z0 + (slot / (count - 1)) * span);
-    return { x: SHELF_X, y: TRAY_TOP + TURN_DIE_HALF, z: z };
+    const maxSpan = (DRAG_X_LIMIT * 2) * 0.92;
+    const span = Math.min(maxSpan, Math.max(1, count) * 0.74);
+    const x0 = -span / 2;
+    const x = count <= 1 ? 0 : (x0 + (slot / (count - 1)) * span);
+    return { x: x, y: TURN_DIE_HALF, z: SHELF_Z };
   }
 
-  // (Re)build the shelf tray to fit `count` kept dice.
-  function ensureTray(count) {
-    removeTray();
-    if (count <= 0) return;
-    const span = Math.min(3.0, count * 0.62);
-    const z0 = -1.0 - span / 2;
-    const trayMat = new THREE.MeshStandardMaterial({
-      color: 0x2a1c4a, roughness: 0.6, metalness: 0.15,
-      emissive: 0xf5a623, emissiveIntensity: 0.07
-    });
-    heldTray = new THREE.Mesh(
-      new THREE.BoxGeometry(TURN_DIE_SIZE + 0.36, TRAY_TOP, span + 0.55),
-      trayMat
-    );
-    heldTray.position.set(SHELF_X, TRAY_TOP / 2, z0 + span / 2);
-    heldTray.receiveShadow = true;
-    scene.add(heldTray);
-  }
+  // No physical tray any more — keep the hook so callers stay simple, but it
+  // just clears any leftover tray mesh from older sessions.
+  function ensureTray(count) { removeTray(); }
 
   function keptIndices() {
     const out = [];
@@ -1015,12 +1005,15 @@
       const yaw = ((kept[s] * 37) % 21 - 10) * (Math.PI / 180);
       const q = quatForFaceUp(b._value, yaw);
       if (animate) {
-        startFly(b, pos, q);
+        // Kept dice stay non-colliding on the shelf so later throws pass
+        // through them instead of knocking the rack around.
+        startFly(b, pos, q, () => { b.collisionResponse = false; });
       } else {
         b.type = CANNON.Body.KINEMATIC;
         b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0);
         b.position.set(pos.x, pos.y, pos.z);
         b.quaternion.copy(q);
+        b.collisionResponse = false;
       }
     }
   }
@@ -1223,16 +1216,49 @@
     return String(s).replace(/[&<>"']/g, c =>
       ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+  // Self-contained scoring computation so the 3D overlay always shows options,
+  // even if possibilities.js hasn't loaded (or a stale copy is cached). Falls
+  // back to the shared helper when present, otherwise reads the game globals.
+  function turnPossibilities(hand) {
+    try {
+      if (typeof window.computeDicePossibilities === 'function') {
+        const r = window.computeDicePossibilities(hand);
+        if (Array.isArray(r) && r.length) return r;
+      }
+    } catch (_) {}
+    try {
+      if (typeof categories === 'undefined' || !Array.isArray(categories)) return [];
+      if (!hand.every(v => v > 0)) return [];
+      const sc = (typeof scores !== 'undefined' && scores) ? scores : {};
+      return categories
+        .filter(c => sc[c.id] === undefined)
+        .map(c => { let p = 0; try { p = c.calc(hand) | 0; } catch (_) {} return { cat: c, points: p }; })
+        .filter(o => o.points > 0)
+        .sort((a, b) => b.points - a.points || (b.cat.max || 0) - (a.cat.max || 0));
+    } catch (_) { return []; }
+  }
+  function turnStrikes() {
+    try {
+      if (typeof window.computeStrikeSuggestions === 'function') {
+        const r = window.computeStrikeSuggestions();
+        if (Array.isArray(r) && r.length) return r;
+      }
+    } catch (_) {}
+    try {
+      if (typeof categories === 'undefined' || !Array.isArray(categories)) return [];
+      const sc = (typeof scores !== 'undefined' && scores) ? scores : {};
+      return categories
+        .filter(c => sc[c.id] === undefined)
+        .map(c => ({ cat: c }))
+        .sort((a, b) => (a.cat.max || 0) - (b.cat.max || 0));
+    } catch (_) { return []; }
+  }
+
   function renderSuggest(hand) {
     if (!overlay) return;
     const el = overlay.querySelector('#dice3dSuggest');
     if (!el) return;
-    let opts = [];
-    try {
-      if (typeof window.computeDicePossibilities === 'function') {
-        opts = window.computeDicePossibilities(hand) || [];
-      }
-    } catch (_) { opts = []; }
+    const opts = turnPossibilities(hand) || [];
 
     if (opts.length) {
       const chips = opts.slice(0, 6).map(({ cat, points }, i) => {
@@ -1247,12 +1273,7 @@
         '<div class="d3d-sug-list">' + chips + '</div>';
     } else {
       // No category scores this hand — surface the cheapest strike instead.
-      let strikes = [];
-      try {
-        if (typeof window.computeStrikeSuggestions === 'function') {
-          strikes = window.computeStrikeSuggestions() || [];
-        }
-      } catch (_) { strikes = []; }
+      const strikes = turnStrikes() || [];
       if (!strikes.length) { el.innerHTML = ''; el.classList.remove('show'); return; }
       const chips = strikes.slice(0, 6).map(({ cat }, i) => {
         const best = i === 0 ? ' d3d-sug-best' : '';
