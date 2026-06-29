@@ -58,7 +58,10 @@
       '.dice-section .dice-row.tr-no-rolls:has(.die.held){flex-wrap:nowrap !important;}',
       '.dice-section .dice-row.tr-no-rolls .die-wrap:has(.die.held){order:0 !important;}',
       '.dice-section .dice-row.tr-no-rolls .tr-shelf-break{display:none !important;}',
-      '.dice-section .dice-row.tr-no-rolls .die.held{transform:none !important;}'
+      '.dice-section .dice-row.tr-no-rolls .die.held{transform:none !important;}',
+      /* No rolls left: hide the HOLD / RELEASE buttons — there is no next
+         roll for a hold to affect, so the controls are meaningless. */
+      '.dice-section .dice-row.tr-no-rolls .die-hold-btn{display:none !important;}'
     ].join('');
     (document.head || document.documentElement).appendChild(st);
   }
