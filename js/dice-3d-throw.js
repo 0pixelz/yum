@@ -372,45 +372,50 @@
     // the very end so the wordmark reads "orange" overall on the floor,
     // matching the lobby header's vivid look.
     const wordX = logoX + markSize + gap;
-    const wordGrad = ctx.createLinearGradient(
-      wordX, cy - fontSize * 0.5,
-      wordX + wordW, cy + fontSize * 0.5
-    );
-    wordGrad.addColorStop(0,    '#ffb347');
-    wordGrad.addColorStop(0.55, '#f5871a');
-    wordGrad.addColorStop(1,    BRAND.accent);
+    // Vertical metallic gold gradient — solid fill (no hard black outline) so
+    // the letters minify cleanly on the angled floor instead of breaking into
+    // stripes / dark fringing.
+    const wordGrad = ctx.createLinearGradient(0, cy - fontSize * 0.55, 0, cy + fontSize * 0.55);
+    wordGrad.addColorStop(0,    '#ffe7b3');
+    wordGrad.addColorStop(0.5,  '#f7a637');
+    wordGrad.addColorStop(1,    '#e87a1b');
 
-    // Soft glow pass under the letters — kept light so the edges stay crisp
-    // instead of fuzzing into a halo.
-    ctx.save();
-    ctx.shadowColor = 'rgba(239,122,18,0.45)';
-    ctx.shadowBlur = 14;
-    ctx.fillStyle = wordGrad;
-    let x = wordX;
-    for (let i = 0; i < text.length; i++) {
-      ctx.fillText(text[i], x, cy);
-      x += widths[i] + letterSpacing;
-    }
-    ctx.restore();
-
-    // Crisp gradient passes for sharp, punchy letters (no shadow)
-    ctx.fillStyle = wordGrad;
-    for (let pass = 0; pass < 2; pass++) {
-      x = wordX;
+    const drawWord = () => {
+      let x = wordX;
       for (let i = 0; i < text.length; i++) {
         ctx.fillText(text[i], x, cy);
         x += widths[i] + letterSpacing;
       }
-    }
-    // Crisp dark outline so the letters pop against the felt
+    };
+
+    // Slightly translucent so it reads as a tasteful watermark and any residual
+    // aliasing stays subtle against the felt.
+    ctx.save();
+    ctx.globalAlpha = 0.9;
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-    ctx.lineWidth = 5;
-    x = wordX;
+
+    // Soft drop shadow for depth (replaces the hard black outline).
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 9;
+    ctx.fillStyle = wordGrad;
+    drawWord();
+    ctx.restore();
+
+    // Clean fill pass on top.
+    ctx.fillStyle = wordGrad;
+    drawWord();
+
+    // Thin warm-brown edge (not black) for just enough definition.
+    ctx.strokeStyle = 'rgba(120,58,10,0.4)';
+    ctx.lineWidth = 3;
+    let sx = wordX;
     for (let i = 0; i < text.length; i++) {
-      ctx.strokeText(text[i], x, cy);
-      x += widths[i] + letterSpacing;
+      ctx.strokeText(text[i], sx, cy);
+      sx += widths[i] + letterSpacing;
     }
+    ctx.restore();
 
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = 16;
