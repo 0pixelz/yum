@@ -131,6 +131,13 @@
         console.warn('Failed to remove /users/' + uid, e);
         throw new Error('Could not remove your data: ' + ((e && e.code) || e.message || e));
       }
+      // Best-effort removal of the public leaderboard entry. Failure here
+      // shouldn't block account deletion.
+      try {
+        await window.db.ref('leaderboard/' + uid).remove();
+      } catch(e) {
+        console.warn('Failed to remove /leaderboard/' + uid, e);
+      }
     }
 
     // Delete the Firebase Auth account itself. Google requires a recent

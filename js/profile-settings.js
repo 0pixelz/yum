@@ -286,6 +286,12 @@
 
         <div class="ps-section-label">PROGRESS</div>
 
+        <button type="button" class="ps-row" id="psLeaderboardRow">
+          <span class="ps-row-icon"><i class="icn icn-medal"></i></span>
+          <span class="ps-row-label">Leaderboard</span>
+          <span class="ps-row-chev">›</span>
+        </button>
+
         <button type="button" class="ps-row" id="psAchRow">
           <span class="ps-row-icon"><i class="icn icn-trophy"></i></span>
           <span class="ps-row-label">Achievements</span>
@@ -341,6 +347,14 @@
         ensureLobbyVisibleForOverlay(window.openSkinStore);
       } else if (window.showToast) {
         showToast('Dice skins unavailable');
+      }
+    });
+
+    document.getElementById('psLeaderboardRow').addEventListener('click', () => {
+      if (typeof window.openLeaderboard === 'function') {
+        ensureLobbyVisibleForOverlay(window.openLeaderboard);
+      } else if (window.showToast) {
+        showToast('Leaderboard unavailable');
       }
     });
 

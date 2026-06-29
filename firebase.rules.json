@@ -371,6 +371,23 @@
           "$other":   { ".validate": false }
         }
       }
+    },
+    "leaderboard": {
+      ".read": "auth != null",
+      ".indexOn": ["totalWins", "onlineWins", "botWins"],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "(!newData.exists()) || newData.hasChildren(['name'])",
+        "name":         { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+        "avatar":       { ".validate": "(!newData.exists()) || newData.val() === null || (newData.isString() && newData.val().length <= 30)" },
+        "onlineWins":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "onlineLosses": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "botWins":      { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "botLosses":    { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "totalWins":    { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "updatedAt":    { ".validate": "newData.isNumber() && newData.val() <= now + 5000" },
+        "$other":       { ".validate": false }
+      }
     }
   }
 }
