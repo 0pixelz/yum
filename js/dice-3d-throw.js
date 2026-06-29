@@ -68,8 +68,9 @@
   let turnPick = null;             // category id the player tapped to score
   let turnResolve = null;          // resolves the interactive-turn promise
   let flyTweens = [];              // {body, fromP, toP, fromQ, toQ, t, dur, onDone}
-  let actionsEl = null;            // bottom action row (reroll / done)
+  let actionsEl = null;            // bottom action row (done)
   let keptEl = null;               // 2D "kept" dice faces shown under the header
+  let rerollEl = null;             // floating "Roll again" button on the table
   const TRAY_TOP = 0.16;           // top surface height of the kept shelf
   // SHELF_X depends on WALL_SIDE (declared further down); set after it.
 
@@ -497,7 +498,8 @@
       '<div class="d3d-title">YAMIO</div>' +
       '<div class="d3d-opp-rolls" id="dice3dOppRolls"></div>' +
       '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas>' +
-        '<div class="d3d-kept" id="dice3dKept"></div></div>' +
+        '<div class="d3d-kept" id="dice3dKept"></div>' +
+        '<div class="d3d-reroll" id="dice3dReroll"></div></div>' +
       '<div class="d3d-suggest" id="dice3dSuggest"></div>' +
       '<div class="d3d-actions" id="dice3dActions"></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
@@ -508,6 +510,7 @@
     cancelBtn = overlay.querySelector('#dice3dCancel');
     actionsEl = overlay.querySelector('#dice3dActions');
     keptEl = overlay.querySelector('#dice3dKept');
+    rerollEl = overlay.querySelector('#dice3dReroll');
     _renderOppRolls();
     cancelBtn.addEventListener('click', () => {
       if (mode === 'spectator') {
@@ -1419,32 +1422,50 @@
     if (el) { el.innerHTML = ''; el.classList.remove('show'); }
   }
 
-  // Roll-again / Done controls shown alongside the suggestions after a settle.
+  // Bottom row now just owns "Done"; "Roll again" floats on the table.
   function renderActions() {
     if (!actionsEl) return;
-    const nonKept = multiDiceBodies.filter(b => !b._kept).length;
-    const rollsRemain = turnRollsLeft - turnRollsUsed;
-    let html = '<div class="d3d-act-row">';
-    if (rollsRemain > 0 && nonKept > 0) {
-      html += '<button class="d3d-act-btn d3d-act-roll" data-act="roll">↻ Roll again' +
-        '<span class="d3d-act-sub">' + rollsRemain + ' left</span></button>';
-    }
-    html += '<button class="d3d-act-btn d3d-act-done" data-act="done">Done</button>';
-    html += '</div>';
-    actionsEl.innerHTML = html;
+    actionsEl.innerHTML =
+      '<div class="d3d-act-row">' +
+        '<button class="d3d-act-btn d3d-act-done" data-act="done">Done</button>' +
+      '</div>';
     actionsEl.classList.add('show');
-    // The actions row owns "Done" now, so hide the bottom Skip button.
     if (cancelBtn) cancelBtn.style.display = 'none';
     actionsEl.querySelectorAll('[data-act]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (btn.getAttribute('data-act') === 'roll') rerollTurn();
-        else finalizeTurn(null);
-      });
+      btn.addEventListener('click', () => { finalizeTurn(null); });
     });
+    renderReroll();
   }
 
   function clearActions() {
     if (actionsEl) { actionsEl.innerHTML = ''; actionsEl.classList.remove('show'); }
+    clearReroll();
+  }
+
+  // Floating "Roll again" button on the table, with reroll dots showing how
+  // many rolls are left. Pops in (CSS) so the player notices they can re-roll.
+  function renderReroll() {
+    if (!rerollEl) return;
+    const nonKept = multiDiceBodies.filter(b => !b._kept).length;
+    const rollsRemain = turnRollsLeft - turnRollsUsed;
+    if (!turnSettled || rollsRemain <= 0 || nonKept === 0) { clearReroll(); return; }
+    const lit = Math.max(0, Math.min(3, rollsRemain));
+    let pips = '';
+    for (let i = 0; i < 3; i++) pips += '<i class="d3d-rr-pip' + (i < lit ? ' on' : '') + '"></i>';
+    // Rebuilding the element replays its CSS pop animation each time.
+    rerollEl.innerHTML =
+      '<button class="d3d-rr-btn" type="button">' +
+        '<span class="d3d-rr-top"><span class="d3d-rr-icon">↻</span>' +
+        '<span class="d3d-rr-label">ROLL AGAIN</span></span>' +
+        '<span class="d3d-rr-pips">' + pips + '</span>' +
+      '</button>';
+    rerollEl.classList.add('show');
+    const btn = rerollEl.querySelector('.d3d-rr-btn');
+    if (btn) btn.addEventListener('click', rerollTurn);
+  }
+
+  function clearReroll() {
+    if (rerollEl) { rerollEl.innerHTML = ''; rerollEl.classList.remove('show'); }
   }
 
   // Re-arm the in-play dice for another flick (keeps the kept dice on the shelf).

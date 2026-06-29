@@ -2279,6 +2279,49 @@
     opacity: 0.8;
   }
 
+  /* Floating "Roll again" button on the table, with reroll dots */
+  #dice3dOverlay .d3d-reroll {
+    position: absolute; left: 50%; bottom: 6%;
+    transform: translateX(-50%);
+    z-index: 4; display: none; pointer-events: none;
+    text-align: center;
+  }
+  #dice3dOverlay .d3d-reroll.show { display: block; }
+  #dice3dOverlay .d3d-rr-btn {
+    pointer-events: auto;
+    display: inline-flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 11px 26px; border-radius: 24px;
+    border: 1px solid rgba(78,205,196,0.7);
+    background: linear-gradient(135deg, rgba(78,205,196,0.34), rgba(245,166,35,0.20));
+    color: var(--green); cursor: pointer;
+    font-family: 'Bebas Neue', cursive; font-size: 1.1rem; letter-spacing: 2px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.45), 0 0 16px rgba(78,205,196,0.35);
+    animation: rrPop 0.42s cubic-bezier(0.34,1.56,0.64,1),
+               rrPulse 1.9s ease-in-out 0.5s infinite;
+  }
+  #dice3dOverlay .d3d-rr-btn:active { transform: scale(0.94); }
+  #dice3dOverlay .d3d-rr-top { display: inline-flex; align-items: center; gap: 8px; }
+  #dice3dOverlay .d3d-rr-icon { font-size: 1.25rem; line-height: 1; }
+  #dice3dOverlay .d3d-rr-pips { display: inline-flex; gap: 6px; }
+  #dice3dOverlay .d3d-rr-pip {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: rgba(255,255,255,0.22);
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  #dice3dOverlay .d3d-rr-pip.on {
+    background: var(--gold);
+    box-shadow: 0 0 8px rgba(245,166,35,0.85);
+  }
+  @keyframes rrPop {
+    0%   { transform: scale(0.5);  opacity: 0; }
+    60%  { transform: scale(1.12); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  @keyframes rrPulse {
+    0%, 100% { box-shadow: 0 6px 20px rgba(0,0,0,0.45), 0 0 14px rgba(78,205,196,0.30); }
+    50%      { box-shadow: 0 6px 22px rgba(0,0,0,0.5),  0 0 28px rgba(78,205,196,0.65); }
+  }
+
   /* Kept dice shown as flat 2D faces, floated over the dark top of the 3D
      scene so they don't squeeze the canvas. */
   /* Holding-placement band under the header. Always present (even with no kept
