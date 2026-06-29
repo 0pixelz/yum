@@ -252,6 +252,7 @@ function toggleHold(i) {
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
   if(botMode && !playerTurn) { showToast('Wait for the bot!'); return; }
   if(dice[i] === 0) return;
+  if(rollsLeft <= 0) return; // no rolls left — holding a die is useless
   held[i] = !held[i];
   held[i] ? SFX.hold() : SFX.unhold();
   renderDice();
@@ -335,9 +336,13 @@ function renderDice(justRolled) {
     }
     el.textContent = face;
     if (typeof window.applyDieSkinAttr === 'function') window.applyDieSkinAttr(el, i);
-    el.classList.toggle('held', held[i]);
+    // On the final roll there is no next roll for a hold to affect, so show
+    // every die white (unheld) regardless of its stored hold state. We read
+    // the real held[] above for the spin animation, but never paint it gold.
+    const showHeld = held[i] && rollsLeft > 0;
+    el.classList.toggle('held', showHeld);
     const hBtn = row.querySelector(`[data-hold="${i}"]`);
-    if(hBtn) hBtn.classList.toggle('held-active', held[i]);
+    if(hBtn) hBtn.classList.toggle('held-active', showHeld);
   });
 }
 
