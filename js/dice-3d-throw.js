@@ -332,12 +332,11 @@
     c.width = S; c.height = S;
     const ctx = c.getContext('2d');
 
-    // Navy-blue felt — matches the holding-area band so the throw table reads
-    // blue, not black.
+    // Dark navy felt — matches the dim band under the header (not light blue).
     const g = ctx.createRadialGradient(S/2, S * 0.40, 80, S/2, S * 0.55, S * 0.72);
-    g.addColorStop(0,    '#21356b');
-    g.addColorStop(0.55, '#162a50');
-    g.addColorStop(1,    '#0f2040');
+    g.addColorStop(0,    '#1b2744');
+    g.addColorStop(0.55, '#131c33');
+    g.addColorStop(1,    '#0c1226');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, S, S);
 
@@ -430,10 +429,10 @@
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    // Navy → blue, matching the holding-area band (no near-black bottom).
-    g.addColorStop(0,    '#243766');
-    g.addColorStop(0.5,  '#173153');
-    g.addColorStop(1,    '#0f2849');
+    // Dark navy — matches the dim band under the header.
+    g.addColorStop(0,    '#18223e');
+    g.addColorStop(0.5,  '#111a31');
+    g.addColorStop(1,    '#0a1022');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
     // soft teal glow near the top centre
@@ -535,8 +534,8 @@
 
   function initScene() {
     scene = new THREE.Scene();
-    // Navy fog matching the backdrop so the play area fades into blue, not black.
-    scene.fog = new THREE.Fog(0x122544, 16, 32);
+    // Dark-navy fog matching the backdrop.
+    scene.fog = new THREE.Fog(0x0c1428, 16, 32);
     scene.background = makeBackgroundTexture();
 
     const w = canvasEl.clientWidth || 1;
@@ -554,8 +553,9 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     // Filmic tone mapping for richer, less "flat" colour on the dice + felt.
+    // Exposure kept under 1 so the dice don't wash out to pale cream.
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 0.92;
 
     // Image-based lighting from a generated gradient env so the dice pick up
     // soft warm/teal highlights (no external HDR needed). Best-effort.
@@ -568,8 +568,8 @@
       pmrem.dispose();
     } catch (e) { console.warn('3D env setup skipped', e); }
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-    const key = new THREE.DirectionalLight(0xffffff, 1.2);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+    const key = new THREE.DirectionalLight(0xffffff, 1.05);
     key.position.set(4, 9, 6);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -603,10 +603,9 @@
     floorMesh.receiveShadow = true;
     scene.add(floorMesh);
 
-    // Outer surround — navy (not black) so the table edges blend into the
-    // gradient backdrop instead of going dark.
+    // Outer surround — dark navy so the table edges blend into the backdrop.
     const surroundMat = new THREE.MeshStandardMaterial({
-      color: 0x0e1c3a, roughness: 0.95, metalness: 0.0
+      color: 0x0a1024, roughness: 0.95, metalness: 0.0
     });
     const surround = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), surroundMat);
     surround.rotation.x = -Math.PI / 2;
@@ -617,9 +616,9 @@
     const geo = makeRoundedBoxGeometry(DIE_SIZE, DIE_BEVEL, 6);
     const mats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
       map: makeFaceTexture(n),
-      roughness: 0.26,
-      metalness: 0.18,
-      envMapIntensity: 0.85,
+      roughness: 0.32,
+      metalness: 0.15,
+      envMapIntensity: 0.45,
       color: 0xffffff
     }));
     dieMesh = new THREE.Mesh(geo, mats);
@@ -1488,9 +1487,9 @@
     if (!multiMats) {
       multiMats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
         map: makeFaceTexture(n),
-        roughness: 0.26,
-        metalness: 0.18,
-        envMapIntensity: 0.85,
+        roughness: 0.32,
+        metalness: 0.15,
+        envMapIntensity: 0.45,
         color: 0xffffff
       }));
     }
