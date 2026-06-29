@@ -430,8 +430,8 @@
     overlay.innerHTML =
       '<div class="d3d-title">YAMIO</div>' +
       '<div class="d3d-opp-rolls" id="dice3dOppRolls"></div>' +
-      '<div class="d3d-kept" id="dice3dKept"></div>' +
-      '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas></div>' +
+      '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas>' +
+        '<div class="d3d-kept" id="dice3dKept"></div></div>' +
       '<div class="d3d-suggest" id="dice3dSuggest"></div>' +
       '<div class="d3d-actions" id="dice3dActions"></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
