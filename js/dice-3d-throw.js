@@ -77,6 +77,7 @@
   let rerollEl = null;             // floating "Roll again" button on the table
   let scorecardEl = null;          // slide-up scorecard panel (peek / strike a category)
   let bonusEl = null;              // slide-up power-up "bonus" panel (power-up mode only)
+  let preBonusEl = null;           // "Use Bonus" button shown before the first throw
   let yamEl = null;                // fireworks + "YAM!" celebration layer over the table
   const TRAY_TOP = 0.16;           // top surface height of the kept shelf
   // SHELF_X depends on WALL_SIDE (declared further down); set after it.
@@ -727,6 +728,7 @@
         '<div class="d3d-yam" id="dice3dYam"></div></div>' +
       '<div class="d3d-suggest" id="dice3dSuggest"></div>' +
       '<div class="d3d-actions" id="dice3dActions"></div>' +
+      '<div class="d3d-prebonus" id="dice3dPreBonus"></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
       '<button class="d3d-cancel" id="dice3dCancel">Skip throw</button>';
     document.body.appendChild(overlay);
@@ -738,6 +740,7 @@
     rerollEl = overlay.querySelector('#dice3dReroll');
     scorecardEl = overlay.querySelector('#dice3dScorecard');
     bonusEl = overlay.querySelector('#dice3dBonus');
+    preBonusEl = overlay.querySelector('#dice3dPreBonus');
     yamEl = overlay.querySelector('#dice3dYam');
     _renderOppRolls();
     cancelBtn.addEventListener('click', () => {
@@ -1498,6 +1501,7 @@
     multiPointerSamples = [];
     multiLastDragP = null;
     multiSettleStart = 0;
+    renderPreThrowBonus();   // offer "Use Bonus" while the dice wait for a flick
   }
 
   function turnSfx(name) {
@@ -1826,6 +1830,7 @@
   // instead, so the player can still see their power-ups at the end of the roll.
   function renderActions() {
     if (!actionsEl) return;
+    clearPreThrowBonus();   // settle UI takes over from the pre-throw bonus button
     const rollsRemain = turnRollsLeft - turnRollsUsed;
     const nonKept = multiDiceBodies.filter(b => !b._kept).length;
     const bonusHere = powerupActive() && (rollsRemain <= 0 || nonKept === 0);
@@ -1858,6 +1863,7 @@
     clearReroll();
     closeScorecard();
     closeBonus();
+    clearPreThrowBonus();
     clearYam();
   }
 
@@ -2042,21 +2048,24 @@
     const countMap = {};
     inv.forEach(id => { countMap[id] = (countMap[id] || 0) + 1; });
     const ids = Object.keys(countMap);
-    let body;
+    let body, note;
     if (!ids.length) {
+      note = 'Bonus power-ups you\'ve earned this game.';
       body = '<div class="d3d-sc-note">No power-ups yet — roll a YAM (5 of a kind) or hit the upper bonus to earn one.</div>';
     } else {
+      note = 'Tap a power-up to use it.';
       body = '<div class="d3d-bonus-list">' + ids.map(id => {
         const p = defs.find(x => x.id === id) || { name: id, desc: '', icon: '' };
         const cnt = countMap[id];
-        return '<div class="d3d-bonus-row">' +
+        return '<button class="d3d-bonus-row" type="button" data-pup="' + _escSug(id) + '">' +
           '<span class="d3d-bonus-ic">' + (p.icon || '⚡') + '</span>' +
           '<span class="d3d-bonus-text">' +
             '<span class="d3d-bonus-name">' + _escSug(p.name) +
               (cnt > 1 ? ' <b>×' + cnt + '</b>' : '') + '</span>' +
             '<span class="d3d-bonus-desc">' + _escSug(p.desc || '') + '</span>' +
           '</span>' +
-        '</div>';
+          '<span class="d3d-bonus-use">USE</span>' +
+        '</button>';
       }).join('') + '</div>';
     }
     bonusEl.innerHTML =
@@ -2065,10 +2074,91 @@
           '<span class="d3d-sc-title">Power-Ups</span>' +
           '<button class="d3d-sc-close" type="button" title="Close">✕</button>' +
         '</div>' +
-        '<div class="d3d-sc-note">Bonus power-ups you\'ve earned this game.</div>' +
+        '<div class="d3d-sc-note">' + note + '</div>' +
         body +
       '</div>';
     bonusEl.querySelector('.d3d-sc-close').addEventListener('click', closeBonus);
+    bonusEl.querySelectorAll('.d3d-bonus-row[data-pup]').forEach(btn => {
+      btn.addEventListener('click', () => useBonusPowerup(btn.getAttribute('data-pup')));
+    });
+  }
+
+  // Activate a power-up from inside the 3D overlay. Extra Roll / Double Points
+  // map cleanly and keep the player in the 3D roll; Yam-or-Strike and Chance
+  // Roll set up the dice directly, so they hand the turn back to the 2D board.
+  function useBonusPowerup(id) {
+    if (typeof activatePowerup !== 'function') {
+      if (typeof showToast === 'function') showToast('Power-ups unavailable right now.');
+      return;
+    }
+    const toast = (m) => { if (typeof showToast === 'function') showToast(m); };
+    switch (id) {
+      case 'extraRoll': {
+        activatePowerup('extraRoll');     // 2D: rollsLeft++ and consume
+        turnRollsLeft += 1;               // 3D: grant the extra throw this turn
+        closeBonus();
+        if (!turnSettled) statusEl.textContent = 'Extra roll granted — flick to throw!';
+        refreshBonusButtons();
+        break;
+      }
+      case 'doublePoints': {
+        activatePowerup('doublePoints');  // 2D flag, applied when you score
+        closeBonus();
+        toast('Double Points armed — score any category to double it!');
+        refreshBonusButtons();
+        break;
+      }
+      case 'undoMove': {
+        activatePowerup('undoMove');      // operates on the 2D scorecard
+        closeBonus();
+        refreshBonusButtons();
+        break;
+      }
+      case 'yamOrStrike':
+      case 'chanceRoll': {
+        // These replace the roll by setting the dice directly — only valid
+        // before the first throw; then hand the turn back to the board.
+        if (turnRollsUsed > 0) {
+          toast('Use this before your first throw.');
+          return;
+        }
+        closeBonus();
+        finalizeTurn(null, true);         // close the 3D overlay (no writeback)
+        setTimeout(() => { try { activatePowerup(id); } catch (_) {} }, 360);
+        break;
+      }
+      case 'freezeDie':
+      case 'luckyDice':
+      default:
+        toast('Use Freeze / Lucky from the board after you roll.');
+        break;
+    }
+  }
+
+  // ── "Use Bonus" button shown before the first throw (power-up mode) ──
+  // Mirrors the bottom action-row bonus button, but visible while the dice are
+  // armed and waiting for a flick, so power-ups can be used before throwing.
+  function renderPreThrowBonus() {
+    if (!preBonusEl) return;
+    const show = interactiveTurn && powerupActive() &&
+      multiReady && !turnSettled && !multiThrowing;
+    if (!show) { clearPreThrowBonus(); return; }
+    const invN = powerupInventory().length;
+    preBonusEl.innerHTML =
+      '<button class="d3d-act-btn d3d-act-bonus" type="button">⚡ Use Bonus' +
+        (invN ? ' (' + invN + ')' : '') + '</button>';
+    preBonusEl.classList.add('show');
+    const b = preBonusEl.querySelector('button');
+    if (b) b.addEventListener('click', openBonus);
+  }
+  function clearPreThrowBonus() {
+    if (preBonusEl) { preBonusEl.innerHTML = ''; preBonusEl.classList.remove('show'); }
+  }
+  // Refresh whichever bonus buttons are currently on screen (counts change when
+  // a power-up is consumed).
+  function refreshBonusButtons() {
+    if (!turnSettled) renderPreThrowBonus();
+    else renderActions();
   }
 
   // Re-arm the in-play dice for another flick (keeps the kept dice on the shelf).
@@ -2328,6 +2418,8 @@
     multiThrowing = true;
     multiRelaxTries = 0;
     multiSettleStart = performance.now();
+    clearPreThrowBonus();
+    closeBonus();
     statusEl.textContent = 'Rolling…';
     playThrowClatter();
   }
