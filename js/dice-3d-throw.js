@@ -13,6 +13,8 @@
   let THREE, CANNON;
   let scene, camera, renderer;
   let world, dieBody, dieMesh, floorMesh;
+  let dieMats = null;          // single-die face materials (themed by active skin)
+  let currentThemeKey = null;  // signature of the skin/colour the textures were built for
   let floorPMat = null, diePMat = null;
   let overlay, canvasEl, statusEl, cancelBtn;
   let rafId = null;
@@ -193,50 +195,182 @@
     white:  '#f0f0f0'
   };
 
-  // The 3D die's faces are styled after the brand dice mark (#yum-mark):
-  // warm gold radial face with dark-brown pips. The canvas is filled edge to
-  // edge so the rounded corners of the geometry show face color too.
-  function makeFaceTexture(num) {
+  // ── Dice-skin → 3D theme ─────────────────────────────────────────
+  // The 3D die mirrors whatever skin the player has equipped in the 2D game.
+  // The equipped skin id lives in localStorage 'yum_active_dice_skin' and, for
+  // the Classic skin, an optional custom face colour in 'yum_custom_dice_color'.
+  // A theme is { stops:[[pos,color]…] (face radial gradient), pip, glow? }.
+  function _hexRGB(h) {
+    h = String(h || '').trim();
+    if (h[0] === '#') h = h.slice(1);
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    const n = parseInt(h, 16);
+    if (isNaN(n) || h.length < 6) return { r: 248, g: 248, b: 248 };
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  function _toHex(r, g, b) {
+    const c = v => ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2);
+    return '#' + c(r) + c(g) + c(b);
+  }
+  function _mixHex(a, b, t) {
+    const x = _hexRGB(a), y = _hexRGB(b);
+    return _toHex(x.r + (y.r - x.r) * t, x.g + (y.g - x.g) * t, x.b + (y.b - x.b) * t);
+  }
+  const _lighten = (h, t) => _mixHex(h, '#ffffff', t);
+  const _darken  = (h, t) => _mixHex(h, '#000000', t);
+  function _lum(h) { const { r, g, b } = _hexRGB(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+  function _rgba(h, a) { const { r, g, b } = _hexRGB(h); return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')'; }
+  // A single base colour expanded into a shaded face gradient + contrasting pip.
+  function _solidTheme(hex, pip) {
+    return {
+      stops: [
+        [0,    _lighten(hex, 0.5)],
+        [0.34, _lighten(hex, 0.14)],
+        [0.72, _darken(hex, 0.14)],
+        [1,    _darken(hex, 0.42)]
+      ],
+      pip: pip || (_lum(hex) > 0.55 ? '#141414' : '#f5f5f5')
+    };
+  }
+
+  // Premium / gradient skins — explicit stops tuned to match each 2D skin.
+  const PREMIUM_THEMES = {
+    gold:     { stops: [[0,'#fff7cc'],[0.34,'#ffdd80'],[0.72,'#f5a623'],[1,'#9c6206']], pip:'#2a1500' },
+    neon:     { stops: [[0,'#1c2c4a'],[0.5,'#101827'],[1,'#070c16']], pip:'#5fe0d6', glow:'#4ecdc4' },
+    ice:      { stops: [[0,'#f2fcff'],[0.4,'#c4ecff'],[1,'#7fcdf2']], pip:'#06283d' },
+    fire:     { stops: [[0,'#ffe7a0'],[0.4,'#ffc24a'],[0.74,'#ef5a3a'],[1,'#a01029']], pip:'#250203' },
+    galaxy:   { stops: [[0,'#c9a4ff'],[0.4,'#8b48f0'],[0.78,'#251049'],[1,'#0c0a20']], pip:'#f3eeff', glow:'#a855f7' },
+    candy:    { stops: [[0,'#fff1f8'],[0.45,'#fbcfe8'],[1,'#f487c0']], pip:'#be185d' },
+    ocean:    { stops: [[0,'#1f7fb8'],[0.45,'#0a5f96'],[1,'#072f52']], pip:'#cdeeff' },
+    midnight: { stops: [[0,'#2c3a55'],[0.5,'#141d31'],[1,'#020617']], pip:'#9fb0c8', glow:'#64748b' },
+    lava:     { stops: [[0,'#ffe55c'],[0.4,'#f59e0b'],[0.72,'#dc2626'],[1,'#6f1414']], pip:'#fff0bd', glow:'#f97316' },
+    rosegold: { stops: [[0,'#fff0f5'],[0.45,'#f9b8cc'],[1,'#e58aa0']], pip:'#7d1839' },
+    emerald:  { stops: [[0,'#86f2c8'],[0.4,'#10b981'],[1,'#064e3b']], pip:'#eafff6' },
+    ruby:     { stops: [[0,'#ff9fb2'],[0.4,'#ff3d60'],[1,'#7a1a1a']], pip:'#fff0f3' },
+    sapphire: { stops: [[0,'#a3c7ff'],[0.4,'#3b82f6'],[1,'#1b357f']], pip:'#eef4ff' },
+    sunset:   { stops: [[0,'#ffd6a3'],[0.4,'#f97316'],[0.78,'#ec4899'],[1,'#921248']], pip:'#fff6ec' },
+    aurora:   { stops: [[0,'#a3f7ff'],[0.34,'#22d3ee'],[0.68,'#a855f7'],[1,'#2f9968']], pip:'#f0fdfa', glow:'#22d3ee' },
+    obsidian: { stops: [[0,'#3c4965'],[0.45,'#101a30'],[1,'#000000']], pip:'#aab6c8' },
+    phantom:  { stops: [[0,'#f0f3f8'],[0.45,'#cbd5e1'],[1,'#46556b']], pip:'#1f2937', glow:'#cbd5e1' },
+    toxic:    { stops: [[0,'#dcfb7e'],[0.4,'#84cc16'],[1,'#33500f']], pip:'#f8ffe6', glow:'#bef264' },
+    frost:    { stops: [[0,'#f6fcff'],[0.4,'#aae1ff'],[1,'#0ea5e9']], pip:'#072e47' },
+    royal:    { stops: [[0,'#ffe39a'],[0.38,'#fbbf24'],[0.78,'#7c3aed'],[1,'#37106e']], pip:'#fff6d4', glow:'#a855f7' },
+    cosmic:   { stops: [[0,'#ffdf94'],[0.3,'#fbbf24'],[0.62,'#1e1b4b'],[1,'#020207']], pip:'#fef3c7', glow:'#a855f7' },
+    dragon:   { stops: [[0,'#ff6a6a'],[0.38,'#dc2626'],[0.7,'#1c0303'],[1,'#000000']], pip:'#ffe14d', glow:'#ef4444' },
+    mythic:   { stops: [[0,'#b06bff'],[0.33,'#22d3ee'],[0.62,'#fbbf24'],[1,'#ec4899']], pip:'#ffffff', glow:'#ffffff' },
+    diamond:  { stops: [[0,'#f5fdff'],[0.4,'#dbeafe'],[0.7,'#ede9fe'],[1,'#aeb8f5']], pip:'#241f5c', glow:'#c7d2fe' }
+  };
+  // Flat colour skins — base colour + pip, expanded into a shaded gradient.
+  const SOLID_THEMES = {
+    red:    ['#dc2626', '#fff5f5'], blue:  ['#2563eb', '#eef4ff'],
+    green:  ['#16a34a', '#effdf3'], purple:['#7c3aed', '#f5efff'],
+    orange: ['#ea580c', '#fff4ec'], pink:  ['#db2777', '#fff0f7'],
+    black:  ['#1c1c1c', '#eaeaea'], teal:  ['#0d9488', '#eafffb']
+  };
+
+  function _activeSkinId() {
+    try { return localStorage.getItem('yum_active_dice_skin') || 'classic'; }
+    catch (_) { return 'classic'; }
+  }
+  function _customDieColor() {
+    try { return localStorage.getItem('yum_custom_dice_color') || '#f8f8f8'; }
+    catch (_) { return '#f8f8f8'; }
+  }
+  // Identifies the currently-equipped look so we only rebuild textures on change.
+  function themeSignature() { return _activeSkinId() + '|' + _customDieColor(); }
+  // Resolve the equipped skin to a 3D theme. Classic (the default) honours the
+  // custom die colour, which itself defaults to white — so the "original" die
+  // is a clean white casino die.
+  function resolveDiceTheme() {
+    const skin = _activeSkinId();
+    if (PREMIUM_THEMES[skin]) return PREMIUM_THEMES[skin];
+    if (SOLID_THEMES[skin]) return _solidTheme(SOLID_THEMES[skin][0], SOLID_THEMES[skin][1]);
+    return _solidTheme(_customDieColor() || '#f8f8f8');
+  }
+  // Theme for an explicit skin id (used in spectator mode so an opponent's dice
+  // wear *their* equipped skin, not the local player's). Classic/unknown → white.
+  function themeForSkin(skinId) {
+    if (skinId && PREMIUM_THEMES[skinId]) return PREMIUM_THEMES[skinId];
+    if (skinId && SOLID_THEMES[skinId]) return _solidTheme(SOLID_THEMES[skinId][0], SOLID_THEMES[skinId][1]);
+    return _solidTheme('#f8f8f8');
+  }
+
+  // Rebuild the face textures of the single die + multi dice for the equipped
+  // skin. Cheap (six 512² canvases) and only runs when the overlay opens, so a
+  // skin change between turns is picked up without reloading the page.
+  function applyDiceTheme(force, skinOverride) {
+    if (!THREE) return;
+    const sig = (skinOverride != null) ? ('opp:' + skinOverride) : themeSignature();
+    if (!force && sig === currentThemeKey) return;
+    currentThemeKey = sig;
+    const theme = (skinOverride != null) ? themeForSkin(skinOverride) : resolveDiceTheme();
+    const update = (mats) => {
+      if (!mats) return;
+      mats.forEach((m, i) => {
+        const tex = makeFaceTexture(FACE_NUMBERS[i], theme);
+        if (m.map && m.map !== tex) { try { m.map.dispose(); } catch (_) {} }
+        m.map = tex;
+        m.needsUpdate = true;
+      });
+    };
+    update(dieMats);
+    update(multiMats);
+  }
+
+  // Paints one die face for the given number using the supplied theme. The
+  // canvas is filled edge to edge so the rounded corners of the geometry show
+  // face colour too; pips get a soft drop shadow, a recessed gradient body, an
+  // optional themed glow halo, and a small specular highlight.
+  function makeFaceTexture(num, theme) {
+    theme = theme || resolveDiceTheme();
+    const stops = theme.stops || [[0, '#ffffff'], [1, '#dddddd']];
+    const pipColor = theme.pip || '#141414';
+    const glow = theme.glow || null;
     const S = 512;
     const c = document.createElement('canvas');
     c.width = S; c.height = S;
     const ctx = c.getContext('2d');
 
-    // Saturated orange face — punchier than the SVG brand mark so the die
-    // doesn't average down to beige at game scale.
+    // Themed face — radial gradient from the highlight to the shadow edge.
     const faceGrad = ctx.createRadialGradient(S * 0.32, S * 0.28, 16, S * 0.5, S * 0.5, S * 0.95);
-    faceGrad.addColorStop(0,    '#ffd49a');
-    faceGrad.addColorStop(0.32, '#ffa84a');
-    faceGrad.addColorStop(0.72, '#ef7a12');
-    faceGrad.addColorStop(1,    '#a8480a');
+    stops.forEach(s => faceGrad.addColorStop(s[0], s[1]));
     ctx.fillStyle = faceGrad;
     ctx.fillRect(0, 0, S, S);
 
-    // Soft inset border — looks like the bevel edge from the brand mark
-    ctx.strokeStyle = 'rgba(70,30,5,0.55)';
+    // Soft inset border — reads as the bevelled edge of a casino die.
+    ctx.strokeStyle = theme.border || 'rgba(0,0,0,0.32)';
     ctx.lineWidth = 10;
     ctx.strokeRect(28, 28, S - 56, S - 56);
-    ctx.strokeStyle = 'rgba(255,210,138,0.45)';
+    ctx.strokeStyle = theme.borderInner || 'rgba(255,255,255,0.4)';
     ctx.lineWidth = 3;
     ctx.strokeRect(40, 40, S - 80, S - 80);
 
-    // Dark-brown pips (match the brand mark color, larger radius for the higher-res canvas)
+    const pipHi = _lighten(pipColor, 0.3);
+    const pipLo = _darken(pipColor, 0.45);
     const pip = (x, y) => {
+      // optional themed glow halo (neon / lava / galaxy …)
+      if (glow) {
+        const gg = ctx.createRadialGradient(x, y, 6, x, y, 64);
+        gg.addColorStop(0, _rgba(glow, 0.5));
+        gg.addColorStop(1, _rgba(glow, 0));
+        ctx.fillStyle = gg;
+        ctx.beginPath(); ctx.arc(x, y, 64, 0, Math.PI * 2); ctx.fill();
+      }
       // soft drop shadow beneath the pip for depth
       const sh = ctx.createRadialGradient(x, y + 4, 8, x, y + 6, 56);
-      sh.addColorStop(0, 'rgba(58,26,5,0.45)');
-      sh.addColorStop(1, 'rgba(58,26,5,0)');
+      sh.addColorStop(0, 'rgba(0,0,0,0.4)');
+      sh.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = sh;
       ctx.beginPath(); ctx.arc(x, y + 4, 56, 0, Math.PI * 2); ctx.fill();
       // pip — slight gradient for a recessed look
       const pg = ctx.createRadialGradient(x - 14, y - 14, 4, x, y, 44);
-      pg.addColorStop(0,    '#5a2a08');
-      pg.addColorStop(0.5,  '#3a1a05');
-      pg.addColorStop(1,    '#1a0a02');
+      pg.addColorStop(0,   pipHi);
+      pg.addColorStop(0.5, pipColor);
+      pg.addColorStop(1,   pipLo);
       ctx.fillStyle = pg;
       ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
       // small specular highlight
-      ctx.fillStyle = 'rgba(255,210,138,0.34)';
+      ctx.fillStyle = 'rgba(255,255,255,0.32)';
       ctx.beginPath(); ctx.arc(x - 14, y - 14, 8, 0, Math.PI * 2); ctx.fill();
     };
     // Standard pip positions, scaled from 256→512 (×2)
@@ -617,14 +751,16 @@
     scene.add(surround);
 
     const geo = makeRoundedBoxGeometry(DIE_SIZE, DIE_BEVEL, 6);
-    const mats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
-      map: makeFaceTexture(n),
+    const initTheme = resolveDiceTheme();
+    dieMats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
+      map: makeFaceTexture(n, initTheme),
       roughness: 0.32,
       metalness: 0.15,
       envMapIntensity: 0.45,
       color: 0xffffff
     }));
-    dieMesh = new THREE.Mesh(geo, mats);
+    currentThemeKey = themeSignature();
+    dieMesh = new THREE.Mesh(geo, dieMats);
     dieMesh.castShadow = true;
     scene.add(dieMesh);
 
@@ -1506,8 +1642,9 @@
     if (multiGeom) { try { multiGeom.dispose(); } catch (_) {} }
     multiGeom = makeRoundedBoxGeometry(size, bevel, 6);
     if (!multiMats) {
+      const theme = resolveDiceTheme();
       multiMats = FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
-        map: makeFaceTexture(n),
+        map: makeFaceTexture(n, theme),
         roughness: 0.32,
         metalness: 0.15,
         envMapIntensity: 0.45,
@@ -1760,6 +1897,7 @@
       turnSettled = false;
       turnResolve = null;
       if (dieMesh) dieMesh.visible = true;
+      applyDiceTheme();
       resetDie();
       statusEl.textContent = 'Drag the dice and flick to throw';
       cancelBtn.textContent = 'Skip throw';
@@ -1844,6 +1982,7 @@
       clearSuggest();
       clearActions();
       setupTurnDice(startDice, startHeld);
+      applyDiceTheme();
       if (_onOpenCb) { try { _onOpenCb(activeN || 5); } catch (_) {} }
       const keptN = startHeld.filter((b, i) => b && startDice[i] > 0).length;
       statusEl.textContent = keptN
@@ -1913,6 +2052,9 @@
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
       if (dieMesh) dieMesh.visible = false;
       setupMultiDice(n);
+      // Show the opponent's equipped skin on their streamed dice (defaults to
+      // classic white when the broadcast omits a skin id).
+      applyDiceTheme(false, o.skin || 'classic');
       // Freeze all bodies — meshes will follow body.position which we slam
       // each frame from the incoming stream.
       multiDiceBodies.forEach(b => {
