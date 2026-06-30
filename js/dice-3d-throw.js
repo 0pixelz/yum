@@ -2058,6 +2058,12 @@
         ? playerPowerups : [];
     } catch (_) { return []; }
   }
+  // After consuming a power-up from inside the 3D overlay, refresh the 2D power-up
+  // bar (and DB) so the count isn't stale once the overlay closes.
+  function syncPowerupUI() {
+    try { if (typeof renderPowerupBar === 'function') renderPowerupBar(); } catch (_) {}
+    try { if (typeof syncPowerupsToDb === 'function') syncPowerupsToDb(); } catch (_) {}
+  }
   function bonusPanelOpen() {
     return !!(bonusEl && bonusEl.classList.contains('show'));
   }
@@ -2156,6 +2162,7 @@
         try { yumOpen = !(typeof scores !== 'undefined' && scores && scores.yum !== undefined); } catch (_) {}
         if (!yumOpen) { toast("Yum slot already taken — can't use Yam or Strike!"); return; }
         if (typeof consumePowerup === 'function') { try { consumePowerup('yamOrStrike'); } catch (_) {} }
+        syncPowerupUI();
         closeBonus();
         startYamStrike3D();
         break;
@@ -2336,6 +2343,7 @@
     const b = multiDiceBodies[idx];
     if (!b || b._kept) return;
     if (typeof consumePowerup === 'function') { try { consumePowerup('luckyDice'); } catch (_) {} }
+    syncPowerupUI();           // keep the 2D power-up bar in sync
     luckyPending = false;
     removeLuckyHalos();
     if (cancelBtn) cancelBtn.style.display = 'none';
