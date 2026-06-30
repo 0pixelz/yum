@@ -71,6 +71,8 @@
   let turnRollsUsed = 0;           // physical throws performed this overlay
   let turnPick = null;             // category id the player tapped to score
   let turnResolve = null;          // resolves the interactive-turn promise
+  let yamStrike3D = false;         // running Yam-or-Strike inside the 3D overlay
+  let yamStrikeAttempts = 0;       // throws made (1 initial + up to 2 rerolls)
   let flyTweens = [];              // {body, fromP, toP, fromQ, toQ, t, dur, onDone}
   let actionsEl = null;            // bottom action row (done)
   let keptEl = null;               // 2D "kept" dice faces shown under the header
@@ -1240,6 +1242,8 @@
       turnRollsUsed = 0;
       turnPick = null;
       turnResolve = null;
+      yamStrike3D = false;
+      yamStrikeAttempts = 0;
       flyTweens = [];
       teardownMultiDice();
       teardownHeld();
@@ -1526,6 +1530,7 @@
 
   // Tap a kept face → release it back onto the felt (re-rolls next throw).
   function unholdDie(idx) {
+    if (yamStrike3D) return;   // the four locked 1s can't be released
     const b = multiDiceBodies[idx];
     if (!b || !b._kept) return;
     b._kept = false;
@@ -1662,6 +1667,7 @@
       const b = multiDiceBodies[i];
       if (!b._kept) b._value = topFaceFor(b);
     }
+    if (yamStrike3D) { settleYamStrike(); return; }
     updateSettleStatus();
     renderKeptRow();
     const hand = fullHandValues();
@@ -2114,17 +2120,24 @@
         refreshBonusButtons();
         break;
       }
-      case 'yamOrStrike':
+      case 'yamOrStrike': {
+        // First-roll only — play it out right here in the 3D overlay.
+        if (turnRollsUsed > 0) { toast('Use this before your first throw.'); return; }
+        let yumOpen = true;
+        try { yumOpen = !(typeof scores !== 'undefined' && scores && scores.yum !== undefined); } catch (_) {}
+        if (!yumOpen) { toast("Yum slot already taken — can't use Yam or Strike!"); return; }
+        if (typeof consumePowerup === 'function') { try { consumePowerup('yamOrStrike'); } catch (_) {} }
+        closeBonus();
+        startYamStrike3D();
+        break;
+      }
       case 'chanceRoll': {
-        // These replace the roll by setting the dice directly — only valid
-        // before the first throw; then hand the turn back to the board.
-        if (turnRollsUsed > 0) {
-          toast('Use this before your first throw.');
-          return;
-        }
+        // Sets the dice directly — only valid before the first throw; then hand
+        // the turn back to the board.
+        if (turnRollsUsed > 0) { toast('Use this before your first throw.'); return; }
         closeBonus();
         finalizeTurn(null, true);         // close the 3D overlay (no writeback)
-        setTimeout(() => { try { activatePowerup(id); } catch (_) {} }, 360);
+        setTimeout(() => { try { activatePowerup('chanceRoll'); } catch (_) {} }, 360);
         break;
       }
       case 'freezeDie':
@@ -2140,7 +2153,7 @@
   // armed and waiting for a flick, so power-ups can be used before throwing.
   function renderPreThrowBonus() {
     if (!preBonusEl) return;
-    const show = interactiveTurn && powerupActive() &&
+    const show = interactiveTurn && powerupActive() && !yamStrike3D &&
       multiReady && !turnSettled && !multiThrowing;
     if (!show) { clearPreThrowBonus(); return; }
     const invN = powerupInventory().length;
@@ -2159,6 +2172,116 @@
   function refreshBonusButtons() {
     if (!turnSettled) renderPreThrowBonus();
     else renderActions();
+  }
+
+  // ── Yam-or-Strike, played inside the 3D overlay ──────────────────
+  // Lock four dice as 1s on the shelf, then auto-throw the fifth die up to three
+  // times trying for a 1. Five 1s → YAM (fireworks); otherwise the Yum slot is
+  // struck. Scoring is handed to the 2D resolveYamOrStrike so the special points
+  // and auto-commit match the board version.
+  const YAM_MAX_ATTEMPTS = 3;
+  function startYamStrike3D() {
+    yamStrike3D = true;
+    yamStrikeAttempts = 1;
+    try { if (typeof yamOrStrikeActive !== 'undefined') yamOrStrikeActive = true; } catch (_) {}
+    // Lock the first four dice as 1s (parked on the shelf); the fifth is in play.
+    for (let i = 0; i < multiDiceBodies.length; i++) {
+      const b = multiDiceBodies[i];
+      if (i < 4) { b._kept = true; b._value = 1; parkKeptBody(b, i); }
+      else { b._kept = false; }
+    }
+    renderKeptRow();
+    clearPreThrowBonus();
+    clearSuggest();
+    clearActions();
+    turnSettled = false;
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    statusEl.textContent = 'YAM OR STRIKE — throwing for a 1…';
+    armNonKept();                       // fan the lone in-play die
+    setTimeout(throwYamDie, 430);       // automatic throw
+  }
+
+  // Toss the single in-play die with heavy spin (no flick needed).
+  function throwYamDie() {
+    if (!multiReady) return;
+    multiSoftDrop();
+    multiReady = false;
+    multiThrowing = true;
+    multiRelaxTries = 0;
+    multiSettleStart = performance.now();
+    statusEl.textContent = 'Rolling…';
+    playThrowClatter();
+  }
+
+  function settleYamStrike() {
+    const inPlay = multiDiceBodies.find(b => !b._kept);
+    const v = inPlay ? (inPlay._value || topFaceFor(inPlay)) : 0;
+    renderKeptRow();
+    if (v === 1) {
+      statusEl.innerHTML = 'YAM! Five <b style="color:var(--gold)">1</b>s!';
+      celebrateYam();
+      setTimeout(() => finishYamStrike(true), 1500);
+      return;
+    }
+    if (yamStrikeAttempts >= YAM_MAX_ATTEMPTS) {
+      statusEl.innerHTML = 'Rolled <b style="color:var(--accent)">' + v + '</b> — Yum struck!';
+      setTimeout(() => finishYamStrike(false), 1200);
+      return;
+    }
+    const left = YAM_MAX_ATTEMPTS - yamStrikeAttempts;
+    statusEl.innerHTML = 'Rolled <b>' + v + '</b> — need a 1! ' + left +
+      ' throw' + (left === 1 ? '' : 's') + ' left';
+    renderYamReroll(left);
+  }
+
+  function renderYamReroll(left) {
+    if (!rerollEl) return;
+    let pips = '';
+    for (let i = 0; i < YAM_MAX_ATTEMPTS; i++) {
+      pips += '<i class="d3d-rr-pip' + (i < left ? ' on' : '') + '"></i>';
+    }
+    rerollEl.innerHTML =
+      '<div class="d3d-rr-row">' +
+        '<button class="d3d-rr-btn" type="button">' +
+          '<span class="d3d-rr-top"><span class="d3d-rr-icon">↻</span>' +
+          '<span class="d3d-rr-label">THROW AGAIN</span></span>' +
+          '<span class="d3d-rr-pips">' + pips + '</span>' +
+        '</button>' +
+      '</div>';
+    rerollEl.classList.add('show');
+    const btn = rerollEl.querySelector('.d3d-rr-btn');
+    if (btn) btn.addEventListener('click', yamStrikeReroll);
+  }
+
+  function yamStrikeReroll() {
+    if (yamStrikeAttempts >= YAM_MAX_ATTEMPTS) return;
+    yamStrikeAttempts++;
+    turnSettled = false;
+    clearReroll();
+    armNonKept();
+    statusEl.textContent = 'YAM OR STRIKE — throwing for a 1…';
+    setTimeout(throwYamDie, 280);
+  }
+
+  // Conclude: push the final hand to the 2D game and let resolveYamOrStrike
+  // score the Yum slot (YAM points or strike), then close the overlay.
+  function finishYamStrike(success) {
+    yamStrike3D = false;
+    clearReroll();
+    const inPlay = multiDiceBodies.find(b => !b._kept);
+    const v = inPlay ? (inPlay._value || 1) : 1;
+    try {
+      if (Array.isArray(dice)) { dice[0] = dice[1] = dice[2] = dice[3] = 1; dice[4] = v; }
+      if (Array.isArray(held)) { held[0] = held[1] = held[2] = held[3] = true; held[4] = false; }
+      if (typeof rolled !== 'undefined') rolled = true;
+    } catch (_) {}
+    finalizeTurn(null, true);   // close the overlay without the normal writeback
+    setTimeout(() => {
+      try {
+        if (typeof renderDice === 'function') renderDice(true);
+        if (typeof resolveYamOrStrike === 'function') resolveYamOrStrike(success);
+      } catch (_) {}
+    }, 360);
   }
 
   // Re-arm the in-play dice for another flick (keeps the kept dice on the shelf).
@@ -2345,6 +2468,8 @@
   }
 
   function onPointerDownMulti(ev) {
+    // Yam-or-Strike drives its own automatic throws — ignore taps on the dice.
+    if (yamStrike3D) return;
     // After the dice settle in an interactive turn, taps pick dice to keep
     // (fly to the shelf) or un-keep them — they don't start a new throw.
     if (interactiveTurn && turnSettled) { handleSettleTap(ev); return; }
@@ -2535,6 +2660,8 @@
       turnRollsLeft = rollsLeft;
       turnRollsUsed = 0;
       turnPick = null;
+      yamStrike3D = false;
+      yamStrikeAttempts = 0;
       flyTweens = [];
       // Park the single die out of view so it doesn't share the scene visibly.
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
