@@ -47,6 +47,7 @@
   let multiResolve = null;
   let multiGeom = null;
   let multiMats = null;
+  let multiPerDieMats = null;  // per-die material sets when the free colour palette is active
   let multiLanes = [];             // pre-computed {dx,dz} fan offsets per die
   let multiLastDragP = null;
   // Suggestions / kept-shelf state for the in-game multi roll.
@@ -315,6 +316,49 @@
     };
     update(dieMats);
     update(multiMats);
+  }
+
+  // ── Free per-die colour palette ──────────────────────────────────
+  // With the Classic skin equipped the player can give each of the five game
+  // dice its own colour (yum_per_die_colors). Pip colours mirror the 2D palette
+  // foregrounds so the look matches the flat dice exactly.
+  const PER_DIE_PIP = {
+    '#f8f8f8': '#111111', '#ef4444': '#ffffff', '#f97316': '#ffffff', '#f5a623': '#251400',
+    '#22c55e': '#07130a', '#14b8a6': '#031817', '#3b82f6': '#ffffff', '#8b5cf6': '#ffffff',
+    '#ec4899': '#ffffff', '#111827': '#ffffff'
+  };
+  // Returns an array of five themes (one per die) when the free palette applies,
+  // otherwise null so callers fall back to the single shared theme.
+  function perDieThemes() {
+    if (_activeSkinId() !== 'classic') return null;
+    let colors = null;
+    try { colors = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); }
+    catch (_) { return null; }
+    if (!Array.isArray(colors) || colors.length !== 5) return null;
+    return colors.map(c => {
+      const hex = String(c || '#f8f8f8');
+      return _solidTheme(hex, PER_DIE_PIP[hex.toLowerCase()]);
+    });
+  }
+
+  // Build / dispose a set of six face materials for a theme.
+  function buildFaceMatSet(theme) {
+    return FACE_NUMBERS.map(n => new THREE.MeshStandardMaterial({
+      map: makeFaceTexture(n, theme),
+      roughness: 0.32,
+      metalness: 0.15,
+      envMapIntensity: 0.45,
+      color: 0xffffff
+    }));
+  }
+  function disposeMatSet(set) {
+    if (!set) return;
+    set.forEach(m => { try { if (m.map) m.map.dispose(); m.dispose(); } catch (_) {} });
+  }
+  function disposePerDieMats() {
+    if (!multiPerDieMats) return;
+    multiPerDieMats.forEach(disposeMatSet);
+    multiPerDieMats = null;
   }
 
   // Paints one die face for the given number using the supplied theme. The
@@ -1165,6 +1209,7 @@
     for (const b of multiDiceBodies) { try { world && world.removeBody(b); } catch (_) {} }
     multiDiceMeshes = [];
     multiDiceBodies = [];
+    disposePerDieMats();
   }
 
   // ── Kept ("held") dice shelf ─────────────────────────────────────
@@ -1340,8 +1385,12 @@
     teardownMultiDice();
     removeTray();
     buildMultiAssets(TURN_DIE_SIZE);
+    // When the free colour palette is active, give each die its own material
+    // set so the five dice can wear five different colours on the felt.
+    const pdThemes = perDieThemes();
+    multiPerDieMats = pdThemes ? pdThemes.map(buildFaceMatSet) : null;
     for (let i = 0; i < 5; i++) {
-      const mesh = new THREE.Mesh(multiGeom, multiMats);
+      const mesh = new THREE.Mesh(multiGeom, multiPerDieMats ? multiPerDieMats[i] : multiMats);
       mesh.castShadow = true;
       scene.add(mesh);
       multiDiceMeshes.push(mesh);
