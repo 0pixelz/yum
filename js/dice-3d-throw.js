@@ -2220,7 +2220,7 @@
   const YAM_MAX_ATTEMPTS = 3;
   function startYamStrike3D() {
     yamStrike3D = true;
-    yamStrikeAttempts = 1;
+    yamStrikeAttempts = 0;          // counted per flick in onPointerUpMulti
     try { if (typeof yamOrStrikeActive !== 'undefined') yamOrStrikeActive = true; } catch (_) {}
     // Lock the first four dice as 1s (parked on the shelf); the fifth is in play.
     for (let i = 0; i < multiDiceBodies.length; i++) {
@@ -2234,21 +2234,8 @@
     clearActions();
     turnSettled = false;
     if (cancelBtn) cancelBtn.style.display = 'none';
-    statusEl.textContent = 'YAM OR STRIKE — throwing for a 1…';
-    armNonKept();                       // fan the lone in-play die
-    setTimeout(throwYamDie, 430);       // automatic throw
-  }
-
-  // Toss the single in-play die with heavy spin (no flick needed).
-  function throwYamDie() {
-    if (!multiReady) return;
-    multiSoftDrop();
-    multiReady = false;
-    multiThrowing = true;
-    multiRelaxTries = 0;
-    multiSettleStart = performance.now();
-    statusEl.textContent = 'Rolling…';
-    playThrowClatter();
+    armNonKept();                  // fan the lone in-play die, ready to flick
+    statusEl.textContent = 'YAM OR STRIKE — flick the die for a 1!';
   }
 
   function settleYamStrike() {
@@ -2266,39 +2253,12 @@
       setTimeout(() => finishYamStrike(false), 1200);
       return;
     }
+    // Not a 1 yet, throws remain — re-arm the die so the player flicks again.
     const left = YAM_MAX_ATTEMPTS - yamStrikeAttempts;
-    statusEl.innerHTML = 'Rolled <b>' + v + '</b> — need a 1! ' + left +
-      ' throw' + (left === 1 ? '' : 's') + ' left';
-    renderYamReroll(left);
-  }
-
-  function renderYamReroll(left) {
-    if (!rerollEl) return;
-    let pips = '';
-    for (let i = 0; i < YAM_MAX_ATTEMPTS; i++) {
-      pips += '<i class="d3d-rr-pip' + (i < left ? ' on' : '') + '"></i>';
-    }
-    rerollEl.innerHTML =
-      '<div class="d3d-rr-row">' +
-        '<button class="d3d-rr-btn" type="button">' +
-          '<span class="d3d-rr-top"><span class="d3d-rr-icon">↻</span>' +
-          '<span class="d3d-rr-label">THROW AGAIN</span></span>' +
-          '<span class="d3d-rr-pips">' + pips + '</span>' +
-        '</button>' +
-      '</div>';
-    rerollEl.classList.add('show');
-    const btn = rerollEl.querySelector('.d3d-rr-btn');
-    if (btn) btn.addEventListener('click', yamStrikeReroll);
-  }
-
-  function yamStrikeReroll() {
-    if (yamStrikeAttempts >= YAM_MAX_ATTEMPTS) return;
-    yamStrikeAttempts++;
     turnSettled = false;
-    clearReroll();
     armNonKept();
-    statusEl.textContent = 'YAM OR STRIKE — throwing for a 1…';
-    setTimeout(throwYamDie, 280);
+    statusEl.innerHTML = 'Rolled <b>' + v + '</b> — need a 1! ' + left +
+      ' flick' + (left === 1 ? '' : 's') + ' left';
   }
 
   // Conclude: push the final hand to the 2D game and let resolveYamOrStrike
@@ -2610,11 +2570,12 @@
   }
 
   function onPointerDownMulti(ev) {
-    // Yam-or-Strike auto-throws, and a Lucky bounce/snap is animating — ignore taps.
-    if (yamStrike3D || luckyBody || luckySnapping) return;
+    // A Lucky bounce/snap is animating — ignore taps.
+    if (luckyBody || luckySnapping) return;
     // After the dice settle in an interactive turn, taps pick dice to keep
-    // (fly to the shelf) or un-keep them — they don't start a new throw.
-    if (interactiveTurn && turnSettled) { handleSettleTap(ev); return; }
+    // (fly to the shelf) or un-keep them — they don't start a new throw. During
+    // Yam-or-Strike there's no keeping: the player flicks the lone armed die.
+    if (!yamStrike3D && interactiveTurn && turnSettled) { handleSettleTap(ev); return; }
     if (!multiReady || multiThrowing) return;
     ev.preventDefault();
     multiDragging = true;
@@ -2680,7 +2641,8 @@
     if (speed < 0.6) multiSoftDrop();
     else multiFlick(vx, vz, speed);
 
-    if (interactiveTurn) turnRollsUsed++;
+    if (yamStrike3D) yamStrikeAttempts++;     // each flick is an attempt
+    else if (interactiveTurn) turnRollsUsed++;
     multiReady = false;
     multiThrowing = true;
     multiRelaxTries = 0;
