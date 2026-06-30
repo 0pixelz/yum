@@ -2377,6 +2377,55 @@
     border-color: rgba(245,166,35,0.4);
     color: var(--gold);
   }
+  /* "Bonus" power-up button, sits to the LEFT of Roll Again in power-up mode */
+  #dice3dOverlay .d3d-rr-bonus {
+    pointer-events: auto;
+    position: relative;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    padding: 9px 14px; border-radius: 20px;
+    border: 1px solid rgba(155,89,182,0.7);
+    background: linear-gradient(135deg, rgba(155,89,182,0.32), rgba(155,89,182,0.10));
+    color: #d7a9f0; cursor: pointer;
+    font-family: 'Bebas Neue', cursive; font-size: 0.78rem; letter-spacing: 1.5px;
+    line-height: 0.95;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4), 0 0 14px rgba(155,89,182,0.3);
+    animation: rrPop 0.42s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  #dice3dOverlay .d3d-rr-bonus:active { transform: scale(0.94); }
+  #dice3dOverlay .d3d-rr-bonus-icon { font-size: 1.15rem; line-height: 1; }
+  #dice3dOverlay .d3d-rr-bonus-label { font-size: 0.62rem; letter-spacing: 1px; }
+  #dice3dOverlay .d3d-rr-bonus-count {
+    position: absolute; top: -6px; right: -6px;
+    min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box;
+    border-radius: 9px; background: var(--gold); color: #1a0e02;
+    font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 0.66rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 10px rgba(245,166,35,0.6);
+  }
+  /* Power-up list inside the bonus panel (reuses .d3d-scorecard sheet styles) */
+  #dice3dOverlay .d3d-bonus-list {
+    display: flex; flex-direction: column; gap: 7px;
+    max-width: 460px; margin: 0 auto;
+  }
+  #dice3dOverlay .d3d-bonus-row {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 12px; border-radius: 11px;
+    border: 1px solid rgba(155,89,182,0.28);
+    background: rgba(155,89,182,0.08);
+  }
+  #dice3dOverlay .d3d-bonus-ic {
+    font-size: 1.25rem; line-height: 1; color: var(--gold);
+    flex: 0 0 auto; width: 26px; text-align: center;
+  }
+  #dice3dOverlay .d3d-bonus-text { display: flex; flex-direction: column; gap: 2px; }
+  #dice3dOverlay .d3d-bonus-name {
+    font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 0.84rem;
+    color: var(--white);
+  }
+  #dice3dOverlay .d3d-bonus-name b { color: var(--gold); }
+  #dice3dOverlay .d3d-bonus-desc {
+    font-size: 0.7rem; color: var(--muted); line-height: 1.2;
+  }
 
   /* Slide-up scorecard peek panel, covering the table area */
   #dice3dOverlay .d3d-scorecard {

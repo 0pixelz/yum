@@ -76,6 +76,7 @@
   let keptEl = null;               // 2D "kept" dice faces shown under the header
   let rerollEl = null;             // floating "Roll again" button on the table
   let scorecardEl = null;          // slide-up scorecard panel (peek / strike a category)
+  let bonusEl = null;              // slide-up power-up "bonus" panel (power-up mode only)
   const TRAY_TOP = 0.16;           // top surface height of the kept shelf
   // SHELF_X depends on WALL_SIDE (declared further down); set after it.
 
@@ -720,7 +721,8 @@
       '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas>' +
         '<div class="d3d-kept" id="dice3dKept"></div>' +
         '<div class="d3d-reroll" id="dice3dReroll"></div>' +
-        '<div class="d3d-scorecard" id="dice3dScorecard"></div></div>' +
+        '<div class="d3d-scorecard" id="dice3dScorecard"></div>' +
+        '<div class="d3d-scorecard" id="dice3dBonus"></div></div>' +
       '<div class="d3d-suggest" id="dice3dSuggest"></div>' +
       '<div class="d3d-actions" id="dice3dActions"></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
@@ -733,6 +735,7 @@
     keptEl = overlay.querySelector('#dice3dKept');
     rerollEl = overlay.querySelector('#dice3dReroll');
     scorecardEl = overlay.querySelector('#dice3dScorecard');
+    bonusEl = overlay.querySelector('#dice3dBonus');
     _renderOppRolls();
     cancelBtn.addEventListener('click', () => {
       if (mode === 'spectator') {
@@ -1774,6 +1777,7 @@
     if (actionsEl) { actionsEl.innerHTML = ''; actionsEl.classList.remove('show'); }
     clearReroll();
     closeScorecard();
+    closeBonus();
   }
 
   // Floating "Roll again" button on the table, with reroll dots showing how
@@ -1788,9 +1792,19 @@
     for (let i = 0; i < 3; i++) pips += '<i class="d3d-rr-pip' + (i < lit ? ' on' : '') + '"></i>';
     // Rebuilding the element replays its CSS pop animation each time. A compact
     // "Scorecard" button sits to the right so the player can peek at what's left
-    // or strike a category without leaving the roll.
+    // or strike a category; in power-up mode a "Bonus" button sits to the left
+    // so they can see the power-ups they've earned.
+    const inv = powerupInventory();
+    const bonusBtn = powerupActive()
+      ? '<button class="d3d-rr-bonus" type="button" title="Your power-ups">' +
+          '<span class="d3d-rr-bonus-icon">⚡</span>' +
+          '<span class="d3d-rr-bonus-label">BONUS</span>' +
+          (inv.length ? '<span class="d3d-rr-bonus-count">' + inv.length + '</span>' : '') +
+        '</button>'
+      : '';
     rerollEl.innerHTML =
       '<div class="d3d-rr-row">' +
+        bonusBtn +
         '<button class="d3d-rr-btn" type="button">' +
           '<span class="d3d-rr-top"><span class="d3d-rr-icon">↻</span>' +
           '<span class="d3d-rr-label">ROLL AGAIN</span></span>' +
@@ -1806,6 +1820,8 @@
     if (btn) btn.addEventListener('click', rerollTurn);
     const cardBtn = rerollEl.querySelector('.d3d-rr-card');
     if (cardBtn) cardBtn.addEventListener('click', openScorecard);
+    const bonusBtnEl = rerollEl.querySelector('.d3d-rr-bonus');
+    if (bonusBtnEl) bonusBtnEl.addEventListener('click', openBonus);
   }
 
   function clearReroll() {
@@ -1822,6 +1838,7 @@
   function openScorecard() {
     if (!scorecardEl) return;
     if (scorecardOpen()) { closeScorecard(); return; } // toggle
+    closeBonus();                                       // only one panel at a time
     renderScorecardPanel();
     scorecardEl.classList.add('show');
     // Don't let taps fall through to the dice while the panel is up.
@@ -1906,6 +1923,71 @@
         if (id) finalizeTurn(id);
       });
     });
+  }
+
+  // ── Power-up "bonus" peek panel (power-up mode only) ─────────────
+  function powerupActive() {
+    try { return typeof powerupMode !== 'undefined' && !!powerupMode; }
+    catch (_) { return false; }
+  }
+  function powerupInventory() {
+    try {
+      return (typeof playerPowerups !== 'undefined' && Array.isArray(playerPowerups))
+        ? playerPowerups : [];
+    } catch (_) { return []; }
+  }
+  function bonusPanelOpen() {
+    return !!(bonusEl && bonusEl.classList.contains('show'));
+  }
+  function openBonus() {
+    if (!bonusEl) return;
+    if (bonusPanelOpen()) { closeBonus(); return; } // toggle
+    closeScorecard();                                // only one panel at a time
+    renderBonusPanel();
+    bonusEl.classList.add('show');
+    if (canvasEl) canvasEl.style.pointerEvents = 'none';
+  }
+  function closeBonus() {
+    if (!bonusEl) return;
+    bonusEl.classList.remove('show');
+    bonusEl.innerHTML = '';
+    if (canvasEl && mode === 'multi') canvasEl.style.pointerEvents = '';
+  }
+
+  function renderBonusPanel() {
+    if (!bonusEl) return;
+    const inv = powerupInventory();
+    const defs = (typeof POWERUPS !== 'undefined' && Array.isArray(POWERUPS)) ? POWERUPS : [];
+    const countMap = {};
+    inv.forEach(id => { countMap[id] = (countMap[id] || 0) + 1; });
+    const ids = Object.keys(countMap);
+    let body;
+    if (!ids.length) {
+      body = '<div class="d3d-sc-note">No power-ups yet — roll a YAM (5 of a kind) or hit the upper bonus to earn one.</div>';
+    } else {
+      body = '<div class="d3d-bonus-list">' + ids.map(id => {
+        const p = defs.find(x => x.id === id) || { name: id, desc: '', icon: '' };
+        const cnt = countMap[id];
+        return '<div class="d3d-bonus-row">' +
+          '<span class="d3d-bonus-ic">' + (p.icon || '⚡') + '</span>' +
+          '<span class="d3d-bonus-text">' +
+            '<span class="d3d-bonus-name">' + _escSug(p.name) +
+              (cnt > 1 ? ' <b>×' + cnt + '</b>' : '') + '</span>' +
+            '<span class="d3d-bonus-desc">' + _escSug(p.desc || '') + '</span>' +
+          '</span>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+    bonusEl.innerHTML =
+      '<div class="d3d-sc-sheet">' +
+        '<div class="d3d-sc-head">' +
+          '<span class="d3d-sc-title">Power-Ups</span>' +
+          '<button class="d3d-sc-close" type="button" title="Close">✕</button>' +
+        '</div>' +
+        '<div class="d3d-sc-note">Bonus power-ups you\'ve earned this game.</div>' +
+        body +
+      '</div>';
+    bonusEl.querySelector('.d3d-sc-close').addEventListener('click', closeBonus);
   }
 
   // Re-arm the in-play dice for another flick (keeps the kept dice on the shelf).
