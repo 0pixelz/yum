@@ -2413,15 +2413,22 @@
   }
   #dice3dOverlay .d3d-bonus-row {
     display: flex; align-items: center; gap: 11px;
+    width: 100%; box-sizing: border-box; text-align: left;
     padding: 9px 12px; border-radius: 11px;
     border: 1px solid rgba(155,89,182,0.28);
     background: rgba(155,89,182,0.08);
+    cursor: pointer; -webkit-appearance: none; appearance: none;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
   }
+  #dice3dOverlay .d3d-bonus-row:hover {
+    background: rgba(155,89,182,0.16); border-color: rgba(155,89,182,0.5);
+  }
+  #dice3dOverlay .d3d-bonus-row:active { transform: scale(0.98); }
   #dice3dOverlay .d3d-bonus-ic {
     font-size: 1.25rem; line-height: 1; color: var(--gold);
     flex: 0 0 auto; width: 26px; text-align: center;
   }
-  #dice3dOverlay .d3d-bonus-text { display: flex; flex-direction: column; gap: 2px; }
+  #dice3dOverlay .d3d-bonus-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; }
   #dice3dOverlay .d3d-bonus-name {
     font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 0.84rem;
     color: var(--white);
@@ -2430,6 +2437,19 @@
   #dice3dOverlay .d3d-bonus-desc {
     font-size: 0.7rem; color: var(--muted); line-height: 1.2;
   }
+  #dice3dOverlay .d3d-bonus-use {
+    flex: 0 0 auto; align-self: center;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(155,89,182,0.25); border: 1px solid rgba(155,89,182,0.5);
+    color: #e6cdf5; font-family: 'Bebas Neue', cursive;
+    font-size: 0.72rem; letter-spacing: 1.5px;
+  }
+  /* "Use Bonus" button shown before the first throw */
+  #dice3dOverlay .d3d-prebonus {
+    display: none; justify-content: center;
+    padding: 4px 12px 0;
+  }
+  #dice3dOverlay .d3d-prebonus.show { display: flex; animation: d3dOppPop 0.3s ease; }
 
   /* YAM! celebration — firework burst + flash + popup over the table */
   #dice3dOverlay .d3d-yam {
