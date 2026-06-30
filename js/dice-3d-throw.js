@@ -73,6 +73,12 @@
   let turnResolve = null;          // resolves the interactive-turn promise
   let yamStrike3D = false;         // running Yam-or-Strike inside the 3D overlay
   let yamStrikeAttempts = 0;       // throws made (1 initial + up to 2 rerolls)
+  let luckyPending = false;        // Lucky Dice: awaiting the player to pick a die
+  let luckyBody = null;            // the die currently bounce-rerolling (Lucky Dice)
+  let luckyValue = 0;              // pre-rolled lucky value (biased to 5/6)
+  let luckyStart = 0;              // timestamp the lucky bounce began
+  let luckySnapping = false;       // settling the lucky die to its value (block taps)
+  let luckyHalos = [];             // glow rings around the selectable dice
   let flyTweens = [];              // {body, fromP, toP, fromQ, toQ, t, dur, onDone}
   let actionsEl = null;            // bottom action row (done)
   let keptEl = null;               // 2D "kept" dice faces shown under the header
@@ -746,6 +752,8 @@
     yamEl = overlay.querySelector('#dice3dYam');
     _renderOppRolls();
     cancelBtn.addEventListener('click', () => {
+      // While choosing a Lucky-Dice target, the button just cancels that.
+      if (luckyPending) { exitLuckySelect(true); return; }
       if (mode === 'spectator') {
         // "Hide" the live view of an opponent's roll — purely local; the
         // roll continues on their side and the regular post-roll dice update
@@ -1164,6 +1172,11 @@
         if (b._spinAxis) spinBodyAroundAxis(b, b._spinAxis, b._spinRate * dt);
       }
     }
+    // Pulse the Lucky-Dice halos while the player is choosing a die.
+    if (luckyHalos.length) {
+      const pulse = 0.42 + 0.28 * Math.sin(now * 0.006);
+      for (const r of luckyHalos) { if (r.material) r.material.opacity = pulse; }
+    }
     // Advance "fly to shelf / back to floor" tweens (kept-dice animations).
     if (flyTweens.length) advanceFlyTweens(dt);
     if (dieMesh) {
@@ -1219,6 +1232,17 @@
         }
       }
     }
+
+    // Lucky-Dice bounce: wait for the picked die to come to rest, then snap it
+    // to the lucky value and refresh the hand.
+    if (luckyBody) {
+      const elapsed = now - luckyStart;
+      const settled = luckyBody.sleepState === CANNON.Body.SLEEPING ||
+        (elapsed > 600 &&
+         luckyBody.velocity.length() < 0.12 &&
+         luckyBody.angularVelocity.length() < 0.12);
+      if (settled || elapsed > 4500) finishLuckyRoll();
+    }
   }
 
   function closeOverlay() {
@@ -1244,6 +1268,10 @@
       turnResolve = null;
       yamStrike3D = false;
       yamStrikeAttempts = 0;
+      luckyPending = false;
+      luckyBody = null;
+      luckySnapping = false;
+      removeLuckyHalos();
       flyTweens = [];
       teardownMultiDice();
       teardownHeld();
@@ -1550,6 +1578,7 @@
     const idx = multiDiceMeshes.indexOf(hits[0].object);
     if (idx < 0) return;
     if (multiDiceBodies[idx]._kept) return; // kept dice are released via their 2D face
+    if (luckyPending) { luckyBounce(idx); return; }
     holdDie(idx);
   }
 
@@ -2140,10 +2169,19 @@
         setTimeout(() => { try { activatePowerup('chanceRoll'); } catch (_) {} }, 360);
         break;
       }
+      case 'luckyDice': {
+        // Rerolls one settled die with lucky odds — needs dice on the table.
+        if (!turnSettled) { toast('Lucky Dice rerolls a die after you roll.'); return; }
+        if (!multiDiceBodies.some(b => !b._kept)) { toast('No dice on the table to lucky-reroll.'); return; }
+        closeBonus();
+        enterLuckySelect();
+        break;
+      }
       case 'freezeDie':
-      case 'luckyDice':
+        toast('Use Freeze from the board after you roll.');
+        break;
       default:
-        toast('Use Freeze / Lucky from the board after you roll.');
+        toast('That power-up is used from the board.');
         break;
     }
   }
@@ -2282,6 +2320,110 @@
         if (typeof resolveYamOrStrike === 'function') resolveYamOrStrike(success);
       } catch (_) {}
     }, 360);
+  }
+
+  // ── Lucky Dice, played inside the 3D overlay ─────────────────────
+  // After a roll, a halo glows around each die on the table; tap one and it
+  // bounce-rerolls in place (biased to 5/6) while the others stay still. It's a
+  // free reroll — it doesn't use up a roll.
+  function showLuckyHalos() {
+    removeLuckyHalos();
+    if (!THREE || !scene) return;
+    for (let i = 0; i < multiDiceBodies.length; i++) {
+      if (multiDiceBodies[i]._kept) continue;
+      const geo = new THREE.RingGeometry(TURN_DIE_SIZE * 0.62, TURN_DIE_SIZE * 1.05, 36);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x6fe9df, transparent: true, opacity: 0.6,
+        side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
+      });
+      const ring = new THREE.Mesh(geo, mat);
+      ring.rotation.x = -Math.PI / 2;
+      const b = multiDiceBodies[i];
+      ring.position.set(b.position.x, 0.04, b.position.z);
+      scene.add(ring);
+      luckyHalos.push(ring);
+    }
+  }
+  function removeLuckyHalos() {
+    for (const r of luckyHalos) {
+      try { scene.remove(r); r.geometry.dispose(); r.material.dispose(); } catch (_) {}
+    }
+    luckyHalos = [];
+  }
+
+  function enterLuckySelect() {
+    luckyPending = true;
+    clearReroll();
+    clearActions();           // focus the player on picking a die
+    clearSuggest();
+    showLuckyHalos();
+    statusEl.textContent = '✨ Lucky Dice — tap a die to bounce-reroll it (free)';
+    if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = 'Cancel'; }
+  }
+  function exitLuckySelect(restoreUI) {
+    luckyPending = false;
+    removeLuckyHalos();
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    if (restoreUI && turnSettled) {
+      updateSettleStatus();
+      renderKeptRow();
+      renderSuggest(fullHandValues());
+      renderActions();
+    }
+  }
+
+  function luckyBounce(idx) {
+    const b = multiDiceBodies[idx];
+    if (!b || b._kept) return;
+    if (typeof consumePowerup === 'function') { try { consumePowerup('luckyDice'); } catch (_) {} }
+    luckyPending = false;
+    removeLuckyHalos();
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    // Freeze every other die so only the picked one moves.
+    for (const o of multiDiceBodies) {
+      if (o === b) continue;
+      o.type = CANNON.Body.STATIC;
+      o.velocity.set(0, 0, 0); o.angularVelocity.set(0, 0, 0);
+    }
+    // Lucky odds: 2/3 chance of a 5 or 6.
+    luckyValue = Math.random() < (2 / 3)
+      ? (Math.random() < 0.5 ? 5 : 6)
+      : (Math.floor(Math.random() * 4) + 1);
+    // Toss it up with a tumble, staying roughly in place.
+    b.type = CANNON.Body.DYNAMIC;
+    b.collisionResponse = true;
+    b._spinAxis = null;
+    b.wakeUp();
+    b.velocity.set((Math.random() - 0.5) * 1.2, 4.2 + Math.random() * 1.2, (Math.random() - 0.5) * 1.2);
+    const spin = 16;
+    b.angularVelocity.set(
+      (Math.random() - 0.5) * spin, (Math.random() - 0.5) * spin, (Math.random() - 0.5) * spin
+    );
+    luckyBody = b;
+    luckyStart = performance.now();
+    statusEl.textContent = '✨ Lucky roll…';
+    playThrowClatter();
+  }
+
+  // The lucky die has come to rest: settle it flat showing the lucky value, then
+  // refresh the suggestions / controls. Never changes the roll count.
+  function finishLuckyRoll() {
+    const b = luckyBody;
+    luckyBody = null;
+    if (!b) return;
+    luckySnapping = true;
+    b._value = luckyValue;
+    const toP = { x: b.position.x, y: TURN_DIE_HALF, z: b.position.z };
+    const toQ = quatForFaceUp(luckyValue, Math.random() * Math.PI * 2);
+    startFly(b, toP, toQ, () => {
+      try { b.type = CANNON.Body.STATIC; b.collisionResponse = true; } catch (_) {}
+      luckySnapping = false;
+      if (!turnSettled) return;
+      updateSettleStatus();
+      renderKeptRow();
+      renderSuggest(fullHandValues());
+      renderActions();
+    });
   }
 
   // Re-arm the in-play dice for another flick (keeps the kept dice on the shelf).
@@ -2468,8 +2610,8 @@
   }
 
   function onPointerDownMulti(ev) {
-    // Yam-or-Strike drives its own automatic throws — ignore taps on the dice.
-    if (yamStrike3D) return;
+    // Yam-or-Strike auto-throws, and a Lucky bounce/snap is animating — ignore taps.
+    if (yamStrike3D || luckyBody || luckySnapping) return;
     // After the dice settle in an interactive turn, taps pick dice to keep
     // (fly to the shelf) or un-keep them — they don't start a new throw.
     if (interactiveTurn && turnSettled) { handleSettleTap(ev); return; }
@@ -2662,6 +2804,8 @@
       turnPick = null;
       yamStrike3D = false;
       yamStrikeAttempts = 0;
+      luckyPending = false;
+      luckyBody = null;
       flyTweens = [];
       // Park the single die out of view so it doesn't share the scene visibly.
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
