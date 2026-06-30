@@ -2377,6 +2377,10 @@
     border-color: rgba(245,166,35,0.4);
     color: var(--gold);
   }
+  #dice3dOverlay .d3d-act-bonus {
+    border-color: rgba(155,89,182,0.5);
+    color: #d7a9f0;
+  }
   /* "Bonus" power-up button, sits to the LEFT of Roll Again in power-up mode */
   #dice3dOverlay .d3d-rr-bonus {
     pointer-events: auto;
