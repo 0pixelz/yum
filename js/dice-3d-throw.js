@@ -1552,8 +1552,9 @@
   // ── Anti-stacking ────────────────────────────────────────────────
   // A die that comes to rest on top of another (elevated) or leaning against a
   // die/wall (cocked) doesn't read a clean top face and looks wrong. After the
-  // throw settles we detect any such die and re-drop it onto the emptiest patch
-  // of felt, then let physics settle again — bounded so it always terminates.
+  // throw settles we detect any such die and shove it off so it topples down
+  // naturally beside the stack, then let physics settle again — bounded so it
+  // always terminates.
   const MAX_RELAX_TRIES = 6;
 
   // y-component of the most-upward face normal: ~1.0 when the die lies flat,
@@ -1573,26 +1574,11 @@
     return best;
   }
 
-  // Pick the (x,z) on the felt that is farthest from every other die and from
-  // any spot already claimed this pass, so re-dropped dice spread out.
-  function findFreeSpot(others, taken) {
-    const occupied = others.map(d => ({ x: d.position.x, z: d.position.z })).concat(taken);
-    let best = { x: 0, z: 0 }, bestD = -Infinity;
-    for (let gx = -DRAG_X_LIMIT; gx <= DRAG_X_LIMIT + 1e-6; gx += 0.28) {
-      for (let gz = DRAG_Z_MIN + 0.3; gz <= DRAG_Z_MAX - 0.3; gz += 0.28) {
-        let dmin = Infinity;
-        for (const o of occupied) {
-          const d = Math.hypot(gx - o.x, gz - o.z);
-          if (d < dmin) dmin = d;
-        }
-        if (dmin > bestD) { bestD = dmin; best = { x: gx, z: gz }; }
-      }
-    }
-    return best;
-  }
-
-  // Returns true if it re-dropped at least one stacked/cocked die (caller keeps
+  // Returns true if it nudged at least one stacked/cocked die (caller keeps
   // simulating); false when all in-play dice already lie flat on the felt.
+  // Rather than teleporting a stacked die away (which looks like it jumps to the
+  // wall), we give it a gentle sideways shove + tumble so it topples off the die
+  // it's resting on and falls naturally onto the felt right beside it.
   function relaxStacks() {
     if (multiRelaxTries >= MAX_RELAX_TRIES) return false;
     const HALF = TURN_DIE_HALF;
@@ -1603,23 +1589,42 @@
     );
     if (!bad.length) return false;
     multiRelaxTries++;
-    const good = inPlay.filter(b => bad.indexOf(b) === -1);
-    const taken = [];
     for (const b of bad) {
-      const spot = findFreeSpot(good.concat(bad.filter(x => x !== b)), taken);
-      taken.push(spot);
+      // Find the nearest other in-play die — the one it's resting on / against —
+      // and shove away from it so the die slides off the stack.
+      let nx = 0, nz = 0, nd = Infinity;
+      for (const o of inPlay) {
+        if (o === b) continue;
+        const d = Math.hypot(b.position.x - o.position.x, b.position.z - o.position.z);
+        if (d < nd) { nd = d; nx = b.position.x - o.position.x; nz = b.position.z - o.position.z; }
+      }
+      let len = Math.hypot(nx, nz);
+      if (len < 1e-3) {                 // stacked dead-centre → pick a random heading
+        const a = Math.random() * Math.PI * 2;
+        nx = Math.cos(a); nz = Math.sin(a); len = 1;
+      }
+      let dx = nx / len, dz = nz / len;
+      // Don't shove into a nearby wall (would just cock it again) — flip away.
+      if (b.position.x >  DRAG_X_LIMIT - 0.4 && dx > 0) dx = -dx;
+      if (b.position.x < -DRAG_X_LIMIT + 0.4 && dx < 0) dx = -dx;
+      if (b.position.z >  DRAG_Z_MAX  - 0.4 && dz > 0) dz = -dz;
+      if (b.position.z <  DRAG_Z_MIN  + 0.4 && dz < 0) dz = -dz;
+
       b.type = CANNON.Body.DYNAMIC;
       b.collisionResponse = true;
       b._spinAxis = null;
-      b.position.set(spot.x, HALF + 0.55 + Math.random() * 0.25, spot.z);
-      b.velocity.set(0, -0.4, 0);
-      b.angularVelocity.set(
-        (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6
-      );
-      b.quaternion.setFromEuler(
-        Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28
-      );
       b.wakeUp();
+      // Gentle lift + sideways tip so it topples off and lands right beside the
+      // stack — just enough to clear the die below, not a shove across the felt.
+      const push = 0.85 + Math.random() * 0.45;
+      b.velocity.set(dx * push, 0.6 + Math.random() * 0.35, dz * push);
+      // Roll about the axis perpendicular to the push so it tumbles as it goes.
+      const spin = 5 + Math.random() * 3;
+      b.angularVelocity.set(
+        dz * spin + (Math.random() - 0.5) * 3,
+        (Math.random() - 0.5) * 3,
+        -dx * spin + (Math.random() - 0.5) * 3
+      );
     }
     return true;
   }
