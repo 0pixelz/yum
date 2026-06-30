@@ -75,6 +75,7 @@
   let actionsEl = null;            // bottom action row (done)
   let keptEl = null;               // 2D "kept" dice faces shown under the header
   let rerollEl = null;             // floating "Roll again" button on the table
+  let scorecardEl = null;          // slide-up scorecard panel (peek / strike a category)
   const TRAY_TOP = 0.16;           // top surface height of the kept shelf
   // SHELF_X depends on WALL_SIDE (declared further down); set after it.
 
@@ -718,7 +719,8 @@
       '<div class="d3d-opp-rolls" id="dice3dOppRolls"></div>' +
       '<div class="d3d-canvas-wrap"><canvas id="dice3dCanvas"></canvas>' +
         '<div class="d3d-kept" id="dice3dKept"></div>' +
-        '<div class="d3d-reroll" id="dice3dReroll"></div></div>' +
+        '<div class="d3d-reroll" id="dice3dReroll"></div>' +
+        '<div class="d3d-scorecard" id="dice3dScorecard"></div></div>' +
       '<div class="d3d-suggest" id="dice3dSuggest"></div>' +
       '<div class="d3d-actions" id="dice3dActions"></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
@@ -730,6 +732,7 @@
     actionsEl = overlay.querySelector('#dice3dActions');
     keptEl = overlay.querySelector('#dice3dKept');
     rerollEl = overlay.querySelector('#dice3dReroll');
+    scorecardEl = overlay.querySelector('#dice3dScorecard');
     _renderOppRolls();
     cancelBtn.addEventListener('click', () => {
       if (mode === 'spectator') {
@@ -1753,12 +1756,16 @@
     if (!actionsEl) return;
     actionsEl.innerHTML =
       '<div class="d3d-act-row">' +
+        '<button class="d3d-act-btn d3d-act-card" data-act="card">Scorecard</button>' +
         '<button class="d3d-act-btn d3d-act-done" data-act="done">Done</button>' +
       '</div>';
     actionsEl.classList.add('show');
     if (cancelBtn) cancelBtn.style.display = 'none';
     actionsEl.querySelectorAll('[data-act]').forEach(btn => {
-      btn.addEventListener('click', () => { finalizeTurn(null); });
+      btn.addEventListener('click', () => {
+        if (btn.getAttribute('data-act') === 'card') openScorecard();
+        else finalizeTurn(null);
+      });
     });
     renderReroll();
   }
@@ -1766,6 +1773,7 @@
   function clearActions() {
     if (actionsEl) { actionsEl.innerHTML = ''; actionsEl.classList.remove('show'); }
     clearReroll();
+    closeScorecard();
   }
 
   // Floating "Roll again" button on the table, with reroll dots showing how
@@ -1778,20 +1786,126 @@
     const lit = Math.max(0, Math.min(3, rollsRemain));
     let pips = '';
     for (let i = 0; i < 3; i++) pips += '<i class="d3d-rr-pip' + (i < lit ? ' on' : '') + '"></i>';
-    // Rebuilding the element replays its CSS pop animation each time.
+    // Rebuilding the element replays its CSS pop animation each time. A compact
+    // "Scorecard" button sits to the right so the player can peek at what's left
+    // or strike a category without leaving the roll.
     rerollEl.innerHTML =
-      '<button class="d3d-rr-btn" type="button">' +
-        '<span class="d3d-rr-top"><span class="d3d-rr-icon">↻</span>' +
-        '<span class="d3d-rr-label">ROLL AGAIN</span></span>' +
-        '<span class="d3d-rr-pips">' + pips + '</span>' +
-      '</button>';
+      '<div class="d3d-rr-row">' +
+        '<button class="d3d-rr-btn" type="button">' +
+          '<span class="d3d-rr-top"><span class="d3d-rr-icon">↻</span>' +
+          '<span class="d3d-rr-label">ROLL AGAIN</span></span>' +
+          '<span class="d3d-rr-pips">' + pips + '</span>' +
+        '</button>' +
+        '<button class="d3d-rr-card" type="button" title="View scorecard">' +
+          '<span class="d3d-rr-card-icon">▤</span>' +
+          '<span class="d3d-rr-card-label">SCORE<br>CARD</span>' +
+        '</button>' +
+      '</div>';
     rerollEl.classList.add('show');
     const btn = rerollEl.querySelector('.d3d-rr-btn');
     if (btn) btn.addEventListener('click', rerollTurn);
+    const cardBtn = rerollEl.querySelector('.d3d-rr-card');
+    if (cardBtn) cardBtn.addEventListener('click', openScorecard);
   }
 
   function clearReroll() {
     if (rerollEl) { rerollEl.innerHTML = ''; rerollEl.classList.remove('show'); }
+  }
+
+  // ── Scorecard peek panel ─────────────────────────────────────────
+  // Slides up over the table so the player can see every category — what's
+  // already taken and what each open one would score with the current hand —
+  // and tap an open one to score or strike it (opens the regular score modal).
+  function scorecardOpen() {
+    return !!(scorecardEl && scorecardEl.classList.contains('show'));
+  }
+  function openScorecard() {
+    if (!scorecardEl) return;
+    if (scorecardOpen()) { closeScorecard(); return; } // toggle
+    renderScorecardPanel();
+    scorecardEl.classList.add('show');
+    // Don't let taps fall through to the dice while the panel is up.
+    if (canvasEl) canvasEl.style.pointerEvents = 'none';
+  }
+  function closeScorecard() {
+    if (!scorecardEl) return;
+    scorecardEl.classList.remove('show');
+    scorecardEl.innerHTML = '';
+    // Re-enable die taps if we're still in the settled interactive state.
+    if (canvasEl && mode === 'multi') canvasEl.style.pointerEvents = '';
+  }
+
+  function renderScorecardPanel() {
+    if (!scorecardEl) return;
+    if (typeof categories === 'undefined' || !Array.isArray(categories)) {
+      scorecardEl.innerHTML =
+        '<div class="d3d-sc-sheet"><div class="d3d-sc-head">' +
+        '<span class="d3d-sc-title">Scorecard</span>' +
+        '<button class="d3d-sc-close" type="button">✕</button></div>' +
+        '<div class="d3d-sc-note">Scorecard unavailable right now.</div></div>';
+      scorecardEl.querySelector('.d3d-sc-close').addEventListener('click', closeScorecard);
+      return;
+    }
+    const sc = (typeof scores !== 'undefined' && scores) ? scores : {};
+    const hand = fullHandValues();
+    const handReady = hand.every(v => v > 0);
+
+    const rowFor = (c) => {
+      const taken = sc[c.id] !== undefined;
+      if (taken) {
+        const val = sc[c.id] | 0;
+        const right = val === 0
+          ? '<span class="d3d-sc-val struck">✕</span>'
+          : '<span class="d3d-sc-val">' + val + '</span>';
+        return '<div class="d3d-sc-row taken">' +
+          '<span class="d3d-sc-name">' + _escSug(c.name) + '</span>' + right + '</div>';
+      }
+      let pts = 0;
+      try { pts = handReady ? (c.calc(hand) | 0) : 0; } catch (_) { pts = 0; }
+      const right = '<span class="d3d-sc-pts' + (pts > 0 ? ' scores' : ' zero') + '">' +
+        (handReady ? (pts > 0 ? '+' + pts : 'strike') : '–') + '</span>';
+      return '<button class="d3d-sc-row open" type="button" data-cat="' + _escSug(c.id) + '">' +
+        '<span class="d3d-sc-name">' + _escSug(c.name) + '</span>' + right + '</button>';
+    };
+
+    const section = (title, items) =>
+      '<div class="d3d-sc-sec-title">' + title + '</div>' + items.map(rowFor).join('');
+    const upper = categories.filter(c => c.section === 'upper');
+    const lower = categories.filter(c => c.section === 'lower');
+
+    // Upper-bonus progress hint (mirrors the 2D scorecard's 63-for-35 rule).
+    let bonusHint = '';
+    try {
+      const ids = (typeof UPPER_IDS !== 'undefined' && Array.isArray(UPPER_IDS))
+        ? UPPER_IDS : upper.map(c => c.id);
+      const target = (typeof BONUS_TARGET !== 'undefined') ? BONUS_TARGET : 63;
+      const bonus = (typeof BONUS_POINTS !== 'undefined') ? BONUS_POINTS : 35;
+      let sum = 0;
+      ids.forEach(id => { if (sc[id] !== undefined) sum += sc[id] | 0; });
+      bonusHint = '<div class="d3d-sc-bonus">Upper: <b>' + sum + '</b> / ' + target +
+        ' &nbsp;·&nbsp; +' + bonus + ' bonus at ' + target + '</div>';
+    } catch (_) {}
+
+    scorecardEl.innerHTML =
+      '<div class="d3d-sc-sheet">' +
+        '<div class="d3d-sc-head">' +
+          '<span class="d3d-sc-title">Scorecard</span>' +
+          '<button class="d3d-sc-close" type="button" title="Close">✕</button>' +
+        '</div>' +
+        '<div class="d3d-sc-note">Tap an open category to score or strike it.</div>' +
+        '<div class="d3d-sc-grid">' +
+          '<div class="d3d-sc-col">' + section('UPPER', upper) + bonusHint + '</div>' +
+          '<div class="d3d-sc-col">' + section('LOWER', lower) + '</div>' +
+        '</div>' +
+      '</div>';
+
+    scorecardEl.querySelector('.d3d-sc-close').addEventListener('click', closeScorecard);
+    scorecardEl.querySelectorAll('.d3d-sc-row.open').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-cat');
+        if (id) finalizeTurn(id);
+      });
+    });
   }
 
   // Re-arm the in-play dice for another flick (keeps the kept dice on the shelf).
