@@ -77,6 +77,7 @@
   let rerollEl = null;             // floating "Roll again" button on the table
   let scorecardEl = null;          // slide-up scorecard panel (peek / strike a category)
   let bonusEl = null;              // slide-up power-up "bonus" panel (power-up mode only)
+  let yamEl = null;                // fireworks + "YAM!" celebration layer over the table
   const TRAY_TOP = 0.16;           // top surface height of the kept shelf
   // SHELF_X depends on WALL_SIDE (declared further down); set after it.
 
@@ -722,7 +723,8 @@
         '<div class="d3d-kept" id="dice3dKept"></div>' +
         '<div class="d3d-reroll" id="dice3dReroll"></div>' +
         '<div class="d3d-scorecard" id="dice3dScorecard"></div>' +
-        '<div class="d3d-scorecard" id="dice3dBonus"></div></div>' +
+        '<div class="d3d-scorecard" id="dice3dBonus"></div>' +
+        '<div class="d3d-yam" id="dice3dYam"></div></div>' +
       '<div class="d3d-suggest" id="dice3dSuggest"></div>' +
       '<div class="d3d-actions" id="dice3dActions"></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
@@ -736,6 +738,7 @@
     rerollEl = overlay.querySelector('#dice3dReroll');
     scorecardEl = overlay.querySelector('#dice3dScorecard');
     bonusEl = overlay.querySelector('#dice3dBonus');
+    yamEl = overlay.querySelector('#dice3dYam');
     _renderOppRolls();
     cancelBtn.addEventListener('click', () => {
       if (mode === 'spectator') {
@@ -1657,8 +1660,71 @@
     }
     updateSettleStatus();
     renderKeptRow();
-    renderSuggest(fullHandValues());
+    const hand = fullHandValues();
+    renderSuggest(hand);
     renderActions();
+    if (isYamHand(hand)) celebrateYam();
+  }
+
+  // ── YAM! celebration ─────────────────────────────────────────────
+  // Five of a kind → a firework burst, a flash, and a "YAM!" popup over the
+  // table, plus the celebratory chime. Self-contained so it works inside the
+  // 3D overlay (the 2D #yumRollFlash reads the 2D dice, which aren't set yet).
+  function isYamHand(vals) {
+    return Array.isArray(vals) && vals.length === 5 &&
+      vals.every(v => v > 0 && v === vals[0]);
+  }
+  function playYamFanfare() {
+    if (!soundOn()) return;
+    try { if (window.SFX && typeof SFX.yum === 'function') { SFX.yum(); return; } } catch (_) {}
+    const ctx = diceCtx(); if (!ctx) return;
+    const now = ctx.currentTime;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(f, now + i * 0.09);
+      g.gain.setValueAtTime(0.0001, now + i * 0.09);
+      g.gain.exponentialRampToValueAtTime(0.18, now + i * 0.09 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.09 + 0.26);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(now + i * 0.09); o.stop(now + i * 0.09 + 0.28);
+    });
+  }
+  function celebrateYam() {
+    if (!yamEl) return;
+    const COLORS = ['#f5a623', '#e94560', '#4ecdc4', '#ffd166', '#a855f7', '#22c55e'];
+    const N = 30;
+    let sparks = '';
+    for (let i = 0; i < N; i++) {
+      const ang = (i / N) * Math.PI * 2 + Math.random() * 0.35;
+      const dist = 110 + Math.random() * 140;
+      const tx = (Math.cos(ang) * dist).toFixed(0);
+      const ty = (Math.sin(ang) * dist).toFixed(0);
+      const c = COLORS[i % COLORS.length];
+      const delay = (Math.random() * 0.12).toFixed(2);
+      sparks += '<i class="d3d-yam-spark" style="--tx:' + tx + 'px;--ty:' + ty +
+        'px;--c:' + c + ';animation-delay:' + delay + 's"></i>';
+    }
+    yamEl.innerHTML =
+      '<div class="d3d-yam-burst">' + sparks + '</div>' +
+      '<div class="d3d-yam-card">' +
+        '<div class="d3d-yam-title">YAM!</div>' +
+        '<div class="d3d-yam-sub">5 OF A KIND</div>' +
+      '</div>';
+    yamEl.classList.remove('show');
+    void yamEl.offsetWidth;     // restart the animations
+    yamEl.classList.add('show');
+    playYamFanfare();
+    clearTimeout(yamEl._t);
+    yamEl._t = setTimeout(() => {
+      if (yamEl) { yamEl.classList.remove('show'); yamEl.innerHTML = ''; }
+    }, 1950);
+  }
+  function clearYam() {
+    if (!yamEl) return;
+    clearTimeout(yamEl._t);
+    yamEl.classList.remove('show');
+    yamEl.innerHTML = '';
   }
 
   // ── "What you can score" suggestions strip ───────────────────────
@@ -1778,6 +1844,7 @@
     clearReroll();
     closeScorecard();
     closeBonus();
+    clearYam();
   }
 
   // Floating "Roll again" button on the table, with reroll dots showing how
