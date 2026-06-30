@@ -153,7 +153,7 @@
         const n = data.n || (data.f ? Math.floor(data.f.length / 7) : 5);
         const title = (allPlayersName(watchedTurnId) || 'OPPONENT');
         const startedAt = lastActiveTs;
-        window.dice3DSpectate({ count: n, title: title, status: 'Watching live…' })
+        window.dice3DSpectate({ count: n, title: title, status: 'Watching live…', skin: data.skin })
           .then(handle => {
             spectatorOpening = false;
             // If the opponent already settled while we were spinning up the
