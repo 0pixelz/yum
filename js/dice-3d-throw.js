@@ -1820,11 +1820,23 @@
     if (el) { el.innerHTML = ''; el.classList.remove('show'); }
   }
 
-  // Bottom row now just owns "Done"; "Roll again" floats on the table.
+  // Bottom row owns "Done" (+ "Scorecard"); "Roll again" floats on the table.
+  // In power-up mode the "Bonus" button normally rides next to "Roll again";
+  // when no rolls are left (so that floating row is hidden) surface Bonus here
+  // instead, so the player can still see their power-ups at the end of the roll.
   function renderActions() {
     if (!actionsEl) return;
+    const rollsRemain = turnRollsLeft - turnRollsUsed;
+    const nonKept = multiDiceBodies.filter(b => !b._kept).length;
+    const bonusHere = powerupActive() && (rollsRemain <= 0 || nonKept === 0);
+    const invN = powerupInventory().length;
+    const bonusBtn = bonusHere
+      ? '<button class="d3d-act-btn d3d-act-bonus" data-act="bonus">⚡ Bonus' +
+          (invN ? ' (' + invN + ')' : '') + '</button>'
+      : '';
     actionsEl.innerHTML =
       '<div class="d3d-act-row">' +
+        bonusBtn +
         '<button class="d3d-act-btn d3d-act-card" data-act="card">Scorecard</button>' +
         '<button class="d3d-act-btn d3d-act-done" data-act="done">Done</button>' +
       '</div>';
@@ -1832,7 +1844,9 @@
     if (cancelBtn) cancelBtn.style.display = 'none';
     actionsEl.querySelectorAll('[data-act]').forEach(btn => {
       btn.addEventListener('click', () => {
-        if (btn.getAttribute('data-act') === 'card') openScorecard();
+        const a = btn.getAttribute('data-act');
+        if (a === 'card') openScorecard();
+        else if (a === 'bonus') openBonus();
         else finalizeTurn(null);
       });
     });
