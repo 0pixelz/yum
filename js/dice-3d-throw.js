@@ -44,6 +44,7 @@
   let multiDragging = false;
   let multiPointerSamples = [];
   let multiSettleStart = 0;
+  let multiRelaxTries = 0;         // un-stack re-drops performed this throw (capped)
   let multiResolve = null;
   let multiGeom = null;
   let multiMats = null;
@@ -1154,8 +1155,14 @@
           b.angularVelocity.length() < 0.07;
       });
       if (allSettled || elapsed > 8500) {
-        multiThrowing = false;
-        settleTurn();
+        // Before locking in the result, re-drop any die that settled stacked on
+        // another or cocked. If we moved any, keep simulating until they rest.
+        if (elapsed <= 8500 && relaxStacks()) {
+          multiSettleStart = now;   // give the nudged dice a fresh settle window
+        } else {
+          multiThrowing = false;
+          settleTurn();
+        }
       }
     }
   }
@@ -1502,6 +1509,81 @@
 
   // Dice have come to rest: lock in the rolled faces, show what the hand can
   // score, and surface the keep / roll-again / done controls.
+  // ── Anti-stacking ────────────────────────────────────────────────
+  // A die that comes to rest on top of another (elevated) or leaning against a
+  // die/wall (cocked) doesn't read a clean top face and looks wrong. After the
+  // throw settles we detect any such die and re-drop it onto the emptiest patch
+  // of felt, then let physics settle again — bounded so it always terminates.
+  const MAX_RELAX_TRIES = 6;
+
+  // y-component of the most-upward face normal: ~1.0 when the die lies flat,
+  // lower when it's tilted/cocked.
+  function topNormalY(body) {
+    const q = new THREE.Quaternion(
+      body.quaternion.x, body.quaternion.y, body.quaternion.z, body.quaternion.w
+    );
+    const normals = [
+      [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]
+    ];
+    let best = -Infinity;
+    for (const n of normals) {
+      const y = new THREE.Vector3(n[0], n[1], n[2]).applyQuaternion(q).y;
+      if (y > best) best = y;
+    }
+    return best;
+  }
+
+  // Pick the (x,z) on the felt that is farthest from every other die and from
+  // any spot already claimed this pass, so re-dropped dice spread out.
+  function findFreeSpot(others, taken) {
+    const occupied = others.map(d => ({ x: d.position.x, z: d.position.z })).concat(taken);
+    let best = { x: 0, z: 0 }, bestD = -Infinity;
+    for (let gx = -DRAG_X_LIMIT; gx <= DRAG_X_LIMIT + 1e-6; gx += 0.28) {
+      for (let gz = DRAG_Z_MIN + 0.3; gz <= DRAG_Z_MAX - 0.3; gz += 0.28) {
+        let dmin = Infinity;
+        for (const o of occupied) {
+          const d = Math.hypot(gx - o.x, gz - o.z);
+          if (d < dmin) dmin = d;
+        }
+        if (dmin > bestD) { bestD = dmin; best = { x: gx, z: gz }; }
+      }
+    }
+    return best;
+  }
+
+  // Returns true if it re-dropped at least one stacked/cocked die (caller keeps
+  // simulating); false when all in-play dice already lie flat on the felt.
+  function relaxStacks() {
+    if (multiRelaxTries >= MAX_RELAX_TRIES) return false;
+    const HALF = TURN_DIE_HALF;
+    const inPlay = multiDiceBodies.filter(b => !b._kept);
+    const bad = inPlay.filter(b =>
+      b.position.y > HALF * 1.55 ||   // sitting on top of another die
+      topNormalY(b) < 0.86            // leaning / cocked
+    );
+    if (!bad.length) return false;
+    multiRelaxTries++;
+    const good = inPlay.filter(b => bad.indexOf(b) === -1);
+    const taken = [];
+    for (const b of bad) {
+      const spot = findFreeSpot(good.concat(bad.filter(x => x !== b)), taken);
+      taken.push(spot);
+      b.type = CANNON.Body.DYNAMIC;
+      b.collisionResponse = true;
+      b._spinAxis = null;
+      b.position.set(spot.x, HALF + 0.55 + Math.random() * 0.25, spot.z);
+      b.velocity.set(0, -0.4, 0);
+      b.angularVelocity.set(
+        (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6
+      );
+      b.quaternion.setFromEuler(
+        Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28
+      );
+      b.wakeUp();
+    }
+    return true;
+  }
+
   function settleTurn() {
     turnSettled = true;
     for (let i = 0; i < multiDiceBodies.length; i++) {
@@ -1908,6 +1990,7 @@
     if (interactiveTurn) turnRollsUsed++;
     multiReady = false;
     multiThrowing = true;
+    multiRelaxTries = 0;
     multiSettleStart = performance.now();
     statusEl.textContent = 'Rolling…';
     playThrowClatter();
