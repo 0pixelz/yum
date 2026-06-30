@@ -1549,13 +1549,18 @@
 
   // Dice have come to rest: lock in the rolled faces, show what the hand can
   // score, and surface the keep / roll-again / done controls.
-  // ── Anti-stacking ────────────────────────────────────────────────
-  // A die that comes to rest on top of another (elevated) or leaning against a
-  // die/wall (cocked) doesn't read a clean top face and looks wrong. After the
-  // throw settles we detect any such die and shove it off so it topples down
-  // naturally beside the stack, then let physics settle again — bounded so it
-  // always terminates.
-  const MAX_RELAX_TRIES = 6;
+  // ── Anti-stacking / cocked-die cleanup ───────────────────────────
+  // A die that comes to rest on top of another (elevated) or leaning on its
+  // side against a die/wall (cocked) doesn't show a clean top face. We don't
+  // lock in the result or reveal the "roll again" controls until every die is
+  // lying flat: after the throw settles we detect any such die and shove it off
+  // so it topples down and re-settles flat, then re-check — bounded so it always
+  // terminates.
+  const MAX_RELAX_TRIES = 8;
+  // Min y of the most-upward face normal to count a die as "lying flat". 1.0 is
+  // perfectly flat; 0.97 ≈ within ~14° of flat. Anything less is on its side and
+  // gets knocked over before we show the result.
+  const FLAT_MIN = 0.97;
 
   // y-component of the most-upward face normal: ~1.0 when the die lies flat,
   // lower when it's tilted/cocked.
@@ -1585,25 +1590,34 @@
     const inPlay = multiDiceBodies.filter(b => !b._kept);
     const bad = inPlay.filter(b =>
       b.position.y > HALF * 1.55 ||   // sitting on top of another die
-      topNormalY(b) < 0.86            // leaning / cocked
+      topNormalY(b) < FLAT_MIN        // on its side / cocked — not lying flat
     );
     if (!bad.length) return false;
     multiRelaxTries++;
+    const TABLE_CZ = (DRAG_Z_MIN + DRAG_Z_MAX) / 2;  // table centre (z)
     for (const b of bad) {
-      // Find the nearest other in-play die — the one it's resting on / against —
-      // and shove away from it so the die slides off the stack.
+      // Find the nearest other in-play die — the one it might be resting on.
       let nx = 0, nz = 0, nd = Infinity;
       for (const o of inPlay) {
         if (o === b) continue;
         const d = Math.hypot(b.position.x - o.position.x, b.position.z - o.position.z);
         if (d < nd) { nd = d; nx = b.position.x - o.position.x; nz = b.position.z - o.position.z; }
       }
-      let len = Math.hypot(nx, nz);
-      if (len < 1e-3) {                 // stacked dead-centre → pick a random heading
-        const a = Math.random() * Math.PI * 2;
-        nx = Math.cos(a); nz = Math.sin(a); len = 1;
+      let dx, dz;
+      if (nd < TURN_DIE_SIZE * 1.4) {
+        // Stacked on / against another die → shove away from it so it slides off.
+        dx = nx; dz = nz;
+      } else {
+        // Cocked on its own (likely against a wall) → roll toward open felt at
+        // the table centre, where it has room to land flat.
+        dx = -b.position.x; dz = TABLE_CZ - b.position.z;
       }
-      let dx = nx / len, dz = nz / len;
+      let len = Math.hypot(dx, dz);
+      if (len < 1e-3) {                 // dead-centre → pick a random heading
+        const a = Math.random() * Math.PI * 2;
+        dx = Math.cos(a); dz = Math.sin(a); len = 1;
+      }
+      dx /= len; dz /= len;
       // Don't shove into a nearby wall (would just cock it again) — flip away.
       if (b.position.x >  DRAG_X_LIMIT - 0.4 && dx > 0) dx = -dx;
       if (b.position.x < -DRAG_X_LIMIT + 0.4 && dx < 0) dx = -dx;
