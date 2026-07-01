@@ -21,23 +21,35 @@
   const KEY = 'yum_yamworld_v1';
 
   // ── Stage roster ────────────────────────────────────────────────────────
-  // reward  = credits earned for beating the stage the first time (a smaller
-  //           consolation is granted on repeat wins).
-  // botPups = bonus power-ups the opponent starts with, ramping difficulty.
+  // reward = credits earned for beating the stage the first time (a smaller
+  //          consolation is granted on repeat wins). The opponent's starting
+  //          power-up count scales with the stage — see botLoadoutForStage().
   const STAGES = [
-    { key: 1,  bot: 'Bob',   title: 'The Rookie',      reward: 8,  botPups: [] },
-    { key: 2,  bot: 'Alice', title: 'Dice Diner',      reward: 10, botPups: [] },
-    { key: 3,  bot: 'Max',   title: 'Lucky Streak',    reward: 12, botPups: ['luckyDice'] },
-    { key: 4,  bot: 'Nova',  title: 'Double Trouble',  reward: 14, botPups: ['doublePoints'] },
-    { key: 5,  bot: 'Rex',   title: 'Cold Storage',    reward: 16, botPups: ['freezeDie'] },
-    { key: 6,  bot: 'Luna',  title: 'Extra Innings',   reward: 18, botPups: ['extraRoll', 'luckyDice'] },
-    { key: 7,  bot: 'Zane',  title: 'Power Player',    reward: 22, botPups: ['doublePoints', 'extraRoll'] },
-    { key: 8,  bot: 'Ivy',   title: 'The Gauntlet',    reward: 26, botPups: ['luckyDice', 'freezeDie', 'doublePoints'] },
-    { key: 9,  bot: 'Titan', title: 'Boss Fight',      reward: 32, botPups: ['doublePoints', 'extraRoll', 'luckyDice', 'freezeDie'] },
-    { key: 10, bot: 'Yamio', title: 'Grand Champion',  reward: 50, botPups: ['doublePoints', 'doublePoints', 'extraRoll', 'luckyDice', 'freezeDie'] },
+    { key: 1,  bot: 'Bob',   title: 'The Rookie',      reward: 8  },
+    { key: 2,  bot: 'Alice', title: 'Dice Diner',      reward: 10 },
+    { key: 3,  bot: 'Max',   title: 'Lucky Streak',    reward: 12 },
+    { key: 4,  bot: 'Nova',  title: 'Double Trouble',  reward: 14 },
+    { key: 5,  bot: 'Rex',   title: 'Cold Storage',    reward: 16 },
+    { key: 6,  bot: 'Luna',  title: 'Extra Innings',   reward: 18 },
+    { key: 7,  bot: 'Zane',  title: 'Power Player',    reward: 22 },
+    { key: 8,  bot: 'Ivy',   title: 'The Gauntlet',    reward: 26 },
+    { key: 9,  bot: 'Titan', title: 'Boss Fight',      reward: 32 },
+    { key: 10, bot: 'Yamio', title: 'Grand Champion',  reward: 50 },
   ];
 
   const REPEAT_REWARD = 3; // credits for re-beating an already-cleared stage
+
+  // The opponent starts each stage armed with more power-ups the deeper you go.
+  // Only the four the bot AI actually knows how to spend are used (luckyDice,
+  // doublePoints, extraRoll, freezeDie); the strongest are front-loaded. The bot
+  // also earns its own starter pick + YAM rewards on top of this.
+  const BOT_PUP_POOL = ['doublePoints', 'luckyDice', 'extraRoll', 'freezeDie'];
+  function botLoadoutForStage(key) {
+    const n = Math.min(6, Math.floor(key / 1.6)); // 0,1,1,2,3,3,4,5,5,6 across stages 1-10
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(BOT_PUP_POOL[i % BOT_PUP_POOL.length]);
+    return out;
+  }
 
   // ── Shop: buyable power-ups (defs come from the global POWERUPS list) ─────
   const SHOP = [
@@ -64,6 +76,15 @@
     'radial-gradient(circle at 35% 28%, #c06ad0 0%, #7a2b8e 45%, #2f1245 100%)',
   ];
   const BOSS_GRADIENT = 'radial-gradient(circle at 34% 28%, #f7d16b 0%, #b06ad0 45%, #3f1a6e 100%)';
+
+  // Ringed-planet logo for the Yam World brand (button, map title, nav).
+  const PLANET_LOGO =
+    '<svg class="yw-btn-logo" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" ' +
+    'style="vertical-align:-2px;margin-right:2px">' +
+    '<circle cx="12" cy="11" r="6.5" fill="#3b5bbf"/>' +
+    '<circle cx="9.6" cy="8.8" r="2.3" fill="#6f8dff" opacity="0.7"/>' +
+    '<ellipse cx="12" cy="12" rx="11" ry="3.6" fill="none" stroke="#f5a623" stroke-width="1.7" ' +
+    'transform="rotate(-20 12 12)"/></svg>';
 
   // ── State (localStorage) ──────────────────────────────────────────────────
   function defaultState() {
@@ -259,7 +280,7 @@
     o.innerHTML = `
       <div class="yw-sheet yw-sheet-space">
         <div class="yw-head">
-          <div class="yw-title"><i class="icn icn-orb"></i> YAM WORLD</div>
+          <div class="yw-title">${PLANET_LOGO} YAM WORLD</div>
           <button class="yw-close" id="ywMapClose"><i class="icn icn-close"></i></button>
         </div>
         <div class="yw-credit-box">
@@ -353,6 +374,8 @@
       const onclick = unlocked ? `onclick="yamWorldPlay(${st.key})"` : '';
       const rewardN = cleared ? REPEAT_REWARD : st.reward;
       const status = !unlocked ? 'Locked' : (cleared ? 'Cleared · replay' : 'Tap to launch');
+      const armed = botLoadoutForStage(st.key).length;
+      const armedTag = armed > 0 ? ` · <span style="white-space:nowrap"><i class="icn icn-bolt"></i>×${armed}</span>` : '';
       const labelTop = p.top + p.size / 2 + 9;
 
       const planet = `<div class="${cls}" ${onclick}
@@ -360,7 +383,7 @@
         <span class="yw-planet-num">${face}</span></div>`;
       const label = `<div class="yw-plabel" style="left:${p.leftPct.toFixed(2)}%;top:${labelTop}px">
         <div class="yw-plabel-vs">Human vs ${escapeName(st.bot)}</div>
-        <div class="yw-plabel-sub">Stage ${st.key} · ${boss ? 'FINAL BOSS' : escapeName(st.title)}</div>
+        <div class="yw-plabel-sub">Stage ${st.key} · ${boss ? 'FINAL BOSS' : escapeName(st.title)}${armedTag}</div>
         <div class="yw-plabel-reward"><i class="icn icn-coin"></i> ${rewardN} · ${status}</div></div>`;
       return planet + label;
     }).join('');
@@ -492,7 +515,7 @@
     // consumed off the shelf until the stage is actually won (see award()), so
     // a loss lets you retry with the same gear.
     pendingLoadout = state.backpack.slice();
-    pendingBotPups = stage.botPups.slice();
+    pendingBotPups = botLoadoutForStage(stage.key);
 
     // Name the opponent, then launch a Power-Up vs-Bot game. botName is a
     // top-level binding shared across the app's scripts.
@@ -572,7 +595,7 @@
       html += `<button class="gameover-btn gameover-btn-rematch" onclick="yamWorldReplay()"><i class="icn icn-refresh"></i> RETRY</button>`;
     }
     html += `<button class="gameover-btn" onclick="yamWorldOpenShopFromResult()" style="background:rgba(245,166,35,0.12);color:var(--gold);border:1px solid rgba(245,166,35,0.3)"><i class="icn icn-palette"></i> SHOP</button>`;
-    html += `<button class="gameover-btn gameover-btn-quit" onclick="yamWorldToMap()"><i class="icn icn-orb"></i> WORLD MAP</button>`;
+    html += `<button class="gameover-btn gameover-btn-quit" onclick="yamWorldToMap()">${PLANET_LOGO} WORLD MAP</button>`;
     btns.innerHTML = html;
   }
 
