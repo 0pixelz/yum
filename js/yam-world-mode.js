@@ -86,6 +86,14 @@
     '<ellipse cx="12" cy="12" rx="11" ry="3.6" fill="none" stroke="#f5a623" stroke-width="1.7" ' +
     'transform="rotate(-20 12 12)"/></svg>';
 
+  // Padlock mark shown on locked planets.
+  const LOCK_SVG =
+    '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="vertical-align:-2px">' +
+    '<rect x="5" y="10.5" width="14" height="10" rx="2.2" fill="#dbe3ff"/>' +
+    '<path d="M8 10.5 V8 a4 4 0 0 1 8 0 V10.5" fill="none" stroke="#dbe3ff" stroke-width="2"/>' +
+    '<circle cx="12" cy="14.6" r="1.7" fill="#1a2a5e"/>' +
+    '<rect x="11.15" y="14.6" width="1.7" height="3.4" rx="0.85" fill="#1a2a5e"/></svg>';
+
   // ── State (localStorage) ──────────────────────────────────────────────────
   function defaultState() {
     return { unlocked: 1, credits: 0, cleared: {}, backpack: [] };
@@ -370,7 +378,7 @@
       const cls = ['yw-planet',
         cleared ? 'cleared' : '', isCurrent ? 'current' : '', !unlocked ? 'locked' : '',
         boss ? 'yw-planet-boss' : ''].filter(Boolean).join(' ');
-      const face = cleared ? '<i class="icn icn-check"></i>' : (unlocked ? st.key : '<i class="icn icn-key"></i>');
+      const face = cleared ? '<i class="icn icn-check"></i>' : (unlocked ? st.key : LOCK_SVG);
       const onclick = unlocked ? `onclick="yamWorldPlay(${st.key})"` : '';
       const rewardN = cleared ? REPEAT_REWARD : st.reward;
       const status = !unlocked ? 'Locked' : (cleared ? 'Cleared · replay' : 'Tap to launch');
