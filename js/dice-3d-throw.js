@@ -1826,12 +1826,46 @@
     } catch (_) { return []; }
   }
 
+  // When the best score this hand can make is low, suggest striking a HARD-to-fill
+  // category rather than wasting a useful one: strike Ones (only when there's no 1
+  // on the table), and strike Yam — or, if Yam is already gone, Large Straight /
+  // Four of a Kind. Only offers categories that would actually score 0 (a strike).
+  const SMART_STRIKE_MAX = 20;
+  function smartStrikeSuggestions(hand) {
+    try {
+      if (typeof categories === 'undefined' || !Array.isArray(categories)) return [];
+      const sc = (typeof scores !== 'undefined' && scores) ? scores : {};
+      const byId = id => categories.find(c => c.id === id);
+      const avail = id => sc[id] === undefined && !!byId(id);
+      const isStrike = id => {
+        const c = byId(id);
+        try { return !!c && (c.calc(hand) | 0) === 0; } catch (_) { return false; }
+      };
+      const has1 = hand.some(v => v === 1);
+      const ids = [];
+      // Strike Ones if there's no 1 showing (holding for 1s is pointless).
+      if (avail('ones') && !has1 && isStrike('ones')) ids.push('ones');
+      // The hardest category: Yam. If Yam is already taken, the next hardest.
+      if (avail('yum')) {
+        if (isStrike('yum')) ids.push('yum');
+      } else {
+        if (avail('lgStraight') && isStrike('lgStraight')) ids.push('lgStraight');
+        if (avail('fourKind') && isStrike('fourKind')) ids.push('fourKind');
+      }
+      return ids.map(byId).filter(Boolean);
+    } catch (_) { return []; }
+  }
+
   function renderSuggest(hand) {
     if (!overlay) return;
     const el = overlay.querySelector('#dice3dSuggest');
     if (!el) return;
     const opts = turnPossibilities(hand) || [];
+    const bestPts = opts.length ? (opts[0].points | 0) : 0;
+    // Only push the "strike a tough one" options when this hand can't score well.
+    const smart = (bestPts < SMART_STRIKE_MAX) ? smartStrikeSuggestions(hand) : [];
 
+    let html = '';
     if (opts.length) {
       const chips = opts.slice(0, 6).map(({ cat, points }, i) => {
         const best = i === 0 ? ' d3d-sug-best' : '';
@@ -1841,23 +1875,37 @@
           '<span class="d3d-sug-pts">' + (points | 0) + '</span>' + badge +
           '</button>';
       }).join('');
-      el.innerHTML = '<div class="d3d-sug-title">Tap to score</div>' +
-        '<div class="d3d-sug-list">' + chips + '</div>';
-    } else {
-      // No category scores this hand — surface the cheapest strike instead.
-      const strikes = turnStrikes() || [];
-      if (!strikes.length) { el.innerHTML = ''; el.classList.remove('show'); return; }
-      const chips = strikes.slice(0, 6).map(({ cat }, i) => {
-        const best = i === 0 ? ' d3d-sug-best' : '';
-        const badge = i === 0 ? '<span class="d3d-sug-badge">Cheapest</span>' : '';
-        return '<button class="d3d-sug-chip d3d-sug-strike' + best + '" data-cat="' +
-          _escSug(cat.id) + '"><span class="d3d-sug-name">' + _escSug(cat.name) +
-          '</span>' + badge + '</button>';
-      }).join('');
-      el.innerHTML = '<div class="d3d-sug-title d3d-sug-strike-title">No score — strike one</div>' +
+      html += '<div class="d3d-sug-title">Tap to score</div>' +
         '<div class="d3d-sug-list">' + chips + '</div>';
     }
+    if (smart.length) {
+      const chips = smart.map((cat, i) => {
+        const badge = i === 0 ? '<span class="d3d-sug-badge">Tough</span>' : '';
+        return '<button class="d3d-sug-chip d3d-sug-strike" data-cat="' + _escSug(cat.id) + '">' +
+          '<span class="d3d-sug-name">Strike ' + _escSug(cat.name) + '</span>' + badge + '</button>';
+      }).join('');
+      html += '<div class="d3d-sug-title d3d-sug-strike-title">' +
+        (opts.length ? 'Or sacrifice a tough one' : 'No score — strike a tough one') +
+        '</div><div class="d3d-sug-list">' + chips + '</div>';
+    }
+    if (!opts.length && !smart.length) {
+      // No score and nothing tough to sacrifice — surface the cheapest strike.
+      const strikes = turnStrikes() || [];
+      if (strikes.length) {
+        const chips = strikes.slice(0, 6).map(({ cat }, i) => {
+          const best = i === 0 ? ' d3d-sug-best' : '';
+          const badge = i === 0 ? '<span class="d3d-sug-badge">Cheapest</span>' : '';
+          return '<button class="d3d-sug-chip d3d-sug-strike' + best + '" data-cat="' +
+            _escSug(cat.id) + '"><span class="d3d-sug-name">' + _escSug(cat.name) +
+            '</span>' + badge + '</button>';
+        }).join('');
+        html += '<div class="d3d-sug-title d3d-sug-strike-title">No score — strike one</div>' +
+          '<div class="d3d-sug-list">' + chips + '</div>';
+      }
+    }
 
+    if (!html) { el.innerHTML = ''; el.classList.remove('show'); return; }
+    el.innerHTML = html;
     el.classList.add('show');
     el.querySelectorAll('.d3d-sug-chip').forEach(btn => {
       btn.addEventListener('click', () => {
