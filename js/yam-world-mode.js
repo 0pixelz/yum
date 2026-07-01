@@ -65,6 +65,15 @@
   ];
   const BOSS_GRADIENT = 'radial-gradient(circle at 34% 28%, #f7d16b 0%, #b06ad0 45%, #3f1a6e 100%)';
 
+  // Ringed-planet logo for the Yam World brand (button, map title, nav).
+  const PLANET_LOGO =
+    '<svg class="yw-btn-logo" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" ' +
+    'style="vertical-align:-2px;margin-right:2px">' +
+    '<circle cx="12" cy="11" r="6.5" fill="#3b5bbf"/>' +
+    '<circle cx="9.6" cy="8.8" r="2.3" fill="#6f8dff" opacity="0.7"/>' +
+    '<ellipse cx="12" cy="12" rx="11" ry="3.6" fill="none" stroke="#f5a623" stroke-width="1.7" ' +
+    'transform="rotate(-20 12 12)"/></svg>';
+
   // ── State (localStorage) ──────────────────────────────────────────────────
   function defaultState() {
     return { unlocked: 1, credits: 0, cleared: {}, backpack: [] };
@@ -259,7 +268,7 @@
     o.innerHTML = `
       <div class="yw-sheet yw-sheet-space">
         <div class="yw-head">
-          <div class="yw-title"><i class="icn icn-orb"></i> YAM WORLD</div>
+          <div class="yw-title">${PLANET_LOGO} YAM WORLD</div>
           <button class="yw-close" id="ywMapClose"><i class="icn icn-close"></i></button>
         </div>
         <div class="yw-credit-box">
@@ -572,7 +581,7 @@
       html += `<button class="gameover-btn gameover-btn-rematch" onclick="yamWorldReplay()"><i class="icn icn-refresh"></i> RETRY</button>`;
     }
     html += `<button class="gameover-btn" onclick="yamWorldOpenShopFromResult()" style="background:rgba(245,166,35,0.12);color:var(--gold);border:1px solid rgba(245,166,35,0.3)"><i class="icn icn-palette"></i> SHOP</button>`;
-    html += `<button class="gameover-btn gameover-btn-quit" onclick="yamWorldToMap()"><i class="icn icn-orb"></i> WORLD MAP</button>`;
+    html += `<button class="gameover-btn gameover-btn-quit" onclick="yamWorldToMap()">${PLANET_LOGO} WORLD MAP</button>`;
     btns.innerHTML = html;
   }
 
