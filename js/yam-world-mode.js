@@ -54,6 +54,17 @@
     return (typeof POWERUPS !== 'undefined') ? POWERUPS.find(p => p.id === id) : null;
   }
 
+  // Spherical planet fills, cycled per stage for variety.
+  const PLANET_GRADIENTS = [
+    'radial-gradient(circle at 35% 28%, #3b5bbf 0%, #24357e 45%, #101a45 100%)',
+    'radial-gradient(circle at 35% 28%, #2f8fbf 0%, #1e5a86 45%, #0c2740 100%)',
+    'radial-gradient(circle at 35% 28%, #6a4bd0 0%, #3f2b8e 45%, #1a1245 100%)',
+    'radial-gradient(circle at 35% 28%, #3bbfa8 0%, #1e7a6c 45%, #0c2f2a 100%)',
+    'radial-gradient(circle at 35% 28%, #4a63d0 0%, #2b3a8e 45%, #121845 100%)',
+    'radial-gradient(circle at 35% 28%, #c06ad0 0%, #7a2b8e 45%, #2f1245 100%)',
+  ];
+  const BOSS_GRADIENT = 'radial-gradient(circle at 34% 28%, #f7d16b 0%, #b06ad0 45%, #3f1a6e 100%)';
+
   // ── State (localStorage) ──────────────────────────────────────────────────
   function defaultState() {
     return { unlocked: 1, credits: 0, cleared: {}, backpack: [] };
@@ -130,35 +141,68 @@
         border-radius: 999px; padding: 9px 16px; font-family: 'Nunito', sans-serif; font-weight: 900;
         letter-spacing: 0.8px; cursor: pointer;
       }
-      /* Map path */
-      .yw-path { position: relative; display: flex; flex-direction: column; gap: 12px; padding-left: 6px; }
-      .yw-node {
-        display: flex; align-items: center; gap: 12px; position: relative;
-        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 16px; padding: 12px 14px;
+      /* ── Space map ── */
+      .yw-sheet-space {
+        background:
+          radial-gradient(1200px 500px at 78% -8%, rgba(120,150,255,0.28), transparent 60%),
+          radial-gradient(circle at 72% 12%, #1b2b6b 0%, #101a45 42%, #080e2c 100%);
       }
-      .yw-node.current { border-color: rgba(245,166,35,0.6); box-shadow: 0 0 18px rgba(245,166,35,0.18); }
-      .yw-node.cleared { border-color: rgba(46,204,113,0.4); }
-      .yw-node.locked  { opacity: 0.55; }
-      .yw-badge {
-        width: 44px; height: 44px; flex: 0 0 44px; border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        font-family: 'Bebas Neue', cursive; font-size: 1.5rem; letter-spacing: 1px;
-        background: linear-gradient(135deg,#2a2a6e,#16163f); color: #fff; border: 1px solid rgba(255,255,255,0.12);
+      .yw-space {
+        position: relative; width: 100%; margin-top: 6px; border-radius: 18px; overflow: hidden;
+        background:
+          radial-gradient(1.4px 1.4px at 12% 6%, rgba(255,255,255,0.9), transparent),
+          radial-gradient(1.4px 1.4px at 82% 9%, rgba(255,255,255,0.7), transparent),
+          radial-gradient(1.2px 1.2px at 34% 15%, rgba(255,255,255,0.75), transparent),
+          radial-gradient(1.2px 1.2px at 62% 24%, rgba(200,220,255,0.7), transparent),
+          radial-gradient(1.6px 1.6px at 22% 40%, rgba(255,255,255,0.85), transparent),
+          radial-gradient(1.2px 1.2px at 88% 52%, rgba(255,255,255,0.6), transparent),
+          radial-gradient(1.3px 1.3px at 48% 66%, rgba(220,230,255,0.7), transparent),
+          radial-gradient(1.5px 1.5px at 15% 78%, rgba(255,255,255,0.8), transparent),
+          radial-gradient(1.2px 1.2px at 74% 84%, rgba(255,255,255,0.6), transparent),
+          radial-gradient(1.3px 1.3px at 40% 94%, rgba(255,255,255,0.7), transparent);
+        background-color: transparent;
       }
-      .yw-node.cleared .yw-badge { background: linear-gradient(135deg,#16a34a,#0e7a37); }
-      .yw-node.current .yw-badge { background: linear-gradient(135deg,#f5a623,#f39c12); color: #251400; }
-      .yw-node-info { flex: 1; min-width: 0; }
-      .yw-node-vs { font-weight: 900; color: var(--white); font-size: 0.98rem; }
-      .yw-node-sub { font-size: 0.74rem; color: var(--muted); margin-top: 1px; }
-      .yw-node-reward { font-size: 0.72rem; color: var(--gold); font-weight: 800; margin-top: 2px; }
-      .yw-play-btn {
-        border: none; border-radius: 999px; padding: 9px 16px; font-family: 'Nunito', sans-serif;
-        font-weight: 900; letter-spacing: 0.8px; cursor: pointer; white-space: nowrap;
-        background: linear-gradient(135deg, var(--green), #2ecc71); color: #111;
+      .yw-dot {
+        position: absolute; width: 4px; height: 4px; border-radius: 50%;
+        background: rgba(180,205,255,0.75); transform: translate(-50%,-50%);
+        box-shadow: 0 0 4px rgba(150,190,255,0.7); z-index: 1;
       }
-      .yw-play-btn.locked { background: rgba(255,255,255,0.08); color: var(--muted); cursor: default; }
-      .yw-play-btn.cleared { background: rgba(78,205,196,0.14); color: var(--green); border: 1px solid rgba(78,205,196,0.35); }
+      .yw-planet {
+        position: absolute; transform: translate(-50%,-50%); border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; z-index: 2;
+        font-family: 'Bebas Neue', cursive; letter-spacing: 1px; color: #eaf0ff;
+        border: 1px solid rgba(255,255,255,0.10); cursor: pointer;
+        box-shadow: inset -7px -9px 16px rgba(0,0,0,0.55), inset 7px 7px 14px rgba(150,180,255,0.22), 0 8px 22px rgba(0,0,0,0.45);
+        transition: transform 0.12s ease;
+      }
+      .yw-planet:active { transform: translate(-50%,-50%) scale(0.94); }
+      .yw-planet .yw-planet-num { font-size: 1.5rem; text-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+      .yw-planet.locked { cursor: default; filter: grayscale(0.5) brightness(0.55); }
+      .yw-planet.cleared { box-shadow: inset -7px -9px 16px rgba(0,0,0,0.5), 0 0 0 2px rgba(46,204,113,0.55), 0 0 18px rgba(46,204,113,0.35); }
+      .yw-planet.current { animation: ywPulse 1.8s ease-in-out infinite; }
+      .yw-planet.yw-planet-boss {
+        box-shadow: inset -8px -10px 18px rgba(0,0,0,0.5), 0 0 0 2px rgba(245,166,35,0.6), 0 0 26px rgba(168,85,247,0.5);
+      }
+      @keyframes ywPulse {
+        0%,100% { box-shadow: inset -7px -9px 16px rgba(0,0,0,0.55), 0 0 0 2px rgba(245,166,35,0.5), 0 0 14px rgba(245,166,35,0.3); }
+        50%     { box-shadow: inset -7px -9px 16px rgba(0,0,0,0.55), 0 0 0 3px rgba(245,166,35,0.9), 0 0 26px rgba(245,166,35,0.6); }
+      }
+      .yw-plabel { position: absolute; transform: translateX(-50%); text-align: center; width: 132px; z-index: 2; pointer-events: none; }
+      .yw-plabel-vs { font-weight: 900; color: #fff; font-size: 0.82rem; text-shadow: 0 1px 4px rgba(0,0,0,0.7); }
+      .yw-plabel-sub { font-size: 0.66rem; color: #9fb2e6; margin-top: 1px; }
+      .yw-plabel-reward { font-size: 0.66rem; color: var(--gold); font-weight: 800; margin-top: 1px; }
+      .yw-rocket {
+        position: absolute; transform: translate(-50%,-50%) rotate(34deg); z-index: 3;
+        font-size: 1.7rem; pointer-events: none; filter: drop-shadow(0 0 8px rgba(140,190,255,0.8));
+        animation: ywBob 2.4s ease-in-out infinite;
+      }
+      @keyframes ywBob { 0%,100% { margin-top: 0; } 50% { margin-top: -5px; } }
+      .yw-moon {
+        position: absolute; left: 16px; top: 12px; width: 54px; height: 54px; border-radius: 50%;
+        background: radial-gradient(circle at 34% 30%, #eef3ff 0%, #b9c6ee 45%, #6d7db0 100%);
+        box-shadow: 0 0 26px rgba(180,200,255,0.55), inset -6px -8px 14px rgba(0,0,0,0.3); z-index: 1;
+      }
+      .yw-moon-label { position: absolute; left: 12px; top: 70px; font-family: 'Bebas Neue', cursive; letter-spacing: 2px; font-size: 0.72rem; color: #cdd8ff; z-index: 1; }
       /* Shop grid */
       .yw-shop-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
       .yw-shop-card {
@@ -213,14 +257,14 @@
     o.id = 'yamWorldOverlay';
     o.onclick = e => { if (e.target === o) closeYamWorld(); };
     o.innerHTML = `
-      <div class="yw-sheet">
+      <div class="yw-sheet yw-sheet-space">
         <div class="yw-head">
           <div class="yw-title"><i class="icn icn-orb"></i> YAM WORLD</div>
           <button class="yw-close" id="ywMapClose"><i class="icn icn-close"></i></button>
         </div>
         <div class="yw-credit-box">
           <div>
-            <div class="yw-credit-label">Beat stages to earn credits</div>
+            <div class="yw-credit-label">Blast through the galaxy — beat stages to earn credits</div>
             <div style="font-size:0.72rem;color:var(--muted);margin-top:2px">Spend them in the shop on power-ups</div>
           </div>
           <div style="display:flex;align-items:center;gap:12px">
@@ -228,7 +272,7 @@
             <button class="yw-shop-btn" id="ywOpenShop"><i class="icn icn-palette"></i> SHOP</button>
           </div>
         </div>
-        <div class="yw-path" id="ywPath"></div>
+        <div class="yw-space" id="ywPath"></div>
       </div>`;
     document.body.appendChild(o);
     o.querySelector('#ywMapClose').onclick = closeYamWorld;
@@ -263,40 +307,78 @@
     return o;
   }
 
-  // ── Map ───────────────────────────────────────────────────────────────────
+  // ── Map (space scene: planets along a dotted flight path) ──────────────────
   function renderMap() {
     const path = document.getElementById('ywPath');
     const credEl = document.getElementById('ywMapCredits');
     if (credEl) credEl.textContent = state.credits;
     if (!path) return;
 
-    path.innerHTML = STAGES.map(st => {
+    const n = STAGES.length;
+    const topPad = 78, gap = 128, amp = 26, baseSize = 58, bossSize = 84;
+
+    // Geometry: planets wind down the scene on a sine path, stage 1 at top.
+    const pts = STAGES.map((st, i) => ({
+      st, i,
+      leftPct: 50 + amp * Math.sin(i * 0.95 + 0.6),
+      top: topPad + i * gap,
+      size: (i === n - 1) ? bossSize : baseSize
+    }));
+    const height = topPad + (n - 1) * gap + bossSize / 2 + 46;
+
+    // Dotted trail between consecutive planets.
+    let dots = '';
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1], steps = 6;
+      for (let s = 1; s <= steps; s++) {
+        const t = s / (steps + 1);
+        const l = a.leftPct + (b.leftPct - a.leftPct) * t;
+        const tp = a.top + (b.top - a.top) * t;
+        dots += `<div class="yw-dot" style="left:${l.toFixed(2)}%;top:${tp.toFixed(1)}px"></div>`;
+      }
+    }
+
+    // Planets + labels.
+    const nodes = pts.map(p => {
+      const st = p.st;
       const cleared = !!state.cleared[st.key];
       const unlocked = st.key <= state.unlocked;
       const isCurrent = unlocked && !cleared;
-      const cls = cleared ? 'cleared' : (isCurrent ? 'current' : (unlocked ? '' : 'locked'));
-      const badge = cleared ? '<i class="icn icn-check"></i>' : (unlocked ? st.key : '<i class="icn icn-key"></i>');
+      const boss = p.i === n - 1;
+      const grad = boss ? BOSS_GRADIENT : PLANET_GRADIENTS[p.i % PLANET_GRADIENTS.length];
+      const cls = ['yw-planet',
+        cleared ? 'cleared' : '', isCurrent ? 'current' : '', !unlocked ? 'locked' : '',
+        boss ? 'yw-planet-boss' : ''].filter(Boolean).join(' ');
+      const face = cleared ? '<i class="icn icn-check"></i>' : (unlocked ? st.key : '<i class="icn icn-key"></i>');
+      const onclick = unlocked ? `onclick="yamWorldPlay(${st.key})"` : '';
+      const rewardN = cleared ? REPEAT_REWARD : st.reward;
+      const status = !unlocked ? 'Locked' : (cleared ? 'Cleared · replay' : 'Tap to launch');
+      const labelTop = p.top + p.size / 2 + 9;
 
-      let btn;
-      if (!unlocked) {
-        btn = `<button class="yw-play-btn locked" disabled><i class="icn icn-key"></i></button>`;
-      } else if (cleared) {
-        btn = `<button class="yw-play-btn cleared" onclick="yamWorldPlay(${st.key})">REPLAY</button>`;
-      } else {
-        btn = `<button class="yw-play-btn" onclick="yamWorldPlay(${st.key})">PLAY <i class="icn icn-dice"></i></button>`;
-      }
-
-      return `
-        <div class="yw-node ${cls}">
-          <div class="yw-badge">${badge}</div>
-          <div class="yw-node-info">
-            <div class="yw-node-vs">Stage ${st.key} · Human vs ${escapeName(st.bot)}</div>
-            <div class="yw-node-sub">${st.title}${st.botPups.length ? ' · opponent is armed' : ''}</div>
-            <div class="yw-node-reward"><i class="icn icn-coin"></i> ${cleared ? REPEAT_REWARD : st.reward} credit${(cleared ? REPEAT_REWARD : st.reward) === 1 ? '' : 's'} to win</div>
-          </div>
-          ${btn}
-        </div>`;
+      const planet = `<div class="${cls}" ${onclick}
+        style="left:${p.leftPct.toFixed(2)}%;top:${p.top}px;width:${p.size}px;height:${p.size}px;background:${grad}">
+        <span class="yw-planet-num">${face}</span></div>`;
+      const label = `<div class="yw-plabel" style="left:${p.leftPct.toFixed(2)}%;top:${labelTop}px">
+        <div class="yw-plabel-vs">Human vs ${escapeName(st.bot)}</div>
+        <div class="yw-plabel-sub">Stage ${st.key} · ${boss ? 'FINAL BOSS' : escapeName(st.title)}</div>
+        <div class="yw-plabel-reward"><i class="icn icn-coin"></i> ${rewardN} · ${status}</div></div>`;
+      return planet + label;
     }).join('');
+
+    // Rocket parked at the current (next-to-beat) stage; falls back to stage 1.
+    const cur = pts.find(p => p.st.key <= state.unlocked && !state.cleared[p.st.key]) || pts[0];
+    const rocket = `<div class="yw-rocket" style="left:${(cur.leftPct + 10).toFixed(2)}%;top:${cur.top - 4}px">🚀</div>`;
+
+    const moon = `<div class="yw-moon"></div><div class="yw-moon-label">TO THE MOON</div>`;
+
+    path.style.height = height + 'px';
+    path.innerHTML = moon + dots + nodes + rocket;
+
+    // Bring the current stage into view.
+    setTimeout(() => {
+      const sheet = document.querySelector('#yamWorldOverlay .yw-sheet');
+      if (sheet) sheet.scrollTop = Math.max(0, cur.top - 170);
+    }, 30);
   }
 
   function escapeName(n) {
