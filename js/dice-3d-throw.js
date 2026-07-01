@@ -78,7 +78,8 @@
   let luckyValue = 0;              // pre-rolled lucky value (biased to 5/6)
   let luckyStart = 0;              // timestamp the lucky bounce began
   let luckySnapping = false;       // settling the lucky die to its value (block taps)
-  let luckyHalos = [];             // glow rings around the selectable dice
+  let freezePending = false;       // Freeze Dice: awaiting the player to pick a die
+  let luckyHalos = [];             // glow rings around the selectable dice (lucky / freeze)
   let flyTweens = [];              // {body, fromP, toP, fromQ, toQ, t, dur, onDone}
   let actionsEl = null;            // bottom action row (done)
   let keptEl = null;               // 2D "kept" dice faces shown under the header
@@ -752,8 +753,9 @@
     yamEl = overlay.querySelector('#dice3dYam');
     _renderOppRolls();
     cancelBtn.addEventListener('click', () => {
-      // While choosing a Lucky-Dice target, the button just cancels that.
+      // While choosing a Lucky-Dice / Freeze target, the button just cancels that.
       if (luckyPending) { exitLuckySelect(true); return; }
+      if (freezePending) { exitFreezeSelect(true); return; }
       if (mode === 'spectator') {
         // "Hide" the live view of an opponent's roll — purely local; the
         // roll continues on their side and the regular post-roll dice update
@@ -1271,6 +1273,7 @@
       luckyPending = false;
       luckyBody = null;
       luckySnapping = false;
+      freezePending = false;
       removeLuckyHalos();
       flyTweens = [];
       teardownMultiDice();
@@ -1389,9 +1392,13 @@
       return '<span class="d3d-kept-glyph">' + (['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][v] || '') + '</span>';
     };
     const cells = kept.map(i => {
-      const cls = 'd3d-kept-die' + (i === animateIdx ? ' d3d-kept-in' : '');
-      return '<button class="' + cls + '" data-idx="' + i + '" title="Tap to release">' +
-        faceHtml(multiDiceBodies[i]._value) + '</button>';
+      const frozen = !!multiDiceBodies[i]._frozen;
+      const cls = 'd3d-kept-die' + (i === animateIdx ? ' d3d-kept-in' : '') +
+        (frozen ? ' d3d-kept-frozen' : '');
+      const title = frozen ? 'Frozen — carries to next turn' : 'Tap to release';
+      const flake = frozen ? '<span class="d3d-kept-flake">❄</span>' : '';
+      return '<button class="' + cls + '" data-idx="' + i + '" title="' + title + '">' +
+        faceHtml(multiDiceBodies[i]._value) + flake + '</button>';
     }).join('');
     keptEl.innerHTML = '<span class="d3d-kept-label">KEPT · tap to release</span>' +
       '<div class="d3d-kept-row">' + cells + '</div>';
@@ -1561,6 +1568,10 @@
     if (yamStrike3D) return;   // the four locked 1s can't be released
     const b = multiDiceBodies[idx];
     if (!b || !b._kept) return;
+    if (b._frozen) {           // a frozen die is locked for the turn
+      if (typeof showToast === 'function') showToast('This die is frozen — it carries to next turn.');
+      return;
+    }
     b._kept = false;
     placeFloorDie(b, idx);
     renderKeptRow();
@@ -1579,6 +1590,7 @@
     if (idx < 0) return;
     if (multiDiceBodies[idx]._kept) return; // kept dice are released via their 2D face
     if (luckyPending) { luckyBounce(idx); return; }
+    if (freezePending) { freezeDie3D(idx); return; }
     holdDie(idx);
   }
 
@@ -2184,9 +2196,14 @@
         enterLuckySelect();
         break;
       }
-      case 'freezeDie':
-        toast('Use Freeze from the board after you roll.');
+      case 'freezeDie': {
+        // Locks a settled die and carries it to next turn — needs rolled dice.
+        if (!turnSettled) { toast('Freeze locks a die after you roll.'); return; }
+        if (!multiDiceBodies.some(b => !b._kept)) { toast('No dice on the table to freeze.'); return; }
+        closeBonus();
+        enterFreezeSelect();
         break;
+      }
       default:
         toast('That power-up is used from the board.');
         break;
@@ -2293,14 +2310,15 @@
   // After a roll, a halo glows around each die on the table; tap one and it
   // bounce-rerolls in place (biased to 5/6) while the others stay still. It's a
   // free reroll — it doesn't use up a roll.
-  function showLuckyHalos() {
+  function showLuckyHalos(color) {
     removeLuckyHalos();
     if (!THREE || !scene) return;
+    const c = (color == null) ? 0x6fe9df : color;
     for (let i = 0; i < multiDiceBodies.length; i++) {
       if (multiDiceBodies[i]._kept) continue;
       const geo = new THREE.RingGeometry(TURN_DIE_SIZE * 0.62, TURN_DIE_SIZE * 1.05, 36);
       const mat = new THREE.MeshBasicMaterial({
-        color: 0x6fe9df, transparent: true, opacity: 0.6,
+        color: c, transparent: true, opacity: 0.6,
         side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
       });
       const ring = new THREE.Mesh(geo, mat);
@@ -2392,6 +2410,47 @@
       renderSuggest(fullHandValues());
       renderActions();
     });
+  }
+
+  // ── Freeze Dice, played inside the 3D overlay ────────────────────
+  // After a roll, a halo glows around each die on the table; tap one and it is
+  // locked (kept this turn) and carries its value into your next turn.
+  function enterFreezeSelect() {
+    freezePending = true;
+    clearReroll();
+    clearActions();
+    clearSuggest();
+    showLuckyHalos(0x64b5f6);   // ice-blue halo for freeze
+    statusEl.textContent = '❄ Freeze — tap a die to lock it (carries to next turn)';
+    if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = 'Cancel'; }
+  }
+  function exitFreezeSelect(restoreUI) {
+    freezePending = false;
+    removeLuckyHalos();
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    if (restoreUI && turnSettled) {
+      updateSettleStatus();
+      renderKeptRow();
+      renderSuggest(fullHandValues());
+      renderActions();
+    }
+  }
+  function freezeDie3D(idx) {
+    const b = multiDiceBodies[idx];
+    if (!b || b._kept) return;
+    const val = b._value || topFaceFor(b);
+    if (typeof consumePowerup === 'function') { try { consumePowerup('freezeDie'); } catch (_) {} }
+    // Stage the 2D carry-over (3D die index === game die index).
+    try { if (typeof freezeDieIndex !== 'undefined') freezeDieIndex = idx; } catch (_) {}
+    try { if (typeof frozenDieValue !== 'undefined') frozenDieValue = val; } catch (_) {}
+    syncPowerupUI();
+    freezePending = false;
+    removeLuckyHalos();
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    b._frozen = true;          // locked — can't be released this turn
+    holdDie(idx);              // keep it on the shelf for the rest of the turn
+    statusEl.innerHTML = '❄ Die frozen (<b style="color:var(--gold)">' + val +
+      '</b>) — carries to next turn';
   }
 
   // Re-arm the in-play dice for another flick (keeps the kept dice on the shelf).
@@ -2776,6 +2835,7 @@
       yamStrikeAttempts = 0;
       luckyPending = false;
       luckyBody = null;
+      freezePending = false;
       flyTweens = [];
       // Park the single die out of view so it doesn't share the scene visibly.
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }

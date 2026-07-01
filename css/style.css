@@ -2623,6 +2623,18 @@
     from { transform: translateY(46px) scale(0.4); opacity: 0; }
     to   { transform: translateY(0) scale(1);     opacity: 1; }
   }
+  /* A frozen kept die — ice glow + snowflake badge */
+  #dice3dOverlay .d3d-kept-die.d3d-kept-frozen {
+    position: relative;
+    box-shadow: 0 0 0 2px rgba(100,181,246,0.85), 0 0 16px rgba(100,181,246,0.6);
+  }
+  #dice3dOverlay .d3d-kept-flake {
+    position: absolute; top: -7px; right: -7px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #64b5f6; color: #06283d;
+    font-size: 0.7rem; line-height: 18px; text-align: center;
+    box-shadow: 0 0 8px rgba(100,181,246,0.8);
+  }
 
 
   /* REMATCH VOTE */
