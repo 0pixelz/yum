@@ -71,6 +71,7 @@
   let turnRollsUsed = 0;           // physical throws performed this overlay
   let turnPick = null;             // category id the player tapped to score
   let turnResolve = null;          // resolves the interactive-turn promise
+  let pendingScoreCat = null;      // category awaiting an in-overlay Confirm
   let yamStrike3D = false;         // running Yam-or-Strike inside the 3D overlay
   let yamStrikeAttempts = 0;       // throws made (1 initial + up to 2 rerolls)
   let luckyPending = false;        // Lucky Dice: awaiting the player to pick a die
@@ -1860,15 +1861,78 @@
     el.classList.add('show');
     el.querySelectorAll('.d3d-sug-chip').forEach(btn => {
       btn.addEventListener('click', () => {
-        finalizeTurn(btn.getAttribute('data-cat'));
+        promptScore(btn.getAttribute('data-cat'));
       });
     });
   }
 
   function clearSuggest() {
+    pendingScoreCat = null;
     if (!overlay) return;
     const el = overlay.querySelector('#dice3dSuggest');
     if (el) { el.innerHTML = ''; el.classList.remove('show'); }
+  }
+
+  // ── In-overlay score confirm ─────────────────────────────────────
+  // Tapping a category shows a Confirm/✕ prompt right here instead of dumping
+  // the player back to the 2D modal. Confirm commits the score directly.
+  function promptScore(catId) {
+    if (!catId) return;
+    const cat = (typeof categories !== 'undefined' && Array.isArray(categories))
+      ? categories.find(c => c.id === catId) : null;
+    if (!cat) { finalizeTurn(catId); return; }   // fallback to the 2D modal
+    let pts = 0;
+    try { pts = cat.calc(fullHandValues()) | 0; } catch (_) {}
+    pendingScoreCat = catId;
+    closeScorecard();
+    const el = overlay && overlay.querySelector('#dice3dSuggest');
+    if (!el) { finalizeTurn(catId); return; }
+    const label = pts > 0
+      ? ('Score <b>' + _escSug(cat.name) + '</b> · <b style="color:var(--gold)">+' + pts + '</b>')
+      : ('Strike <b>' + _escSug(cat.name) + '</b> · <b style="color:var(--accent)">0</b>');
+    el.innerHTML =
+      '<div class="d3d-confirm">' +
+        '<span class="d3d-confirm-label">' + label + '</span>' +
+        '<div class="d3d-confirm-btns">' +
+          '<button class="d3d-confirm-yes" type="button">Confirm</button>' +
+          '<button class="d3d-confirm-no" type="button" title="Back">✕</button>' +
+        '</div>' +
+      '</div>';
+    el.classList.add('show');
+    el.querySelector('.d3d-confirm-yes').addEventListener('click', confirmScore3D);
+    el.querySelector('.d3d-confirm-no').addEventListener('click', cancelScore3D);
+  }
+  function cancelScore3D() {
+    pendingScoreCat = null;
+    renderSuggest(fullHandValues());
+  }
+  // Commit the picked category's score straight from the 3D overlay: write the
+  // final hand to the 2D game, set the modal state, close the overlay and let
+  // the 2D confirmScore commit it (applying Double Points etc.) — no 2D modal.
+  function confirmScore3D() {
+    const catId = pendingScoreCat;
+    pendingScoreCat = null;
+    if (!catId) return;
+    const hand = fullHandValues();
+    const cat = (typeof categories !== 'undefined' && Array.isArray(categories))
+      ? categories.find(c => c.id === catId) : null;
+    let pts = 0;
+    if (cat) { try { pts = cat.calc(hand) | 0; } catch (_) {} }
+    try {
+      if (Array.isArray(dice)) for (let i = 0; i < 5 && i < dice.length; i++) dice[i] = hand[i] | 0;
+      if (Array.isArray(held)) for (let i = 0; i < 5 && i < held.length; i++) held[i] = !!(multiDiceBodies[i] && multiDiceBodies[i]._kept);
+      if (typeof rolled !== 'undefined') rolled = true;
+      if (typeof rollsLeft !== 'undefined') rollsLeft = 0;
+      if (typeof activeModal !== 'undefined') activeModal = catId;
+      if (typeof selectedScore !== 'undefined') selectedScore = pts;
+    } catch (_) {}
+    finalizeTurn(null, true);   // close the overlay without the toggle's writeback
+    setTimeout(() => {
+      try {
+        if (typeof renderDice === 'function') renderDice(true);
+        if (typeof confirmScore === 'function') confirmScore();
+      } catch (_) {}
+    }, 360);
   }
 
   // Bottom row owns "Done" (+ "Scorecard"); "Roll again" floats on the table.
@@ -2054,7 +2118,7 @@
     scorecardEl.querySelectorAll('.d3d-sc-row.open').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-cat');
-        if (id) finalizeTurn(id);
+        if (id) promptScore(id);   // closes the scorecard, shows the confirm bar
       });
     });
   }
