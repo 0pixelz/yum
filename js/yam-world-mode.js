@@ -81,9 +81,9 @@
   const PLANET_LOGO =
     '<svg class="yw-btn-logo" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" ' +
     'style="vertical-align:-2px;margin-right:2px">' +
-    '<circle cx="12" cy="11" r="6.5" fill="#3b5bbf"/>' +
-    '<circle cx="9.6" cy="8.8" r="2.3" fill="#6f8dff" opacity="0.7"/>' +
-    '<ellipse cx="12" cy="12" rx="11" ry="3.6" fill="none" stroke="#f5a623" stroke-width="1.7" ' +
+    '<circle cx="12" cy="11" r="6.5" fill="#ffffff"/>' +
+    '<circle cx="9.7" cy="9" r="2.1" fill="#ffffff" opacity="0.55"/>' +
+    '<ellipse cx="12" cy="12" rx="11" ry="3.6" fill="none" stroke="#ffffff" stroke-width="1.7" ' +
     'transform="rotate(-20 12 12)"/></svg>';
 
   // Padlock mark shown on locked planets.
