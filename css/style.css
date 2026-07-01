@@ -2273,6 +2273,32 @@
     color: var(--accent); background: rgba(233,69,96,0.16);
   }
 
+  /* In-overlay score confirm bar (replaces the suggest chips when a category is picked) */
+  #dice3dOverlay .d3d-confirm {
+    display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+    gap: 10px; padding: 4px 2px;
+  }
+  #dice3dOverlay .d3d-confirm-label {
+    color: var(--white); font-family: 'Nunito', sans-serif; font-size: 0.9rem;
+  }
+  #dice3dOverlay .d3d-confirm-label b { font-weight: 900; }
+  #dice3dOverlay .d3d-confirm-btns { display: inline-flex; gap: 8px; }
+  #dice3dOverlay .d3d-confirm-yes {
+    border: 1px solid rgba(78,205,196,0.6); border-radius: 999px;
+    padding: 7px 20px;
+    background: linear-gradient(135deg, rgba(78,205,196,0.28), rgba(245,166,35,0.16));
+    color: var(--green); cursor: pointer;
+    font-family: 'Bebas Neue', cursive; font-size: 0.95rem; letter-spacing: 1.5px;
+  }
+  #dice3dOverlay .d3d-confirm-yes:active { transform: scale(0.95); }
+  #dice3dOverlay .d3d-confirm-no {
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 999px;
+    width: 34px; height: 34px;
+    background: rgba(255,255,255,0.06); color: var(--muted);
+    cursor: pointer; font-size: 0.9rem; line-height: 1;
+  }
+  #dice3dOverlay .d3d-confirm-no:hover { background: rgba(255,255,255,0.14); color: var(--white); }
+
   /* Roll-again / Done action row inside the 3D overlay */
   #dice3dOverlay .d3d-actions {
     display: none;
