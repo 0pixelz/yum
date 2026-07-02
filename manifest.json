@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Yamio - Dice Game",
   "short_name": "Yamio",
-  "description": "Yamio is a multiplayer dice scorecard game with AI predictions, real-dice scanning, daily challenges, and live rooms. Play solo, vs bot, or with friends.",
+  "description": "Yamio is a multiplayer dice scorecard game with AI predictions, daily challenges, and live rooms. Play solo, vs bot, or with friends.",
   "start_url": "./index.html?source=pwa",
   "scope": "./",
   "display": "standalone",

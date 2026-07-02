@@ -105,6 +105,12 @@
   }
 
   async function reauthWithGoogle(user) {
+    // Apple-provider users (native iOS app) re-authenticate through the native
+    // Apple sheet — the Google popup cannot complete inside a WebView.
+    const usesApple = (user.providerData || []).some(p => p && p.providerId === 'apple.com');
+    if (usesApple && typeof window.yamioAppleReauth === 'function') {
+      return window.yamioAppleReauth(user);
+    }
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('email');
     provider.setCustomParameters({ prompt: 'select_account' });
