@@ -277,6 +277,9 @@
   }
 
   function initPwaInstall() {
+    // Inside the native (Capacitor) app there is no PWA to install and no
+    // service worker to register — the assets ship in the app binary.
+    if (window.Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform()) return;
     registerServiceWorker();
     if (isStandalone()) return;
     if (isIOS()) setTimeout(() => showInstallBanner(false), 1400);

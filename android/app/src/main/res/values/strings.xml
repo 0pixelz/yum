@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Yamio</string>
+    <string name="title_activity_main">Yamio</string>
+    <string name="package_name">io.yamio.app</string>
+    <string name="custom_url_scheme">io.yamio.app</string>
+</resources>
