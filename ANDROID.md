@@ -1,5 +1,7 @@
 # Yamio — Native Android App (Capacitor)
 
+> For the iPhone / App Store build, see [`IOS.md`](IOS.md).
+
 The Play Store build is a **Capacitor** app: the whole game (HTML/JS/CSS/icons)
 ships **inside the AAB** and loads instantly from local files — no website
 loading, no browser UI, works offline. Only live data (Firebase multiplayer,
@@ -16,7 +18,7 @@ same source files.
 ## Build & run
 
 ```bash
-npm run sync           # copy web files into www/ and sync the android/ project
+npm run sync           # copy web files into www/ and sync the native projects
 npm run open:android   # open in Android Studio
 ```
 

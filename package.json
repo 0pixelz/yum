@@ -5,14 +5,16 @@
   "private": true,
   "scripts": {
     "build:www": "node scripts/build-www.mjs",
-    "sync": "npm run build:www && npx cap sync android",
-    "open:android": "npx cap open android"
+    "sync": "npm run build:www && npx cap sync",
+    "open:android": "npx cap open android",
+    "open:ios": "npx cap open ios"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
     "@capacitor/app": "^7.0.0",
     "@capacitor/core": "^7.0.0",
     "@capacitor/haptics": "^7.0.0",
+    "@capacitor/ios": "^7.6.7",
     "@capacitor/splash-screen": "^7.0.0",
     "@capacitor/status-bar": "^7.0.0"
   },
