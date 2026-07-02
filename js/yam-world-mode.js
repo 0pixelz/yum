@@ -20,22 +20,117 @@
 
   const KEY = 'yum_yamworld_v1';
 
-  // ── Stage roster ────────────────────────────────────────────────────────
-  // reward = credits earned for beating the stage the first time (a smaller
-  //          consolation is granted on repeat wins). The opponent's starting
-  //          power-up count scales with the stage — see botLoadoutForStage().
-  const STAGES = [
-    { key: 1,  bot: 'Bob',   title: 'The Rookie',      reward: 8  },
-    { key: 2,  bot: 'Alice', title: 'Dice Diner',      reward: 10 },
-    { key: 3,  bot: 'Max',   title: 'Lucky Streak',    reward: 12 },
-    { key: 4,  bot: 'Nova',  title: 'Double Trouble',  reward: 14 },
-    { key: 5,  bot: 'Rex',   title: 'Cold Storage',    reward: 16 },
-    { key: 6,  bot: 'Luna',  title: 'Extra Innings',   reward: 18 },
-    { key: 7,  bot: 'Zane',  title: 'Power Player',    reward: 22 },
-    { key: 8,  bot: 'Ivy',   title: 'The Gauntlet',    reward: 26 },
-    { key: 9,  bot: 'Titan', title: 'Boss Fight',      reward: 32 },
-    { key: 10, bot: 'Yamio', title: 'Grand Champion',  reward: 50 },
+  // ── Worlds & stages ──────────────────────────────────────────────────────
+  // The campaign is split into themed worlds, each with its own opponents,
+  // planet palette, map tint and destination marker. Stage keys are GLOBAL and
+  // sequential across worlds so saved progress (unlocked / cleared, keyed
+  // 1..N) carries over unchanged from the single-world version.
+  // reward = credits for the first clear; repeats pay REPEAT_REWARD.
+  const WORLDS = [
+    {
+      name: 'GALAXY WORLD', short: 'Galaxy',
+      tint: 'transparent',
+      orb: 'radial-gradient(circle at 34% 30%, #6f8dff 0%, #3b5bbf 55%, #16234f 100%)',
+      planets: [
+        'radial-gradient(circle at 35% 28%, #3b5bbf 0%, #24357e 45%, #101a45 100%)',
+        'radial-gradient(circle at 35% 28%, #2f8fbf 0%, #1e5a86 45%, #0c2740 100%)',
+        'radial-gradient(circle at 35% 28%, #6a4bd0 0%, #3f2b8e 45%, #1a1245 100%)',
+        'radial-gradient(circle at 35% 28%, #3bbfa8 0%, #1e7a6c 45%, #0c2f2a 100%)',
+        'radial-gradient(circle at 35% 28%, #4a63d0 0%, #2b3a8e 45%, #121845 100%)',
+        'radial-gradient(circle at 35% 28%, #c06ad0 0%, #7a2b8e 45%, #2f1245 100%)',
+      ],
+      boss: 'radial-gradient(circle at 34% 28%, #f7d16b 0%, #b06ad0 45%, #3f1a6e 100%)',
+      stages: [
+        { bot: 'Bob',   title: 'The Rookie',     reward: 8  },
+        { bot: 'Alice', title: 'Dice Diner',     reward: 10 },
+        { bot: 'Max',   title: 'Lucky Streak',   reward: 12 },
+        { bot: 'Nova',  title: 'Double Trouble', reward: 14 },
+        { bot: 'Rex',   title: 'Cold Storage',   reward: 16 },
+        { bot: 'Luna',  title: 'Extra Innings',  reward: 18 },
+        { bot: 'Zane',  title: 'Power Player',   reward: 22 },
+        { bot: 'Ivy',   title: 'The Gauntlet',   reward: 26 },
+        { bot: 'Titan', title: 'Boss Fight',     reward: 32 },
+        { bot: 'Yamio', title: 'Grand Champion', reward: 50 },
+      ]
+    },
+    {
+      name: 'MOON WORLD', short: 'Moon',
+      tint: 'rgba(148,163,190,0.10)',
+      orb: 'radial-gradient(circle at 34% 30%, #eef3ff 0%, #b9c6ee 45%, #6d7db0 100%)',
+      planets: [
+        'radial-gradient(circle at 35% 28%, #d7deed 0%, #9aa4bd 45%, #444c63 100%)',
+        'radial-gradient(circle at 35% 28%, #c3cbe0 0%, #7f8aa6 45%, #363d52 100%)',
+        'radial-gradient(circle at 35% 28%, #aeb9d2 0%, #6b7694 45%, #2b3145 100%)',
+      ],
+      boss: 'radial-gradient(circle at 34% 28%, #ffffff 0%, #9aa8d0 45%, #39406b 100%)',
+      stages: [
+        { bot: 'Crater',  title: 'Dusty Landing',  reward: 34 },
+        { bot: 'Apollo',  title: 'One Small Step', reward: 36 },
+        { bot: 'Eclipse', title: 'Dark Side',      reward: 38 },
+        { bot: 'Selene',  title: 'Sea of Dice',    reward: 40 },
+        { bot: 'Orbit',   title: 'Zero Gravity',   reward: 42 },
+        { bot: 'Astro',   title: 'Crater Chaos',   reward: 44 },
+        { bot: 'Comet',   title: 'Silver Summit',  reward: 46 },
+        { bot: 'Lunara',  title: 'Full Moon Fury', reward: 60 },
+      ]
+    },
+    {
+      name: 'FIRE WORLD', short: 'Fire',
+      tint: 'rgba(190,60,20,0.12)',
+      orb: 'radial-gradient(circle at 34% 30%, #ffd166 0%, #e2551f 55%, #58150a 100%)',
+      planets: [
+        'radial-gradient(circle at 35% 28%, #ff9d5c 0%, #c2461e 45%, #4a0f05 100%)',
+        'radial-gradient(circle at 35% 28%, #ffb84d 0%, #d0611f 45%, #521a08 100%)',
+        'radial-gradient(circle at 35% 28%, #f4756a 0%, #a3271d 45%, #400a08 100%)',
+      ],
+      boss: 'radial-gradient(circle at 34% 28%, #ffe08a 0%, #ff6b35 45%, #6e1205 100%)',
+      stages: [
+        { bot: 'Ember',   title: 'Warm Welcome', reward: 48 },
+        { bot: 'Blaze',   title: 'Hot Streak',   reward: 50 },
+        { bot: 'Scorch',  title: 'Burning Dice', reward: 52 },
+        { bot: 'Cinder',  title: 'Ash Fields',   reward: 54 },
+        { bot: 'Magma',   title: 'Molten Core',  reward: 56 },
+        { bot: 'Pyro',    title: 'Flame Runner', reward: 58 },
+        { bot: 'Vulcan',  title: 'Eruption',     reward: 62 },
+        { bot: 'Inferno', title: 'Ring of Fire', reward: 80 },
+      ]
+    },
+    {
+      name: 'ICE WORLD', short: 'Ice',
+      tint: 'rgba(80,180,220,0.10)',
+      orb: 'radial-gradient(circle at 34% 30%, #eafcff 0%, #7fd0ee 55%, #14425c 100%)',
+      planets: [
+        'radial-gradient(circle at 35% 28%, #d9f6ff 0%, #6fc4e8 45%, #123a52 100%)',
+        'radial-gradient(circle at 35% 28%, #bfeefc 0%, #56a8d6 45%, #0e3048 100%)',
+        'radial-gradient(circle at 35% 28%, #e6f4ff 0%, #8fb8de 45%, #1a2c4d 100%)',
+      ],
+      boss: 'radial-gradient(circle at 34% 28%, #ffffff 0%, #9fdcf2 45%, #0d4a66 100%)',
+      stages: [
+        { bot: 'Frost',     title: 'First Frost',   reward: 64 },
+        { bot: 'Flurry',    title: 'Snowdrift',     reward: 66 },
+        { bot: 'Glacier',   title: 'Frozen Lake',   reward: 68 },
+        { bot: 'Crystal',   title: 'Ice Palace',    reward: 70 },
+        { bot: 'Tundra',    title: 'Whiteout',      reward: 72 },
+        { bot: 'Polar',     title: 'Cold Snap',     reward: 74 },
+        { bot: 'Blizzard',  title: 'The Freeze',    reward: 78 },
+        { bot: 'Frostbite', title: 'Absolute Zero', reward: 100 },
+      ]
+    },
   ];
+
+  // Flatten to the global stage list the rest of the module works with.
+  const STAGES = [];
+  WORLDS.forEach((w, wi) => {
+    w.index = wi;
+    w.stages.forEach((s, si) => {
+      s.key = STAGES.length + 1;   // global, save-compatible
+      s.world = wi;
+      s.local = si + 1;            // stage number shown within its world
+      s.isBoss = si === w.stages.length - 1;
+      STAGES.push(s);
+    });
+    w.firstKey = w.stages[0].key;
+  });
 
   const REPEAT_REWARD = 3; // credits for re-beating an already-cleared stage
 
@@ -45,7 +140,9 @@
   // also earns its own starter pick + YAM rewards on top of this.
   const BOT_PUP_POOL = ['doublePoints', 'luckyDice', 'extraRoll', 'freezeDie'];
   function botLoadoutForStage(key) {
-    const n = Math.min(6, Math.floor(key / 1.6)); // 0,1,1,2,3,3,4,5,5,6 across stages 1-10
+    // Ramps 0→6 across world 1 (0,1,1,2,3,3,4,5,5,6), then keeps growing to a
+    // cap of 8 through the later worlds.
+    const n = Math.min(8, Math.floor(key / 1.6));
     const out = [];
     for (let i = 0; i < n; i++) out.push(BOT_PUP_POOL[i % BOT_PUP_POOL.length]);
     return out;
@@ -65,17 +162,6 @@
   function pupDef(id) {
     return (typeof POWERUPS !== 'undefined') ? POWERUPS.find(p => p.id === id) : null;
   }
-
-  // Spherical planet fills, cycled per stage for variety.
-  const PLANET_GRADIENTS = [
-    'radial-gradient(circle at 35% 28%, #3b5bbf 0%, #24357e 45%, #101a45 100%)',
-    'radial-gradient(circle at 35% 28%, #2f8fbf 0%, #1e5a86 45%, #0c2740 100%)',
-    'radial-gradient(circle at 35% 28%, #6a4bd0 0%, #3f2b8e 45%, #1a1245 100%)',
-    'radial-gradient(circle at 35% 28%, #3bbfa8 0%, #1e7a6c 45%, #0c2f2a 100%)',
-    'radial-gradient(circle at 35% 28%, #4a63d0 0%, #2b3a8e 45%, #121845 100%)',
-    'radial-gradient(circle at 35% 28%, #c06ad0 0%, #7a2b8e 45%, #2f1245 100%)',
-  ];
-  const BOSS_GRADIENT = 'radial-gradient(circle at 34% 28%, #f7d16b 0%, #b06ad0 45%, #3f1a6e 100%)';
 
   // Ringed-planet logo for the Yam World brand (button, map title, nav).
   const PLANET_LOGO =
@@ -104,10 +190,15 @@
     try {
       const raw = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (!raw || typeof raw !== 'object') return defaultState();
+      const cleared = (raw.cleared && typeof raw.cleared === 'object') ? raw.cleared : {};
+      let unlocked = Math.min(STAGES.length, Math.max(1, Number(raw.unlocked) || 1));
+      // Campaign-growth migration: a save that beat the old final stage was
+      // capped there — roll the unlock pointer forward into the new worlds.
+      while (unlocked < STAGES.length && cleared[unlocked]) unlocked++;
       return {
-        unlocked: Math.min(STAGES.length, Math.max(1, Number(raw.unlocked) || 1)),
+        unlocked,
         credits:  Math.max(0, Number(raw.credits) || 0),
-        cleared:  (raw.cleared && typeof raw.cleared === 'object') ? raw.cleared : {},
+        cleared,
         backpack: Array.isArray(raw.backpack) ? raw.backpack.filter(id => !!pupDef(id)) : []
       };
     } catch (e) { return defaultState(); }
@@ -170,6 +261,17 @@
         border-radius: 999px; padding: 9px 16px; font-family: 'Nunito', sans-serif; font-weight: 900;
         letter-spacing: 0.8px; cursor: pointer;
       }
+      /* ── World tabs ── */
+      .yw-worlds { display:flex; gap:8px; margin:0 0 12px; overflow-x:auto; padding-bottom:2px; -webkit-overflow-scrolling:touch; }
+      .yw-wtab {
+        flex:0 0 auto; display:inline-flex; align-items:center; gap:7px;
+        border-radius:999px; padding:7px 13px; border:1px solid rgba(255,255,255,0.14);
+        background:rgba(255,255,255,0.06); color:#cdd8ff; font-weight:900; font-size:0.72rem;
+        letter-spacing:0.6px; cursor:pointer; font-family:'Nunito',sans-serif; white-space:nowrap;
+      }
+      .yw-wtab.active { border-color:rgba(245,166,35,0.65); color:#fff; background:rgba(245,166,35,0.14); }
+      .yw-wtab.locked { opacity:0.5; }
+      .yw-worb { width:15px; height:15px; flex:0 0 15px; border-radius:50%; box-shadow: inset -2px -3px 5px rgba(0,0,0,0.5); }
       /* ── Space map ── */
       .yw-sheet-space {
         background:
@@ -293,7 +395,7 @@
         </div>
         <div class="yw-credit-box">
           <div>
-            <div class="yw-credit-label">Blast through the galaxy — beat stages to earn credits</div>
+            <div class="yw-credit-label">Blast across the worlds — beat stages to earn credits</div>
             <div style="font-size:0.72rem;color:var(--muted);margin-top:2px">Spend them in the shop on power-ups</div>
           </div>
           <div style="display:flex;align-items:center;gap:12px">
@@ -301,6 +403,7 @@
             <button class="yw-shop-btn" id="ywOpenShop"><i class="icn icn-palette"></i> SHOP</button>
           </div>
         </div>
+        <div id="ywWorldTabsHost"></div>
         <div class="yw-space" id="ywPath"></div>
       </div>`;
     document.body.appendChild(o);
@@ -336,22 +439,62 @@
     return o;
   }
 
-  // ── Map (space scene: planets along a dotted flight path) ──────────────────
+  // ── Map (space scene: planets along a dotted flight path, per world) ───────
+  let selectedWorldIdx = null; // null → follow campaign progress
+
+  // The stage the campaign rocket sits on: first unlocked-but-uncleared stage.
+  function currentStage() {
+    return STAGES.find(s => s.key <= state.unlocked && !state.cleared[s.key])
+        || STAGES[STAGES.length - 1];
+  }
+
+  function shownWorldIdx() {
+    if (selectedWorldIdx !== null && WORLDS[selectedWorldIdx]) return selectedWorldIdx;
+    return currentStage().world;
+  }
+
+  function selectWorld(wi) {
+    const w = WORLDS[wi];
+    if (!w) return;
+    if (w.firstKey > state.unlocked) {
+      if (typeof showToast === 'function') showToast(`${w.name} is locked — beat ${WORLDS[wi - 1].name} first!`);
+      return;
+    }
+    selectedWorldIdx = wi;
+    renderMap();
+  }
+
+  function renderWorldTabs(sel) {
+    return WORLDS.map((w, wi) => {
+      const locked = w.firstKey > state.unlocked;
+      const cls = ['yw-wtab', wi === sel ? 'active' : '', locked ? 'locked' : ''].filter(Boolean).join(' ');
+      const mark = locked ? LOCK_SVG : `<span class="yw-worb" style="background:${w.orb}"></span>`;
+      return `<button class="${cls}" onclick="yamWorldSelect(${wi})">${mark} ${w.short.toUpperCase()}</button>`;
+    }).join('');
+  }
+
   function renderMap() {
     const path = document.getElementById('ywPath');
+    const tabsHost = document.getElementById('ywWorldTabsHost');
     const credEl = document.getElementById('ywMapCredits');
     if (credEl) credEl.textContent = state.credits;
     if (!path) return;
 
-    const n = STAGES.length;
+    const sel = shownWorldIdx();
+    const world = WORLDS[sel];
+    if (tabsHost) tabsHost.innerHTML = `<div class="yw-worlds">${renderWorldTabs(sel)}</div>`;
+    path.style.backgroundColor = world.tint;
+
+    const stages = world.stages;
+    const n = stages.length;
     const topPad = 78, gap = 128, amp = 26, baseSize = 58, bossSize = 84;
 
-    // Geometry: planets wind down the scene on a sine path, stage 1 at top.
-    const pts = STAGES.map((st, i) => ({
+    // Geometry: planets wind down the scene on a sine path, first stage at top.
+    const pts = stages.map((st, i) => ({
       st, i,
       leftPct: 50 + amp * Math.sin(i * 0.95 + 0.6),
       top: topPad + i * gap,
-      size: (i === n - 1) ? bossSize : baseSize
+      size: st.isBoss ? bossSize : baseSize
     }));
     const height = topPad + (n - 1) * gap + bossSize / 2 + 46;
 
@@ -368,17 +511,17 @@
     }
 
     // Planets + labels.
+    const bossLabel = sel === WORLDS.length - 1 ? 'FINAL BOSS' : 'WORLD BOSS';
     const nodes = pts.map(p => {
       const st = p.st;
       const cleared = !!state.cleared[st.key];
       const unlocked = st.key <= state.unlocked;
       const isCurrent = unlocked && !cleared;
-      const boss = p.i === n - 1;
-      const grad = boss ? BOSS_GRADIENT : PLANET_GRADIENTS[p.i % PLANET_GRADIENTS.length];
+      const grad = st.isBoss ? world.boss : world.planets[p.i % world.planets.length];
       const cls = ['yw-planet',
         cleared ? 'cleared' : '', isCurrent ? 'current' : '', !unlocked ? 'locked' : '',
-        boss ? 'yw-planet-boss' : ''].filter(Boolean).join(' ');
-      const face = cleared ? '<i class="icn icn-check"></i>' : (unlocked ? st.key : LOCK_SVG);
+        st.isBoss ? 'yw-planet-boss' : ''].filter(Boolean).join(' ');
+      const face = cleared ? '<i class="icn icn-check"></i>' : (unlocked ? st.local : LOCK_SVG);
       const onclick = unlocked ? `onclick="yamWorldPlay(${st.key})"` : '';
       const rewardN = cleared ? REPEAT_REWARD : st.reward;
       const status = !unlocked ? 'Locked' : (cleared ? 'Cleared · replay' : 'Tap to launch');
@@ -391,24 +534,33 @@
         <span class="yw-planet-num">${face}</span></div>`;
       const label = `<div class="yw-plabel" style="left:${p.leftPct.toFixed(2)}%;top:${labelTop}px">
         <div class="yw-plabel-vs">Human vs ${escapeName(st.bot)}</div>
-        <div class="yw-plabel-sub">Stage ${st.key} · ${boss ? 'FINAL BOSS' : escapeName(st.title)}${armedTag}</div>
+        <div class="yw-plabel-sub">Stage ${st.local} · ${st.isBoss ? bossLabel : escapeName(st.title)}${armedTag}</div>
         <div class="yw-plabel-reward"><i class="icn icn-coin"></i> ${rewardN} · ${status}</div></div>`;
       return planet + label;
     }).join('');
 
-    // Rocket parked at the current (next-to-beat) stage; falls back to stage 1.
-    const cur = pts.find(p => p.st.key <= state.unlocked && !state.cleared[p.st.key]) || pts[0];
-    const rocket = `<div class="yw-rocket" style="left:${(cur.leftPct + 10).toFixed(2)}%;top:${cur.top - 4}px">🚀</div>`;
+    // Rocket parked at the campaign's current stage — only in its own world.
+    const cur = currentStage();
+    let rocket = '', scrollTop = 0;
+    if (cur.world === sel) {
+      const cp = pts[cur.local - 1];
+      rocket = `<div class="yw-rocket" style="left:${(cp.leftPct + 10).toFixed(2)}%;top:${cp.top - 4}px">🚀</div>`;
+      scrollTop = Math.max(0, cp.top - 170);
+    }
 
-    const moon = `<div class="yw-moon"></div><div class="yw-moon-label">TO THE MOON</div>`;
+    // Destination marker: the next world to reach (champion badge on the last).
+    const nextW = WORLDS[sel + 1];
+    const decor = nextW
+      ? `<div class="yw-moon" style="background:${nextW.orb}"></div><div class="yw-moon-label">${nextW.name}</div>`
+      : `<div class="yw-moon" style="background:radial-gradient(circle at 34% 30%, #fff2b8 0%, #f5a623 55%, #7a4a05 100%)"></div><div class="yw-moon-label">GRAND CHAMPION</div>`;
 
     path.style.height = height + 'px';
-    path.innerHTML = moon + dots + nodes + rocket;
+    path.innerHTML = decor + dots + nodes + rocket;
 
     // Bring the current stage into view.
     setTimeout(() => {
       const sheet = document.querySelector('#yamWorldOverlay .yw-sheet');
-      if (sheet) sheet.scrollTop = Math.max(0, cur.top - 170);
+      if (sheet) sheet.scrollTop = scrollTop;
     }, 30);
   }
 
@@ -421,6 +573,7 @@
     playerName = document.getElementById('playerName').value.trim();
     injectStyles();
     ensureMapOverlay();
+    selectedWorldIdx = null; // re-focus the map on campaign progress
     renderMap();
     document.getElementById('lobbyOverlay').style.display = 'none';
     document.getElementById('yamWorldOverlay').classList.add('open');
@@ -550,7 +703,7 @@
     const opp = players.find(p => !p.isMe);
     const won = !!(me && opp && me.score > opp.score);
     const stage = STAGES.find(s => s.key === currentStageKey);
-    let earned = 0, unlockedNew = false;
+    let earned = 0, unlockedNew = false, unlockedWorldName = null;
 
     if (won && !awardedThisGame && stage) {
       awardedThisGame = true;
@@ -561,10 +714,15 @@
       // Winning consumes the loadout you carried in.
       state.backpack = [];
       const next = stage.key + 1;
-      if (next <= STAGES.length && state.unlocked < next) { state.unlocked = next; unlockedNew = true; }
+      if (next <= STAGES.length && state.unlocked < next) {
+        state.unlocked = next;
+        unlockedNew = true;
+        const ns = STAGES.find(s => s.key === next);
+        if (ns && ns.world !== stage.world) unlockedWorldName = WORLDS[ns.world].name;
+      }
       save();
     }
-    return { won, tie: !!(me && opp && me.score === opp.score), earned, unlockedNew, stage };
+    return { won, tie: !!(me && opp && me.score === opp.score), earned, unlockedNew, unlockedWorldName, stage };
   }
 
   function decorateGameOver(players) {
@@ -585,7 +743,7 @@
     if (r.won) {
       banner.innerHTML =
         `<div class="yw-result-line"><i class="icn icn-coin"></i> +${r.earned} credit${r.earned === 1 ? '' : 's'} earned!</div>` +
-        `<div class="yw-result-sub">${r.unlockedNew ? 'New stage unlocked · ' : ''}Balance: ${state.credits} credits</div>`;
+        `<div class="yw-result-sub">${r.unlockedWorldName ? r.unlockedWorldName + ' unlocked! · ' : (r.unlockedNew ? 'New stage unlocked · ' : '')}Balance: ${state.credits} credits</div>`;
     } else {
       banner.innerHTML =
         `<div class="yw-result-line"><i class="icn icn-skull"></i> ${stage ? escapeName(stage.bot) : 'The bot'} held the stage</div>` +
@@ -717,7 +875,9 @@
           const tag = document.createElement('span');
           tag.className = 'yw-stage-tag';
           tag.style.cssText = 'margin-left:6px;opacity:0.85;font-size:0.85em';
-          tag.textContent = '· Stage ' + currentStageKey;
+          const stg = STAGES.find(s => s.key === currentStageKey);
+          tag.textContent = stg ? '· ' + WORLDS[stg.world].short + ' ' + stg.local
+                                : '· Stage ' + currentStageKey;
           badge.appendChild(tag);
         }
       }
@@ -728,6 +888,7 @@
   window.openYamWorld = openYamWorld;
   window.closeYamWorld = closeYamWorld;
   window.yamWorldPlay = playStage;
+  window.yamWorldSelect = selectWorld;
   window.yamWorldBuy = buyPup;
   window.yamWorldNext = next;
   window.yamWorldReplay = replay;
