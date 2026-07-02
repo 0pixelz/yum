@@ -1,0 +1,12 @@
+# Node / Capacitor
+node_modules/
+www/
+
+# Android build outputs (the android/ project itself IS committed)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.idea/
+android/app/release/
+android/capacitor-cordova-android-plugins/build/

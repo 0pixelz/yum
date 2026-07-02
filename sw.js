@@ -39,6 +39,38 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Full-content precache, driven by js/asset-preloader.js on first launch.
+// The page sends the complete asset list; we fetch each into the cache and
+// report progress back so the loading screen can show a real percentage.
+self.addEventListener('message', event => {
+  const data = event.data;
+  if (!data || data.type !== 'yamPrecache' || !Array.isArray(data.urls)) return;
+  const source = event.source;
+  const urls = data.urls;
+  let done = 0;
+
+  const notify = () => {
+    if (source) source.postMessage({ type: 'yamPrecacheProgress', done, total: urls.length });
+  };
+
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.all(urls.map(url =>
+        // Plain fetch: lets the HTTP cache satisfy assets the page already
+        // downloaded, so the first-launch pass doesn't re-download the world.
+        fetch(url).then(response => {
+          if (response && response.ok && response.type === 'basic') {
+            return cache.put(url, response.clone()).catch(() => null);
+          }
+          return null;
+        }).catch(() => null).then(() => { done++; notify(); })
+      ))
+    ).then(() => {
+      if (source) source.postMessage({ type: 'yamPrecacheDone' });
+    })
+  );
+});
+
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
