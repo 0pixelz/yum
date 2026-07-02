@@ -1,10 +1,14 @@
 // ─── FIRST-LAUNCH ASSET PRELOADER ───────────────────────────────────────────
 // Game-style "Downloading game data…" screen for the web / PWA build. On the
-// first launch of each app version it asks the service worker to precache the
-// COMPLETE asset set (every script, stylesheet and icon) with a real progress
-// bar, so afterwards the whole game — solo, vs bot, Yam World — works offline
-// and loads instantly. Skipped entirely inside the native app (assets ship in
-// the binary) and on repeat launches.
+// first launch of each app version it fetches the COMPLETE asset set (every
+// script, stylesheet and icon) from the page, with a real progress bar. Each
+// fetch flows through the controlling service worker, whose normal fetch
+// handlers cache it — so afterwards the whole game works offline and loads
+// instantly. Fetching page-side (instead of messaging the SW) matters: it
+// works even while an OLDER service worker still controls the page after a
+// deploy, which is exactly the state most returning visitors are in.
+// Skipped entirely inside the native app (assets ship in the binary) and on
+// repeat launches.
 (function () {
   'use strict';
 
@@ -14,10 +18,14 @@
 
   const version = window.APP_VERSION || 'dev';
   const FLAG_KEY = 'yum_assets_ready__' + version;
+  const ATTEMPT_KEY = 'yum_assets_attempts__' + version;
   try { if (localStorage.getItem(FLAG_KEY)) return; } catch (e) { return; }
-  if (!navigator.onLine) return; // offline first launch: don't block, SW will fill later
+  if (!navigator.onLine) return; // offline first launch: don't block, retry next time
 
-  const MAX_WAIT_MS = 30000; // never hold the player hostage on a bad network
+  const MAX_WAIT_MS = 25000;      // never hold the player hostage on a bad network
+  const FETCH_TIMEOUT_MS = 10000; // one hung request must not stall the bar
+  const CONCURRENCY = 6;
+  const GIVE_UP_ATTEMPTS = 2;     // after 2 timed-out launches, stop nagging
 
   // ── Asset list: everything the page references, same-origin only ──────────
   function collectAssets() {
@@ -81,10 +89,15 @@
   }
 
   let finished = false;
-  function finish(success) {
+  function finish(setFlag) {
     if (finished) return;
     finished = true;
-    if (success) { try { localStorage.setItem(FLAG_KEY, String(Date.now())); } catch (e) {} }
+    if (setFlag) {
+      try {
+        localStorage.setItem(FLAG_KEY, String(Date.now()));
+        localStorage.removeItem(ATTEMPT_KEY);
+      } catch (e) {}
+    }
     if (overlay) {
       setProgress(1, 1);
       setTimeout(() => {
@@ -94,25 +107,65 @@
     }
   }
 
-  // ── Run ────────────────────────────────────────────────────────────────────
-  function run() {
-    showOverlay();
-    const urls = collectAssets();
-    const killTimer = setTimeout(() => finish(false), MAX_WAIT_MS);
-
-    navigator.serviceWorker.addEventListener('message', event => {
-      const d = event.data;
-      if (!d) return;
-      if (d.type === 'yamPrecacheProgress') setProgress(d.done, d.total);
-      if (d.type === 'yamPrecacheDone') { clearTimeout(killTimer); finish(true); }
+  // Wait until a service worker controls this page, so our fetches actually
+  // flow through it and land in its cache. On the very first visit the SW
+  // registers on DOMContentLoaded and claims the page moments later; for
+  // returning visitors a (possibly older) SW is controlling already.
+  function waitForController(ms) {
+    if (navigator.serviceWorker.controller) return Promise.resolve(true);
+    return new Promise(resolve => {
+      const timer = setTimeout(() => resolve(!!navigator.serviceWorker.controller), ms);
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        clearTimeout(timer);
+        resolve(true);
+      }, { once: true });
     });
+  }
 
-    // dice-size-fix.js registers the SW on DOMContentLoaded; `ready` resolves
-    // once it's active (first-ever launch included, thanks to clients.claim).
-    navigator.serviceWorker.ready.then(reg => {
-      if (!reg.active) { finish(false); return; }
-      reg.active.postMessage({ type: 'yamPrecache', urls });
-    }).catch(() => finish(false));
+  // Resolves no matter what: success, HTTP error, network error or timeout.
+  // The point is populating the SW cache and advancing the bar, not the body.
+  function fetchInto(url) {
+    return new Promise(resolve => {
+      const timer = setTimeout(resolve, FETCH_TIMEOUT_MS);
+      fetch(url, { credentials: 'same-origin' })
+        .catch(() => null)
+        .then(() => { clearTimeout(timer); resolve(); });
+    });
+  }
+
+  // ── Run ────────────────────────────────────────────────────────────────────
+  async function run() {
+    let attempts = 0;
+    try {
+      attempts = (Number(localStorage.getItem(ATTEMPT_KEY)) || 0) + 1;
+      localStorage.setItem(ATTEMPT_KEY, String(attempts));
+    } catch (e) {}
+
+    showOverlay();
+    // Hard cap: hide regardless, and after repeated bad-network launches set
+    // the flag anyway so the player isn't greeted by this screen forever.
+    const killTimer = setTimeout(() => finish(attempts >= GIVE_UP_ATTEMPTS), MAX_WAIT_MS);
+
+    const controlled = await waitForController(8000);
+    if (!controlled) {
+      clearTimeout(killTimer);
+      finish(attempts >= GIVE_UP_ATTEMPTS);
+      return;
+    }
+
+    const urls = collectAssets();
+    let done = 0, next = 0;
+    async function worker() {
+      while (next < urls.length && !finished) {
+        const url = urls[next++];
+        await fetchInto(url);
+        done++;
+        setProgress(done, urls.length);
+      }
+    }
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    clearTimeout(killTimer);
+    finish(true);
   }
 
   if (document.readyState === 'loading') {
