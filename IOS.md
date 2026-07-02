@@ -36,6 +36,23 @@ In Xcode:
 The bundle id is `io.yamio.app` and the marketing version is `2.0.0` (build
 number `1`) — bump the build number in Xcode for each upload.
 
+## Sign in with Apple (required — one-time setup)
+
+Apple requires Sign in with Apple when an app offers Google login
+(guideline 4.8). The app implements it natively (`js/native-auth.js` +
+`@capacitor-community/apple-sign-in`): inside the iOS app the login bar
+shows a black "Sign in with Apple" button (the Google popup flow cannot run
+inside a WebView, so the Google button is hidden there — Google login remains
+on the web/PWA). Two console steps to activate it:
+
+1. **Xcode**: App target → *Signing & Capabilities* → **+ Capability** →
+   **Sign in with Apple**. (Requires your Apple Developer team selected.)
+2. **Firebase console**: *Authentication → Sign-in method → Add provider →
+   Apple* → Enable. No Service ID needed for the native iOS flow.
+
+Accounts land in the same Firebase project; the in-app account-deletion flow
+re-authenticates through the native Apple sheet when needed.
+
 ## App Store submission notes
 
 - Create the app record in [App Store Connect](https://appstoreconnect.apple.com)
@@ -43,9 +60,10 @@ number `1`) — bump the build number in Xcode for each upload.
   policy URL (`https://yamio.io/privacy.html`).
 - **Account deletion**: Apple requires in-app account deletion for apps with
   sign-in — Yamio's delete-account flow already satisfies this.
-- **Sign in with Apple**: Apple requires it when an app offers third-party
-  login (Google). Expect a review flag for this — adding Apple sign-in via
-  Firebase Auth is the fix if they enforce it.
+- **iPhone-only** (`TARGETED_DEVICE_FAMILY = 1`) and **portrait-locked**, so
+  only iPhone screenshots are needed and there's no iPad layout to review.
+- **Export compliance** is pre-answered (`ITSAppUsesNonExemptEncryption = NO`
+  — the app only uses standard HTTPS).
 - **Guideline 4.2 (minimum functionality)**: Apple is stricter than Google
   about web-wrapper apps. Yamio's case: content is bundled (not a loaded
   website), works fully offline, has native haptics and splash. If a reviewer

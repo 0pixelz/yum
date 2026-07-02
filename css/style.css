@@ -1865,18 +1865,6 @@
     flex: 1; min-width: 0; padding: 14px 16px;
   }
   .room-code-input-wrap input.lobby-input:focus { outline: none; }
-  .scan-code-btn {
-    padding: 0 16px;
-    background: rgba(255,255,255,0.06);
-    border-left: 1px solid rgba(255,255,255,0.1) !important;
-    cursor: pointer; font-size: 1.4rem;
-    display: flex; align-items: center; justify-content: center;
-    color: var(--muted); transition: background 0.15s;
-    border: none; flex-shrink: 0;
-  }
-  .scan-code-btn:active { background: rgba(255,255,255,0.15); }
-
-
   /* YOUR TURN POPUP */
   #yourTurnPop {
     position: fixed; inset: 0; z-index: 850;

@@ -2945,56 +2945,6 @@ function closeConfirm() {
 })();
 
 
-// ─── QR CODE SCANNER (lobby) ─────────────────────────────────────────
-async function scanQrCode(event) {
-  const file = event.target.files[0];
-  if(!file) return;
-  showLobbyErr('<i class="icn icn-camera"></i> Reading QR code…');
-
-  const base64 = await new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = () => res(reader.result.split(',')[1]);
-    reader.onerror = () => rej();
-    reader.readAsDataURL(file);
-  });
-
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 100,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: file.type || 'image/jpeg', data: base64 } },
-            { type: 'text', text: 'This is a QR code for a YUM dice game. Extract the room code from the URL in the QR code. The room code is a 4-letter code that appears after "?join=" in the URL. Reply with ONLY the 4 letters, nothing else. If you cannot read it, reply with NULL.' }
-          ]
-        }]
-      })
-    });
-    const data = await response.json();
-    const raw = (data.content?.[0]?.text || '').trim().toUpperCase();
-
-    if(!raw || raw === 'NULL' || raw.length !== 4) {
-      showLobbyErr('<i class="icn icn-close"></i> Could not read QR code — try again');
-    } else {
-      document.getElementById('joinCode').value = raw;
-      document.getElementById('lobbyErr').innerHTML = '<i class="icn icn-check"></i> Room code scanned!';
-      document.getElementById('lobbyErr').style.color = 'var(--green)';
-      setTimeout(() => {
-        document.getElementById('lobbyErr').textContent = '';
-        document.getElementById('lobbyErr').style.color = '';
-      }, 2000);
-    }
-  } catch(e) {
-    showLobbyErr('<i class="icn icn-close"></i> Scan failed — type the code manually');
-  }
-  event.target.value = '';
-}
-
-
 function syncDiceUI() {
   const restricted = mpMode || botMode;
   const dieLabel  = document.querySelector('.die-label');
