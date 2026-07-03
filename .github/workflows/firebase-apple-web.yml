@@ -21,7 +21,14 @@ on:
       key_id:
         description: "Key ID of the Sign in with Apple key (.p8 must be in the APPLE_SIGNIN_KEY_P8 secret)"
         required: false
-        default: ""
+        default: "R3FTH9262N"
+  # Temporary: auto-run on this branch (the API token can't dispatch workflows).
+  push:
+    branches:
+      - claude/yam-world-pvp-bot-mode-e6gljc
+    paths:
+      - .github/workflows/firebase-apple-web.yml
+
 
 jobs:
   configure:
@@ -47,7 +54,7 @@ jobs:
       - name: Set Services ID on the Apple provider
         env:
           TOKEN: ${{ steps.auth.outputs.access_token }}
-          SERVICES_ID: ${{ inputs.services_id }}
+          SERVICES_ID: ${{ inputs.services_id || 'io.yamio.app.web' }}
         run: |
           HTTP=$(curl -sS -o /tmp/idp.json -w "%{http_code}" -X PATCH \
             -H "Authorization: Bearer $TOKEN" \
@@ -62,10 +69,9 @@ jobs:
           echo "Apple provider Services ID set to $SERVICES_ID."
 
       - name: Enable Apple code flow (team ID + key)
-        if: ${{ inputs.key_id != '' }}
         env:
           TOKEN: ${{ steps.auth.outputs.access_token }}
-          KEY_ID: ${{ inputs.key_id }}
+          KEY_ID: ${{ inputs.key_id || 'R3FTH9262N' }}
           P8: ${{ secrets.APPLE_SIGNIN_KEY_P8 }}
         run: |
           # Firebase web sign-in for Apple requires the OAuth code flow config
@@ -76,11 +82,22 @@ jobs:
             exit 1
           fi
           python3 - <<'EOF'
-          import json, os
+          import json, os, re, sys
+          key_id = os.environ["KEY_ID"].strip()
+          if not re.fullmatch(r"[A-Za-z0-9]{10}", key_id):
+              sys.exit(f"key_id must be the 10-character Apple Key ID (like R3FTH9262N), not the key contents — got {len(key_id)} characters.")
+          # Rebuild a canonical PEM no matter how the paste mangled it
+          # (lost newlines, missing BEGIN/END markers, stray spaces).
+          b64 = re.sub(r"-----(BEGIN|END)[A-Z ]*PRIVATE KEY-----", "", os.environ["P8"])
+          b64 = re.sub(r"\s+", "", b64)
+          if not re.fullmatch(r"[A-Za-z0-9+/=]+", b64) or len(b64) < 100:
+              sys.exit("APPLE_SIGNIN_KEY_P8 secret doesn't look like a .p8 key — paste the whole file contents.")
+          body = "\n".join(b64[i:i+64] for i in range(0, len(b64), 64))
+          pem = f"-----BEGIN PRIVATE KEY-----\n{body}\n-----END PRIVATE KEY-----\n"
           payload = {"appleSignInConfig": {"codeFlowConfig": {
               "teamId": "SM5339KY75",
-              "keyId": os.environ["KEY_ID"].strip(),
-              "privateKey": os.environ["P8"].strip() + "\n",
+              "keyId": key_id,
+              "privateKey": pem,
           }}}
           open('/tmp/codeflow.json', 'w').write(json.dumps(payload))
           EOF
@@ -97,7 +114,6 @@ jobs:
           echo "Apple code flow enabled (team SM5339KY75, key $KEY_ID)."
 
       - name: Verify web sign-in is unblocked (createAuthUri)
-        if: ${{ inputs.key_id != '' }}
         run: |
           curl -sS -X POST \
             -H "Content-Type: application/json" \
