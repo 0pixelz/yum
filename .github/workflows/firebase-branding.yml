@@ -5,11 +5,15 @@
 #   1. Prints the current auth email config (so the run log documents state).
 #   2. Renames the project display name to "Yamio" (the default email text
 #      derives its app name from the project — this removes "project-yum").
-#   3. Tries to set sender name "Yamio" + reply-to support@yamio.io and the
-#      branded action URL https://yamio.io/auth-action.html on the templates.
-#      NOTE: Google blocks template edits via API on standard Firebase
-#      projects (EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED) — when that happens the
-#      step prints the exact console steps instead of failing the run.
+#   3. Makes sure yamio.io is on the Auth authorized-domains list (the console
+#      rejects a custom action URL whose domain isn't authorized).
+#   4. Sets the branded action URL https://yamio.io/auth-action.html
+#      (callbackUri — not a template field, so likely API-writable).
+#   5. Tries to set sender name "Yamio" + reply-to support@yamio.io on the
+#      templates. NOTE: Google blocks template edits via API on standard
+#      Firebase projects (EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED) — when that
+#      happens the run summary prints the exact console steps instead of
+#      failing the run.
 name: Firebase — Brand auth emails (Yamio)
 
 on:
@@ -52,13 +56,67 @@ jobs:
             echo "Project display name set to Yamio."
           fi
 
-      - name: Try to set sender name, reply-to and action URL
+      - name: Ensure yamio.io is an authorized domain
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          # The console refuses a custom action URL whose domain is not on the
+          # Authorized domains list — make sure yamio.io is there.
+          curl -sS -H "Authorization: Bearer $TOKEN" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/config" \
+            | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin).get('authorizedDomains', [])))" > /tmp/domains.json
+          cat /tmp/domains.json
+          python3 - <<'EOF'
+          import json
+          domains = json.load(open('/tmp/domains.json'))
+          missing = [d for d in ('yamio.io', 'www.yamio.io') if d not in domains]
+          json.dump({'authorizedDomains': domains + missing}, open('/tmp/domains_patch.json', 'w'))
+          print('missing:', missing or 'none')
+          open('/tmp/needs_patch', 'w').write('yes' if missing else 'no')
+          EOF
+          if [ "$(cat /tmp/needs_patch)" = "yes" ]; then
+            HTTP=$(curl -sS -o /tmp/dom.json -w "%{http_code}" -X PATCH \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              -d @/tmp/domains_patch.json \
+              "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/config?updateMask=authorizedDomains")
+            cat /tmp/dom.json
+            if [ "$HTTP" -ge 300 ]; then
+              echo "::warning::Could not add yamio.io to authorized domains (HTTP $HTTP) — add it manually: Authentication → Settings → Authorized domains → Add domain → yamio.io."
+            else
+              echo "Added yamio.io to authorized domains."
+            fi
+          else
+            echo "yamio.io already authorized."
+          fi
+
+      - name: Try to set branded action URL (callbackUri)
+        id: callback
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          # callbackUri is NOT a template field, so it may be API-writable even
+          # though template fields are console-only on standard projects.
+          HTTP=$(curl -sS -o /tmp/cb.json -w "%{http_code}" -X PATCH \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"notification":{"sendEmail":{"callbackUri":"https://yamio.io/auth-action.html"}}}' \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/config?updateMask=notification.sendEmail.callbackUri")
+          cat /tmp/cb.json
+          if [ "$HTTP" -ge 300 ]; then
+            echo "callback=blocked" >> "$GITHUB_OUTPUT"
+            echo "::warning::Action URL update blocked via API (HTTP $HTTP) — set it in the console: Authentication → Templates → Customize action URL → https://yamio.io/auth-action.html"
+          else
+            echo "callback=updated" >> "$GITHUB_OUTPUT"
+            echo "Action URL set to https://yamio.io/auth-action.html"
+          fi
+
+      - name: Try to set sender name and reply-to
         id: templates
         env:
           TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
-          MASK="notification.sendEmail.callbackUri"
-          MASK="$MASK,notification.sendEmail.resetPasswordTemplate.senderDisplayName"
+          MASK="notification.sendEmail.resetPasswordTemplate.senderDisplayName"
           MASK="$MASK,notification.sendEmail.resetPasswordTemplate.replyTo"
           MASK="$MASK,notification.sendEmail.verifyEmailTemplate.senderDisplayName"
           MASK="$MASK,notification.sendEmail.verifyEmailTemplate.replyTo"
@@ -70,7 +128,6 @@ jobs:
             -d '{
               "notification": {
                 "sendEmail": {
-                  "callbackUri": "https://yamio.io/auth-action.html",
                   "resetPasswordTemplate": { "senderDisplayName": "Yamio", "replyTo": "support@yamio.io" },
                   "verifyEmailTemplate":   { "senderDisplayName": "Yamio", "replyTo": "support@yamio.io" },
                   "changeEmailTemplate":   { "senderDisplayName": "Yamio", "replyTo": "support@yamio.io" }
@@ -90,30 +147,36 @@ jobs:
       - name: Summary
         env:
           TEMPLATES: ${{ steps.templates.outputs.templates }}
+          CALLBACK: ${{ steps.callback.outputs.callback }}
         run: |
           {
             echo "### Project renamed to Yamio ✅"
             echo ""
+            if [ "$CALLBACK" = "updated" ]; then
+              echo "### Action URL → https://yamio.io/auth-action.html ✅"
+              echo ""
+              echo "Email links now open the branded Yamio page — no console step needed for this."
+            else
+              echo "### Action URL: set in console ⚠️"
+              echo ""
+              echo "Authentication → Templates → **Customize action URL** → \`https://yamio.io/auth-action.html\`"
+              echo "(yamio.io was just added to Authorized domains, so the save that failed before should work now)"
+            fi
+            echo ""
             if [ "$TEMPLATES" = "updated" ]; then
-              echo "### Email templates branded ✅"
+              echo "### Sender name + reply-to branded ✅"
               echo ""
               echo "- Sender name: Yamio · Reply-to: support@yamio.io"
-              echo "- Action links → https://yamio.io/auth-action.html (branded page)"
-              echo ""
-              echo "Send yourself a fresh 'Forgot password' email to see the result."
             else
-              echo "### Email templates: 3 quick console steps needed ⚠️"
+              echo "### Sender name + reply-to: 2 quick console steps ⚠️"
               echo ""
-              echo "Google blocks template edits via API on standard Firebase projects, so finish in the console:"
+              echo "Google blocks these fields via API on standard Firebase projects, so finish in the console:"
               echo ""
               echo "1. Open **Firebase console → Authentication → Templates** (project *yum-game*)."
               echo "2. For **Password reset**, **Email address verification** and **Email address change**, tap the ✏️ pencil and set:"
               echo "   - Sender name: \`Yamio\`"
               echo "   - Reply to: \`support@yamio.io\`"
-              echo "3. Still on any template, tap **Customize action URL** (bottom link) and set it to:"
-              echo "   \`https://yamio.io/auth-action.html\`"
-              echo "   (this applies to all templates at once)"
-              echo ""
-              echo "Then send yourself a fresh 'Forgot password' email — it will say **Yamio**, reply to support@yamio.io, and open the branded Yamio page."
             fi
+            echo ""
+            echo "Then send yourself a fresh 'Forgot password' email — it should say **Yamio**, reply to support@yamio.io, and open the branded Yamio page."
           } >> "$GITHUB_STEP_SUMMARY"
