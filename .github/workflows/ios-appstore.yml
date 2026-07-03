@@ -54,14 +54,17 @@ jobs:
           mkdir -p "$HOME/private_keys"
           printf '%s' "$ASC_KEY_P8" > "$HOME/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8"
 
-      - name: Archive (cloud-signed)
+      - name: Archive (unsigned)
         working-directory: ios/App
         run: |
-          # CODE_SIGN_IDENTITY forces DISTRIBUTION signing at archive time.
-          # Without it, xcodebuild archives with an "iOS App Development"
-          # profile — which cannot be created on an account with no registered
-          # devices — and fails with "No profiles for 'io.yamio.app'". App
-          # Store profiles need no devices, so cloud signing can mint them.
+          # Archive WITHOUT signing. Automatic signing wants a development
+          # profile at archive time, but development profiles require a
+          # registered device and this account has none (run #1's failure);
+          # overriding the identity to Apple Distribution conflicts with
+          # automatic signing (run #3's failure). Skipping signing here and
+          # letting the EXPORT step sign for App Store distribution avoids
+          # both: distribution profiles need no devices and cloud signing
+          # can mint them with the API key.
           xcodebuild \
             -workspace App.xcworkspace \
             -scheme App \
@@ -69,11 +72,8 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8" \
-            -authenticationKeyID "${{ secrets.ASC_KEY_ID }}" \
-            -authenticationKeyIssuerID "${{ secrets.ASC_ISSUER_ID }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
             archive
 
       - name: Export & upload to App Store Connect
