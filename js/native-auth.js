@@ -128,10 +128,18 @@
       if (window.showToast) showToast('Signed in with Apple');
     } catch (err) {
       const msg = String((err && (err.message || err.code)) || err || '');
-      // The user backing out of the Apple sheet is not an error worth toasting.
-      if (/cancel|1001|AuthorizationError error 1000/i.test(msg)) return;
+      // Only the user backing out of the Apple sheet (code 1001 / "canceled")
+      // is silent. Everything else must be VISIBLE: notably ASAuthorization
+      // error 1000, which iOS throws when the build is missing the Sign in
+      // with Apple capability — swallowing it made the button look dead.
+      if (/cancel|1001/i.test(msg)) return;
       console.warn('Apple sign-in failed:', err);
-      if (window.showToast) showToast('Apple sign-in failed');
+      if (window.showToast) {
+        const hint = /1000/.test(msg)
+          ? 'Apple sign-in failed (1000): the build is missing the Sign in with Apple capability'
+          : 'Apple sign-in failed: ' + (msg.slice(0, 90) || 'unknown error');
+        showToast(hint);
+      }
     } finally {
       signingIn = false;
     }
