@@ -111,6 +111,11 @@
     if (usesApple && typeof window.yamioAppleReauth === 'function') {
       return window.yamioAppleReauth(user);
     }
+    // Email/password users re-authenticate with their password.
+    const usesPassword = (user.providerData || []).some(p => p && p.providerId === 'password');
+    if (usesPassword && typeof window.yamioEmailReauth === 'function') {
+      return window.yamioEmailReauth(user);
+    }
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('email');
     provider.setCustomParameters({ prompt: 'select_account' });
