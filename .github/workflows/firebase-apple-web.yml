@@ -93,7 +93,9 @@ jobs:
           if not re.fullmatch(r"[A-Za-z0-9+/=]+", b64) or len(b64) < 100:
               sys.exit("APPLE_SIGNIN_KEY_P8 secret doesn't look like a .p8 key — paste the whole file contents.")
           body = "\n".join(b64[i:i+64] for i in range(0, len(b64), 64))
-          pem = f"-----BEGIN PRIVATE KEY-----\n{body}\n-----END PRIVATE KEY-----\n"
+          # No trailing newline: the API checks the string ends exactly with
+          # the END marker.
+          pem = f"-----BEGIN PRIVATE KEY-----\n{body}\n-----END PRIVATE KEY-----"
           payload = {"appleSignInConfig": {"codeFlowConfig": {
               "teamId": "SM5339KY75",
               "keyId": key_id,
