@@ -22,12 +22,6 @@ on:
         description: "Key ID of the Sign in with Apple key (.p8 must be in the APPLE_SIGNIN_KEY_P8 secret)"
         required: false
         default: "R3FTH9262N"
-  # Temporary: auto-run on this branch (the API token can't dispatch workflows).
-  push:
-    branches:
-      - claude/yam-world-pvp-bot-mode-e6gljc
-    paths:
-      - .github/workflows/firebase-apple-web.yml
 
 
 jobs:
