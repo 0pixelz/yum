@@ -18,6 +18,10 @@ on:
         description: "Apple Services ID registered on developer.apple.com"
         required: true
         default: "io.yamio.app.web"
+      key_id:
+        description: "Key ID of the Sign in with Apple key (.p8 must be in the APPLE_SIGNIN_KEY_P8 secret)"
+        required: false
+        default: ""
 
 jobs:
   configure:
@@ -56,6 +60,57 @@ jobs:
             exit 1
           fi
           echo "Apple provider Services ID set to $SERVICES_ID."
+
+      - name: Enable Apple code flow (team ID + key)
+        if: ${{ inputs.key_id != '' }}
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+          KEY_ID: ${{ inputs.key_id }}
+          P8: ${{ secrets.APPLE_SIGNIN_KEY_P8 }}
+        run: |
+          # Firebase web sign-in for Apple requires the OAuth code flow config
+          # ("Code flow is not enabled for Apple" otherwise): Apple team ID,
+          # the Sign in with Apple key ID, and the .p8 private key.
+          if [ -z "$P8" ]; then
+            echo "::error::Secret APPLE_SIGNIN_KEY_P8 is empty — add the .p8 key contents as a repository secret first."
+            exit 1
+          fi
+          python3 - <<'EOF'
+          import json, os
+          payload = {"appleSignInConfig": {"codeFlowConfig": {
+              "teamId": "SM5339KY75",
+              "keyId": os.environ["KEY_ID"].strip(),
+              "privateKey": os.environ["P8"].strip() + "\n",
+          }}}
+          open('/tmp/codeflow.json', 'w').write(json.dumps(payload))
+          EOF
+          HTTP=$(curl -sS -o /tmp/cf.json -w "%{http_code}" -X PATCH \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/codeflow.json \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/defaultSupportedIdpConfigs/apple.com?updateMask=appleSignInConfig.codeFlowConfig")
+          python3 -c "import json; c=json.load(open('/tmp/cf.json')); c.pop('clientSecret', None); cfg=c.get('appleSignInConfig',{}).get('codeFlowConfig'); cfg and cfg.pop('privateKey', None); print(json.dumps(c, indent=2))" || cat /tmp/cf.json
+          if [ "$HTTP" -ge 300 ]; then
+            echo "::error::Could not set the Apple code flow config (HTTP $HTTP)."
+            exit 1
+          fi
+          echo "Apple code flow enabled (team SM5339KY75, key $KEY_ID)."
+
+      - name: Verify web sign-in is unblocked (createAuthUri)
+        if: ${{ inputs.key_id != '' }}
+        run: |
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"providerId":"apple.com","continueUri":"https://yamio.io/__/auth/handler","oauthScope":"email name"}' \
+            "https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key=AIzaSyBl1XezlXttwyQLBsEJJV0nkxomzL0uhZw" \
+            | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          if 'authUri' in d:
+              print('OK — Apple web sign-in is live. authUri targets:', d['authUri'].split('?')[0])
+          else:
+              print(json.dumps(d, indent=2))
+              raise SystemExit('createAuthUri still failing')"
 
       - name: Summary
         env:
