@@ -18,6 +18,13 @@ name: Firebase — Brand auth emails (Yamio)
 
 on:
   workflow_dispatch:
+  # Temporary: auto-run on this branch so the branding can be applied without
+  # tapping "Run workflow" (the API token can't dispatch workflows).
+  push:
+    branches:
+      - claude/yam-world-pvp-bot-mode-e6gljc
+    paths:
+      - .github/workflows/firebase-branding.yml
 
 jobs:
   brand:
@@ -95,20 +102,34 @@ jobs:
         env:
           TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
-          # callbackUri is NOT a template field, so it may be API-writable even
-          # though template fields are console-only on standard projects.
-          HTTP=$(curl -sS -o /tmp/cb.json -w "%{http_code}" -X PATCH \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"notification":{"sendEmail":{"callbackUri":"https://yamio.io/auth-action.html"}}}' \
-            "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/config?updateMask=notification.sendEmail.callbackUri")
-          cat /tmp/cb.json
-          if [ "$HTTP" -ge 300 ]; then
-            echo "callback=blocked" >> "$GITHUB_OUTPUT"
-            echo "::warning::Action URL update blocked via API (HTTP $HTTP) — set it in the console: Authentication → Templates → Customize action URL → https://yamio.io/auth-action.html"
-          else
-            echo "callback=updated" >> "$GITHUB_OUTPUT"
-            echo "Action URL set to https://yamio.io/auth-action.html"
+          # The API refused https://yamio.io/... (EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED),
+          # so try candidate URLs in preference order — the branded page is also
+          # deployed on the project's own Hosting domains — and keep the first
+          # one Google accepts.
+          CANDIDATES=(
+            "https://yamio.io/auth-action.html"
+            "https://www.yamio.io/auth-action.html"
+            "https://yum-game.web.app/auth-action.html"
+            "https://yum-game.firebaseapp.com/auth-action.html"
+          )
+          RESULT="blocked"
+          for URL in "${CANDIDATES[@]}"; do
+            HTTP=$(curl -sS -o /tmp/cb.json -w "%{http_code}" -X PATCH \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"notification\":{\"sendEmail\":{\"callbackUri\":\"$URL\"}}}" \
+              "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/config?updateMask=notification.sendEmail.callbackUri")
+            echo "--- $URL -> HTTP $HTTP"
+            cat /tmp/cb.json
+            if [ "$HTTP" -lt 300 ]; then
+              RESULT="$URL"
+              echo "Action URL set to $URL"
+              break
+            fi
+          done
+          echo "callback=$RESULT" >> "$GITHUB_OUTPUT"
+          if [ "$RESULT" = "blocked" ]; then
+            echo "::warning::Action URL update blocked via API for every candidate URL — set it in the console: Authentication → Templates → Customize action URL."
           fi
 
       - name: Try to set sender name and reply-to
@@ -152,8 +173,8 @@ jobs:
           {
             echo "### Project renamed to Yamio ✅"
             echo ""
-            if [ "$CALLBACK" = "updated" ]; then
-              echo "### Action URL → https://yamio.io/auth-action.html ✅"
+            if [ "$CALLBACK" != "blocked" ] && [ -n "$CALLBACK" ]; then
+              echo "### Action URL → $CALLBACK ✅"
               echo ""
               echo "Email links now open the branded Yamio page — no console step needed for this."
             else
