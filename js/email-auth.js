@@ -21,6 +21,11 @@
 
   const PROFILE_KEY = 'yum_google_profile';
 
+  // continueUrl for verification / reset emails: Firebase's action page shows
+  // a "Continue" back to the game when it's done. (The action URL itself is
+  // console-managed — Google rejects callbackUri changes via API.)
+  const ACTION_SETTINGS = { url: 'https://yamio.io/' };
+
   function loadScriptOnce(src, id) {
     return new Promise((resolve, reject) => {
       if (id && document.getElementById(id)) return resolve();
@@ -261,7 +266,7 @@
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         // Verification gate: send the link and immediately sign out — the
         // account exists but is unusable until the emailed link is clicked.
-        try { await cred.user.sendEmailVerification(); } catch (e) {}
+        try { await cred.user.sendEmailVerification(ACTION_SETTINGS); } catch (e) {}
         await auth.signOut();
         setMode('signin');
         showInfo(`Almost there! We emailed a confirmation link to ${email}. Click it, then sign in here.`);
@@ -277,7 +282,7 @@
       if (!user.emailVerified) {
         // Re-send the link (best effort — may be rate limited) and refuse the
         // session until the address is confirmed.
-        try { await user.sendEmailVerification(); } catch (e) {}
+        try { await user.sendEmailVerification(ACTION_SETTINGS); } catch (e) {}
         await auth.signOut();
         showInfo(`Your email isn't confirmed yet. We re-sent the link to ${email} — click it, then sign in.`);
         if (window.showToast) showToast('Please confirm your email first');
@@ -301,7 +306,7 @@
     if (!email) { if (window.showToast) showToast('Enter your email first, then tap Forgot password'); return; }
     try {
       const auth = await getAuth();
-      await auth.sendPasswordResetEmail(email);
+      await auth.sendPasswordResetEmail(email, ACTION_SETTINGS);
       if (window.showToast) showToast('Password reset email sent — check your inbox');
     } catch (err) {
       if (window.showToast) showToast(friendly(err && err.code));

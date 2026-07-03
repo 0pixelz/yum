@@ -18,13 +18,6 @@ name: Firebase — Brand auth emails (Yamio)
 
 on:
   workflow_dispatch:
-  # Temporary: auto-run on this branch so the branding can be applied without
-  # tapping "Run workflow" (the API token can't dispatch workflows).
-  push:
-    branches:
-      - claude/yam-world-pvp-bot-mode-e6gljc
-    paths:
-      - .github/workflows/firebase-branding.yml
 
 jobs:
   brand:
