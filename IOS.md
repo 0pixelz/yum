@@ -9,7 +9,46 @@ network.
 > iPhones install from **Apple's App Store**, not Google Play — this is a
 > separate submission with its own requirements.
 
-## Requirements (Apple's rules, no way around them)
+## No Mac? Build from your phone (GitHub Actions)
+
+The repo ships a cloud build pipeline — `.github/workflows/ios-appstore.yml` —
+that builds, signs and uploads the app to App Store Connect on a rented cloud
+Mac. Everything is triggered and monitored from a phone browser.
+
+**One-time setup:**
+
+1. In [App Store Connect](https://appstoreconnect.apple.com) → *Users and
+   Access* → *Integrations* → *App Store Connect API* → **Team Keys** →
+   **Generate API Key**. Name it anything, role **App Manager**. Download the
+   `.p8` file (only offered ONCE — keep it) and note the **Key ID** and the
+   page's **Issuer ID**.
+2. In the GitHub repo → *Settings* → *Secrets and variables* → *Actions* →
+   add three secrets:
+   - `ASC_KEY_ID` — the Key ID
+   - `ASC_ISSUER_ID` — the Issuer ID
+   - `ASC_KEY_P8` — the full text contents of the `.p8` file
+     (open it in a text viewer and copy everything, including the
+     BEGIN/END PRIVATE KEY lines)
+
+**Every release:**
+
+1. GitHub → *Actions* → **iOS — Build & Upload to App Store** →
+   **Run workflow**. (~20–30 min; the build number increments automatically.)
+2. When it finishes, the build appears in App Store Connect under
+   **TestFlight** after Apple processes it (~15–30 min more). Install it via
+   TestFlight to play-test on your iPhone.
+3. On the app's version page, select the build and **Submit for Review**.
+
+Signing is fully automatic: the workflow uses the API key for "cloud signing",
+which creates the distribution certificate and provisioning profile on
+Apple's side. The Sign in with Apple capability is already wired into the
+project (`App/App.entitlements`), and the app icon + splash are committed, so
+there is nothing left that needs Xcode.
+
+> If the repo is private, note that GitHub bills macOS runner minutes at 10×
+> — the free tier covers roughly 8–12 builds per month.
+
+## Building locally instead (Mac route)
 
 - A **Mac** with [Xcode](https://apps.apple.com/app/xcode/id497799835) installed
 - [CocoaPods](https://cocoapods.org): `sudo gem install cocoapods`
