@@ -72,10 +72,14 @@
       const code = (err && err.code) || '';
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
       console.warn('Apple web sign-in failed:', err);
-      const msg = code === 'auth/operation-not-allowed'
-        ? 'Apple sign-in isn\'t configured for the website yet'
-        : 'Apple sign-in failed: ' + (code || 'unknown error');
-      if (window.showToast) showToast(msg);
+      const MESSAGES = {
+        'auth/operation-not-allowed': 'Apple sign-in isn\'t configured for the website yet',
+        'auth/unauthorized-domain': 'This site isn\'t authorized for sign-in — contact support@yamio.io',
+        'auth/popup-blocked': 'Your browser blocked the sign-in popup — allow popups and try again',
+        'auth/network-request-failed': 'Network error — check your connection and try again',
+        'auth/invalid-credential': 'Apple rejected the sign-in — the web Services ID setup may be incomplete',
+      };
+      if (window.showToast) showToast(MESSAGES[code] || ('Apple sign-in failed: ' + (code || 'unknown error')));
     }
   };
 
