@@ -54,18 +54,15 @@ jobs:
           mkdir -p "$HOME/private_keys"
           printf '%s' "$ASC_KEY_P8" > "$HOME/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8"
 
-      - name: Archive (ad-hoc signed, embeds entitlements)
+      - name: Archive (unsigned)
         working-directory: ios/App
         run: |
-          # Archive with AD-HOC signing ("-"): needs no certificate, profile
-          # or registered device, but — unlike fully-unsigned builds — it DOES
-          # embed App/App.entitlements into the binary. The export step's
-          # App Store re-sign preserves those entitlements (Sign in with
-          # Apple), which a fully-unsigned archive silently dropped, breaking
-          # the Apple sign-in button with ASAuthorization error 1000.
-          # (History: automatic signing needs a development profile → fails
-          # with no registered devices; forcing Apple Distribution conflicts
-          # with automatic signing. Manual + ad-hoc sidesteps all of it.)
+          # Archive WITHOUT signing — the only mode that gets through the
+          # archive step on this account: automatic signing wants a
+          # development profile (impossible with zero registered devices),
+          # forcing Apple Distribution conflicts with automatic signing, and
+          # the iOS 26 SDK forbids ad-hoc signing at build time. The
+          # entitlements are stamped in by the next step instead.
           xcodebuild \
             -workspace App.xcworkspace \
             -scheme App \
@@ -73,12 +70,32 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="-" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=YES \
             archive
+
+      - name: Stamp entitlements into the archived app (ad-hoc codesign)
+        working-directory: ios/App
+        run: |
+          # An unsigned app carries no requested entitlements, so the export
+          # re-sign produced a build without com.apple.developer.applesignin
+          # and the Sign in with Apple button died with ASAuthorization error
+          # 1000. The iOS 26 SDK forbids ad-hoc signing at BUILD time, but
+          # that policy doesn't bind the raw codesign tool — so ad-hoc sign
+          # the already-archived app here purely to embed App.entitlements.
+          # The export step re-signs everything for App Store distribution
+          # and preserves these requested entitlements.
+          APP="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app"
+          # Nested code first, so the outer signature is well-formed.
+          if [ -d "$APP/Frameworks" ]; then
+            find "$APP/Frameworks" -maxdepth 1 \( -name "*.framework" -o -name "*.dylib" \) -print0 |
+            while IFS= read -r -d '' fw; do
+              codesign --force --sign - "$fw"
+            done
+          fi
+          codesign --force --sign - --entitlements App/App.entitlements "$APP"
+          echo "Entitlements now embedded in the archive:"
+          codesign -d --entitlements :- "$APP"
 
       - name: Export & upload to App Store Connect
         working-directory: ios/App
