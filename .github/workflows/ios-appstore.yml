@@ -54,17 +54,18 @@ jobs:
           mkdir -p "$HOME/private_keys"
           printf '%s' "$ASC_KEY_P8" > "$HOME/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8"
 
-      - name: Archive (unsigned)
+      - name: Archive (ad-hoc signed, embeds entitlements)
         working-directory: ios/App
         run: |
-          # Archive WITHOUT signing. Automatic signing wants a development
-          # profile at archive time, but development profiles require a
-          # registered device and this account has none (run #1's failure);
-          # overriding the identity to Apple Distribution conflicts with
-          # automatic signing (run #3's failure). Skipping signing here and
-          # letting the EXPORT step sign for App Store distribution avoids
-          # both: distribution profiles need no devices and cloud signing
-          # can mint them with the API key.
+          # Archive with AD-HOC signing ("-"): needs no certificate, profile
+          # or registered device, but — unlike fully-unsigned builds — it DOES
+          # embed App/App.entitlements into the binary. The export step's
+          # App Store re-sign preserves those entitlements (Sign in with
+          # Apple), which a fully-unsigned archive silently dropped, breaking
+          # the Apple sign-in button with ASAuthorization error 1000.
+          # (History: automatic signing needs a development profile → fails
+          # with no registered devices; forcing Apple Distribution conflicts
+          # with automatic signing. Manual + ad-hoc sidesteps all of it.)
           xcodebuild \
             -workspace App.xcworkspace \
             -scheme App \
@@ -72,8 +73,11 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
             archive
 
       - name: Export & upload to App Store Connect
