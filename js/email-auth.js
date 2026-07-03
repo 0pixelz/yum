@@ -1,9 +1,17 @@
 // ─── EMAIL / PASSWORD SIGN-IN ────────────────────────────────────────────────
 // Firebase email+password authentication (per the firebase-auth-basics skill),
-// wired into the app's existing profile system. Unlike the OAuth providers it
-// works EVERYWHERE — web, PWA, and inside the native apps (no popups, no
-// WebView restrictions) — so it's also the account option for platforms where
-// Google's popup can't run.
+// wired into the app's existing profile system. Works on every platform —
+// web, PWA, and inside the native apps (no popups, no WebView restrictions).
+//
+// Registration hardening:
+//   • Create Account asks for a confirm-password + a small human check.
+//   • New accounts must click the emailed VERIFICATION LINK before they can
+//     sign in: after registration (and after any sign-in attempt with an
+//     unverified email) the session is signed out immediately, so unverified
+//     accounts are unusable and bot registrations are worthless.
+//   • Server-side bot protection comes from Firebase App Check (reCAPTCHA v3,
+//     already active in firebase-init.js) — enforce it for Authentication in
+//     the Firebase console once the native apps also attest.
 //
 // The signed-in profile is stored under the same localStorage key and shape
 // every consumer gates on (yum_google_profile with type:'google' — a legacy
@@ -77,6 +85,18 @@
     }
   }
 
+  // ── Human check (light client-side deterrent; App Check is the real wall) ──
+  let captchaAnswer = null;
+  function newCaptcha() {
+    const a = 2 + Math.floor(Math.random() * 8);
+    const b = 2 + Math.floor(Math.random() * 8);
+    captchaAnswer = a + b;
+    const label = document.getElementById('eaCaptchaLabel');
+    if (label) label.textContent = `Human check: what is ${a} + ${b}?`;
+    const input = document.getElementById('eaCaptcha');
+    if (input) input.value = '';
+  }
+
   // ── Modal ──────────────────────────────────────────────────────────────────
   function injectStyles() {
     if (document.getElementById('emailAuthStyles')) return;
@@ -98,6 +118,13 @@
         font-family: 'Bebas Neue', cursive; letter-spacing: 2.5px; font-size: 1.3rem;
         color: var(--gold); margin-bottom: 12px; text-align: center;
       }
+      .ea-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+      .ea-tab {
+        flex: 1; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05);
+        color: var(--muted); border-radius: 999px; padding: 8px; cursor: pointer;
+        font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 0.78rem; letter-spacing: 0.5px;
+      }
+      .ea-tab.active { background: rgba(245,166,35,0.14); color: var(--gold); border-color: rgba(245,166,35,0.5); }
       .ea-input {
         width: 100%; box-sizing: border-box; margin-bottom: 10px;
         background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16);
@@ -105,22 +132,29 @@
         font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.95rem;
       }
       .ea-input:focus { outline: none; border-color: var(--gold); }
+      .ea-captcha-label {
+        font-size: 0.78rem; font-weight: 800; color: var(--muted); margin: 2px 0 6px;
+      }
       .ea-btn {
         width: 100%; border: none; border-radius: 999px; padding: 12px;
         font-family: 'Nunito', sans-serif; font-weight: 900; letter-spacing: 0.6px;
         cursor: pointer; margin-top: 4px;
       }
       .ea-btn-primary { background: linear-gradient(135deg, var(--green), #2ecc71); color: #111; }
-      .ea-btn-secondary {
-        background: rgba(255,255,255,0.08); color: var(--white);
-        border: 1px solid rgba(255,255,255,0.16); margin-top: 8px;
-      }
       .ea-links {
         display: flex; justify-content: space-between; margin-top: 12px;
         font-size: 0.76rem; font-weight: 800;
       }
       .ea-links a { color: var(--muted); cursor: pointer; text-decoration: underline; }
+      .ea-info {
+        background: rgba(78,205,196,0.10); border: 1px solid rgba(78,205,196,0.35);
+        color: var(--green); border-radius: 12px; padding: 10px 12px;
+        font-size: 0.78rem; font-weight: 800; margin-bottom: 10px; display: none;
+      }
+      .ea-info.show { display: block; }
       .ea-busy { opacity: 0.6; pointer-events: none; }
+      .ea-signup-only { display: none; }
+      .ea-box[data-mode="signup"] .ea-signup-only { display: block; }
     `;
     document.head.appendChild(s);
   }
@@ -133,27 +167,61 @@
     ov.id = 'emailAuthOverlay';
     ov.onclick = e => { if (e.target === ov) closeModal(); };
     ov.innerHTML = `
-      <div class="ea-box">
-        <div class="ea-title"><i class="icn icn-key"></i> SIGN IN WITH EMAIL</div>
+      <div class="ea-box" data-mode="signin">
+        <div class="ea-title"><i class="icn icn-key"></i> EMAIL ACCOUNT</div>
+        <div class="ea-tabs">
+          <button class="ea-tab active" id="eaTabIn">SIGN IN</button>
+          <button class="ea-tab" id="eaTabUp">CREATE ACCOUNT</button>
+        </div>
+        <div class="ea-info" id="eaInfo"></div>
         <input class="ea-input" id="eaEmail" type="email" placeholder="Email" autocomplete="email" autocapitalize="none">
         <input class="ea-input" id="eaPassword" type="password" placeholder="Password" autocomplete="current-password">
-        <button class="ea-btn ea-btn-primary" id="eaSignIn">SIGN IN</button>
-        <button class="ea-btn ea-btn-secondary" id="eaSignUp">CREATE ACCOUNT</button>
+        <div class="ea-signup-only">
+          <input class="ea-input" id="eaPassword2" type="password" placeholder="Confirm password" autocomplete="new-password">
+          <div class="ea-captcha-label" id="eaCaptchaLabel"></div>
+          <input class="ea-input" id="eaCaptcha" type="number" inputmode="numeric" placeholder="Answer">
+        </div>
+        <button class="ea-btn ea-btn-primary" id="eaSubmit">SIGN IN</button>
         <div class="ea-links">
           <a id="eaForgot">Forgot password?</a>
           <a id="eaClose">Close</a>
         </div>
       </div>`;
     document.body.appendChild(ov);
-    ov.querySelector('#eaSignIn').onclick = () => submit('signin');
-    ov.querySelector('#eaSignUp').onclick = () => submit('signup');
+    ov.querySelector('#eaTabIn').onclick = () => setMode('signin');
+    ov.querySelector('#eaTabUp').onclick = () => setMode('signup');
+    ov.querySelector('#eaSubmit').onclick = () => submit();
     ov.querySelector('#eaForgot').onclick = resetPassword;
     ov.querySelector('#eaClose').onclick = closeModal;
     return ov;
   }
 
+  let mode = 'signin';
+  function setMode(m) {
+    mode = m;
+    const box = document.querySelector('#emailAuthOverlay .ea-box');
+    if (!box) return;
+    box.setAttribute('data-mode', m);
+    document.getElementById('eaTabIn')?.classList.toggle('active', m === 'signin');
+    document.getElementById('eaTabUp')?.classList.toggle('active', m === 'signup');
+    const submitBtn = document.getElementById('eaSubmit');
+    if (submitBtn) submitBtn.textContent = m === 'signup' ? 'CREATE ACCOUNT' : 'SIGN IN';
+    const pw = document.getElementById('eaPassword');
+    if (pw) pw.setAttribute('autocomplete', m === 'signup' ? 'new-password' : 'current-password');
+    if (m === 'signup') newCaptcha();
+    showInfo('');
+  }
+
+  function showInfo(text) {
+    const el = document.getElementById('eaInfo');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('show', !!text);
+  }
+
   function openModal() {
     ensureModal().classList.add('open');
+    setMode('signin');
     setTimeout(() => document.getElementById('eaEmail')?.focus(), 150);
   }
   function closeModal() {
@@ -162,25 +230,63 @@
   window.openEmailSignIn = openModal;
 
   let busy = false;
-  async function submit(mode) {
+  async function submit() {
     if (busy) return;
     const email = (document.getElementById('eaEmail')?.value || '').trim();
     const password = document.getElementById('eaPassword')?.value || '';
     if (!email) { if (window.showToast) showToast('Enter your email'); return; }
     if (!password) { if (window.showToast) showToast('Enter a password'); return; }
 
+    if (mode === 'signup') {
+      const password2 = document.getElementById('eaPassword2')?.value || '';
+      if (password !== password2) {
+        if (window.showToast) showToast('Passwords don\'t match');
+        return;
+      }
+      const answer = parseInt(document.getElementById('eaCaptcha')?.value, 10);
+      if (answer !== captchaAnswer) {
+        if (window.showToast) showToast('Human check failed — try the new question');
+        newCaptcha();
+        return;
+      }
+    }
+
     busy = true;
     const box = document.querySelector('#emailAuthOverlay .ea-box');
     if (box) box.classList.add('ea-busy');
     try {
       const auth = await getAuth();
-      const cred = mode === 'signup'
-        ? await auth.createUserWithEmailAndPassword(email, password)
-        : await auth.signInWithEmailAndPassword(email, password);
-      if (!cred || !cred.user) throw new Error('No user returned');
-      saveProfile(cred.user);
+
+      if (mode === 'signup') {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        // Verification gate: send the link and immediately sign out — the
+        // account exists but is unusable until the emailed link is clicked.
+        try { await cred.user.sendEmailVerification(); } catch (e) {}
+        await auth.signOut();
+        setMode('signin');
+        showInfo(`Almost there! We emailed a confirmation link to ${email}. Click it, then sign in here.`);
+        if (window.showToast) showToast('Confirmation email sent — check your inbox');
+        return;
+      }
+
+      // Sign in
+      const cred = await auth.signInWithEmailAndPassword(email, password);
+      const user = cred && cred.user;
+      if (!user) throw new Error('No user returned');
+
+      if (!user.emailVerified) {
+        // Re-send the link (best effort — may be rate limited) and refuse the
+        // session until the address is confirmed.
+        try { await user.sendEmailVerification(); } catch (e) {}
+        await auth.signOut();
+        showInfo(`Your email isn't confirmed yet. We re-sent the link to ${email} — click it, then sign in.`);
+        if (window.showToast) showToast('Please confirm your email first');
+        return;
+      }
+
+      saveProfile(user);
       closeModal();
-      if (window.showToast) showToast(mode === 'signup' ? 'Account created — signed in!' : 'Signed in!');
+      if (window.showToast) showToast('Signed in!');
     } catch (err) {
       console.warn('Email auth failed:', err);
       if (window.showToast) showToast(friendly(err && err.code));
@@ -224,6 +330,7 @@
 
     // Anchor on whichever provider button the platform shows.
     const anchor = document.getElementById('appleSignInBtn')
+      || document.getElementById('appleWebSignInBtn')
       || bar.querySelector('button[onclick*="signInWithGoogle"]');
     if (!anchor) return; // bar mid-rebuild; retry next tick
 
