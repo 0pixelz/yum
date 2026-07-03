@@ -1,0 +1,73 @@
+# Wires the Apple Services ID into Firebase so Sign in with Apple works on
+# the WEBSITE (the native iOS flow works without this). Run from the Actions
+# tab AFTER creating the Services ID on developer.apple.com:
+#
+#   Identifiers → + → Services IDs → identifier "io.yamio.app.web"
+#   → enable Sign In with Apple → Configure:
+#        Primary App ID: io.yamio.app
+#        Domains:        yum-game.firebaseapp.com
+#        Return URLs:    https://yum-game.firebaseapp.com/__/auth/handler
+#
+# Idempotent — safe to re-run.
+name: Firebase — Apple sign-in for web (Services ID)
+
+on:
+  workflow_dispatch:
+    inputs:
+      services_id:
+        description: "Apple Services ID registered on developer.apple.com"
+        required: true
+        default: "io.yamio.app.web"
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_YUM_GAME }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+
+      - name: Show current Apple provider config
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          curl -sS -H "Authorization: Bearer $TOKEN" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/defaultSupportedIdpConfigs/apple.com" \
+            | python3 -c "import json,sys; c=json.load(sys.stdin); c.pop('clientSecret', None); print(json.dumps(c, indent=2))"
+
+      - name: Set Services ID on the Apple provider
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+          SERVICES_ID: ${{ inputs.services_id }}
+        run: |
+          HTTP=$(curl -sS -o /tmp/idp.json -w "%{http_code}" -X PATCH \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"clientId\": \"$SERVICES_ID\"}" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/defaultSupportedIdpConfigs/apple.com?updateMask=clientId")
+          python3 -c "import json; c=json.load(open('/tmp/idp.json')); c.pop('clientSecret', None); print(json.dumps(c, indent=2))" || cat /tmp/idp.json
+          if [ "$HTTP" -ge 300 ]; then
+            echo "::error::Could not set the Services ID (HTTP $HTTP). Fallback: Firebase console → Authentication → Sign-in method → Apple → Services ID → $SERVICES_ID."
+            exit 1
+          fi
+          echo "Apple provider Services ID set to $SERVICES_ID."
+
+      - name: Summary
+        env:
+          SERVICES_ID: ${{ inputs.services_id }}
+        run: |
+          {
+            echo "### Apple web sign-in configured ✅"
+            echo ""
+            echo "- Firebase Apple provider Services ID → \`$SERVICES_ID\`"
+            echo "- Native iOS sign-in is unaffected (it authenticates with the app's bundle ID)."
+            echo ""
+            echo "Test it: open https://yamio.io in a browser → Sign in with Apple."
+            echo ""
+            echo "If the Apple popup shows an **invalid_client** or redirect error, the Services ID on developer.apple.com is missing its web configuration — it must list domain \`yum-game.firebaseapp.com\` and return URL \`https://yum-game.firebaseapp.com/__/auth/handler\`."
+          } >> "$GITHUB_STEP_SUMMARY"
