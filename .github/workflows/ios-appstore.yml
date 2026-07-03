@@ -57,6 +57,11 @@ jobs:
       - name: Archive (cloud-signed)
         working-directory: ios/App
         run: |
+          # CODE_SIGN_IDENTITY forces DISTRIBUTION signing at archive time.
+          # Without it, xcodebuild archives with an "iOS App Development"
+          # profile — which cannot be created on an account with no registered
+          # devices — and fails with "No profiles for 'io.yamio.app'". App
+          # Store profiles need no devices, so cloud signing can mint them.
           xcodebuild \
             -workspace App.xcworkspace \
             -scheme App \
@@ -64,6 +69,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$HOME/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8" \
             -authenticationKeyID "${{ secrets.ASC_KEY_ID }}" \
