@@ -1,0 +1,53 @@
+# TEMPORARY debug workflow — reproduces the exact createAuthUri call the
+# browser makes when the Apple button is tapped, so the real backend error
+# (behind the generic auth/operation-not-allowed toast) shows in the logs.
+# Delete after debugging.
+name: Debug — Apple web sign-in
+
+on:
+  push:
+    branches:
+      - claude/yam-world-pvp-bot-mode-e6gljc
+    paths:
+      - .github/workflows/apple-web-debug.yml
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_YUM_GAME }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+
+      - name: Current apple.com provider config (admin view)
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          curl -sS -H "Authorization: Bearer $TOKEN" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/defaultSupportedIdpConfigs/apple.com" \
+            | python3 -c "import json,sys; c=json.load(sys.stdin); c.pop('clientSecret', None); print(json.dumps(c, indent=2))"
+
+      - name: Reproduce the browser call (createAuthUri for apple.com)
+        run: |
+          # Same public API key and parameters the web SDK uses on yamio.io.
+          for CONT in "https://yamio.io/__/auth/handler" "https://yum-game.firebaseapp.com/__/auth/handler"; do
+            echo "=== continueUri: $CONT"
+            curl -sS -X POST \
+              -H "Content-Type: application/json" \
+              -d "{\"providerId\":\"apple.com\",\"continueUri\":\"$CONT\",\"oauthScope\":\"email name\"}" \
+              "https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key=AIzaSyBl1XezlXttwyQLBsEJJV0nkxomzL0uhZw" \
+              | python3 -m json.tool || true
+          done
+
+      - name: Compare with google.com provider (known working)
+        run: |
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"providerId":"google.com","continueUri":"https://yamio.io/__/auth/handler"}' \
+            "https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key=AIzaSyBl1XezlXttwyQLBsEJJV0nkxomzL0uhZw" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({k: d[k] for k in d if k != 'authUri'}, indent=2)); print('authUri present:', 'authUri' in d)"
