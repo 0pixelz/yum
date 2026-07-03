@@ -1,0 +1,79 @@
+# One-shot Firebase project setup, run from the Actions tab. Uses the same
+# service account as the hosting deploy (FIREBASE_SERVICE_ACCOUNT_YUM_GAME).
+#
+# What it does (both idempotent — safe to re-run):
+#   1. Registers the iOS app (bundle io.yamio.app) in the Firebase project.
+#      Firebase Auth only accepts Apple ID tokens whose audience matches a
+#      registered app, so this fixes the native Sign in with Apple error
+#      "The audience in ID Token [io.yamio.app] does not match the expected
+#      audience".
+#   2. Enables the Email/Password sign-in provider (surgical PATCH with an
+#      updateMask so the existing Google/Apple provider config is untouched).
+name: Firebase — Register iOS app & enable email auth
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_YUM_GAME }}
+          token_format: access_token
+          # Firebase Management + Identity Toolkit admin both sit under
+          # cloud-platform.
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+
+      - name: Register iOS app (io.yamio.app)
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          echo "Existing iOS apps:"
+          curl -sS -H "Authorization: Bearer $TOKEN" \
+            "https://firebase.googleapis.com/v1beta1/projects/yum-game/iosApps" | tee /tmp/apps.json
+
+          if grep -q '"bundleId": *"io.yamio.app"' /tmp/apps.json; then
+            echo "iOS app already registered — nothing to do."
+            exit 0
+          fi
+
+          echo "Creating iOS app…"
+          HTTP=$(curl -sS -o /tmp/create.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"bundleId":"io.yamio.app","displayName":"Yamio iOS"}' \
+            "https://firebase.googleapis.com/v1beta1/projects/yum-game/iosApps")
+          cat /tmp/create.json
+          if [ "$HTTP" -ge 300 ]; then
+            echo "::error::iOS app registration failed (HTTP $HTTP). If this is a 403, the service account lacks Firebase admin rights — register the app manually in the Firebase console instead (Project settings → Your apps → Add app → iOS, bundle id io.yamio.app)."
+            exit 1
+          fi
+          echo "iOS app registered."
+
+      - name: Enable Email/Password sign-in
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          HTTP=$(curl -sS -o /tmp/authcfg.json -w "%{http_code}" -X PATCH \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"signIn":{"email":{"enabled":true,"passwordRequired":true}}}' \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/config?updateMask=signIn.email")
+          cat /tmp/authcfg.json
+          if [ "$HTTP" -ge 300 ]; then
+            echo "::error::Enabling email/password failed (HTTP $HTTP). If this is a 403, enable it manually: Firebase console → Authentication → Sign-in method → Email/Password → Enable."
+            exit 1
+          fi
+          echo "Email/password sign-in enabled."
+
+      - name: Summary
+        run: |
+          echo "### Firebase setup complete ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- iOS app io.yamio.app registered (Apple sign-in audience fixed)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Email/Password provider enabled" >> "$GITHUB_STEP_SUMMARY"
