@@ -3,12 +3,13 @@
 #
 # What it does (idempotent — safe to re-run):
 #   1. Prints the current auth email config (so the run log documents state).
-#   2. Sets sender name "Yamio" + reply-to support@yamio.io on the password
-#      reset, email verification, and email change templates.
-#   3. Points the emailed action links at the branded page
-#      https://yamio.io/auth-action.html.
-#   4. Renames the project display name to "Yamio" (the default email text
+#   2. Renames the project display name to "Yamio" (the default email text
 #      derives its app name from the project — this removes "project-yum").
+#   3. Tries to set sender name "Yamio" + reply-to support@yamio.io and the
+#      branded action URL https://yamio.io/auth-action.html on the templates.
+#      NOTE: Google blocks template edits via API on standard Firebase
+#      projects (EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED) — when that happens the
+#      step prints the exact console steps instead of failing the run.
 name: Firebase — Brand auth emails (Yamio)
 
 on:
@@ -35,7 +36,24 @@ jobs:
             "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/config" \
             | python3 -c "import json,sys; c=json.load(sys.stdin); print(json.dumps(c.get('notification', {}), indent=2))"
 
-      - name: Set sender name, reply-to and action URL
+      - name: Rename project display name to Yamio
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          HTTP=$(curl -sS -o /tmp/name.json -w "%{http_code}" -X PATCH \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"displayName":"Yamio"}' \
+            "https://firebase.googleapis.com/v1beta1/projects/yum-game?updateMask=displayName")
+          cat /tmp/name.json
+          if [ "$HTTP" -ge 300 ]; then
+            echo "::warning::Project rename failed (HTTP $HTTP) — if emails still say 'project-yum', set the Public-facing name manually: Firebase console → Project settings → General → Public-facing name → 'Yamio'."
+          else
+            echo "Project display name set to Yamio."
+          fi
+
+      - name: Try to set sender name, reply-to and action URL
+        id: templates
         env:
           TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
@@ -62,33 +80,40 @@ jobs:
             "https://identitytoolkit.googleapis.com/admin/v2/projects/yum-game/config?updateMask=$MASK")
           cat /tmp/patch.json
           if [ "$HTTP" -ge 300 ]; then
-            echo "::error::Email template update failed (HTTP $HTTP). Fallback: Firebase console → Authentication → Templates → set Sender name 'Yamio', Reply-to support@yamio.io, and Customize action URL to https://yamio.io/auth-action.html."
-            exit 1
-          fi
-          echo "Email templates updated."
-
-      - name: Rename project display name to Yamio
-        env:
-          TOKEN: ${{ steps.auth.outputs.access_token }}
-        run: |
-          HTTP=$(curl -sS -o /tmp/name.json -w "%{http_code}" -X PATCH \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"displayName":"Yamio"}' \
-            "https://firebase.googleapis.com/v1beta1/projects/yum-game?updateMask=displayName")
-          cat /tmp/name.json
-          if [ "$HTTP" -ge 300 ]; then
-            echo "::warning::Project rename failed (HTTP $HTTP) — if emails still say 'project-yum', set the Public-facing name manually: Firebase console → Project settings → General → Public-facing name → 'Yamio'."
+            echo "templates=blocked" >> "$GITHUB_OUTPUT"
+            echo "::warning::Google does not allow email-template edits via API on this project (HTTP $HTTP — EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED). This is a Firebase policy, not a permissions issue. Set them in the console instead — see the run Summary for the exact clicks."
           else
-            echo "Project display name set to Yamio."
+            echo "templates=updated" >> "$GITHUB_OUTPUT"
+            echo "Email templates updated."
           fi
 
       - name: Summary
+        env:
+          TEMPLATES: ${{ steps.templates.outputs.templates }}
         run: |
-          echo "### Auth emails branded ✅" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Sender name: Yamio · Reply-to: support@yamio.io" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Action links → https://yamio.io/auth-action.html (branded page)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Project display name → Yamio" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Send yourself a fresh 'Forgot password' email to see the result. If it still says 'project-yum', set Project settings → Public-facing name to Yamio manually." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Project renamed to Yamio ✅"
+            echo ""
+            if [ "$TEMPLATES" = "updated" ]; then
+              echo "### Email templates branded ✅"
+              echo ""
+              echo "- Sender name: Yamio · Reply-to: support@yamio.io"
+              echo "- Action links → https://yamio.io/auth-action.html (branded page)"
+              echo ""
+              echo "Send yourself a fresh 'Forgot password' email to see the result."
+            else
+              echo "### Email templates: 3 quick console steps needed ⚠️"
+              echo ""
+              echo "Google blocks template edits via API on standard Firebase projects, so finish in the console:"
+              echo ""
+              echo "1. Open **Firebase console → Authentication → Templates** (project *yum-game*)."
+              echo "2. For **Password reset**, **Email address verification** and **Email address change**, tap the ✏️ pencil and set:"
+              echo "   - Sender name: \`Yamio\`"
+              echo "   - Reply to: \`support@yamio.io\`"
+              echo "3. Still on any template, tap **Customize action URL** (bottom link) and set it to:"
+              echo "   \`https://yamio.io/auth-action.html\`"
+              echo "   (this applies to all templates at once)"
+              echo ""
+              echo "Then send yourself a fresh 'Forgot password' email — it will say **Yamio**, reply to support@yamio.io, and open the branded Yamio page."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
