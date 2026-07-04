@@ -37,7 +37,37 @@
     ['a','n','a','l','s','e','x'],
     ['h','i','t','l','e','r'],
     ['n','a','z','i'],
-    ['k','k','k']
+    ['k','k','k'],
+    // Québécois sacres + French profanity/slurs. Accents are folded to their
+    // base letters by normalize() (é→e, â→a, ç→c …), so the plain forms match
+    // "câlisse", "négre", etc. Forms chosen to avoid common-word false
+    // positives (e.g. "calis" would hit "calisthenics", so we keep "calisse").
+    // Keep in sync with functions/index.js.
+    ['t','a','b','a','r','n','a'],   // tabarnak / tabarnac / tabarnaque
+    ['b','a','r','n','a','k'],
+    ['c','a','l','i','s','s','e'],
+    ['c','a','l','i','c','e'],
+    ['c','r','i','s','s','e'],
+    ['c','r','i','s','s'],           // safe-listed against Crissy / crisscross
+    ['o','s','t','i','e'],
+    ['e','s','t','i','e'],           // safe-listed against bestie / westie
+    ['c','i','b','o','i','r','e'],
+    ['v','i','a','r','g','e'],
+    ['c','a','l','v','a','i','r','e'],
+    ['m','a','r','d','e'],
+    ['m','e','r','d','e'],
+    ['p','u','t','a','i','n'],
+    ['s','a','l','o','p'],            // salop / salope / salopard
+    ['s','a','l','a','u','d'],
+    ['c','o','n','n','a','r','d'],
+    ['c','o','n','n','a','s','s','e'],
+    ['e','n','c','u','l','e'],        // encule / enculer / enculé
+    ['e','n','f','o','i','r','e'],
+    ['t','a','p','e','t','t','e'],
+    ['n','e','g','r','e'],
+    ['b','o','u','g','n','o','u','l','e'],
+    ['y','o','u','p','i','n'],
+    ['g','u','i','d','o','u','n','e']
   ].map(a => a.join(''));
 
   // Map common leet-speak / lookalikes back to letters so "f.u_c|<" still matches.
@@ -67,17 +97,54 @@
   // stretching doesn't bypass the filter.
   function collapseRuns(s) { return s.replace(/(.)\1+/g, '$1'); }
 
+  // Innocent words that merely CONTAIN a blocked substring. A block only fires
+  // when a bad word appears OUTSIDE every occurrence of a safe word, so "bestie"
+  // and "crissy" pass while "estie", "criss" and "crisslover" are still caught.
+  // This also clears long-standing English false positives (Scunthorpe→cunt,
+  // spice→spic, shiitake→shit). Keep in sync with functions/index.js.
+  const SAFE_BASE = [
+    'bestie', 'besties', 'westie', 'crissy', 'crisscross', 'crisscrossing',
+    'spice', 'spices', 'spicy', 'spicier', 'conspicuous', 'suspicious',
+    'auspicious', 'despicable', 'scunthorpe', 'shiitake'
+  ];
+  // Also cover de-stretched forms (e.g. "shiitake" → "shitake") so the safe
+  // word is still found when we scan the collapsed name.
+  const SAFE = SAFE_BASE.concat(SAFE_BASE.map(collapseRuns));
+
+  // Character ranges in `s` covered by any safe word.
+  function safeRanges(s) {
+    const r = [];
+    for (const w of SAFE) {
+      let i = 0;
+      while ((i = s.indexOf(w, i)) !== -1) { r.push([i, i + w.length]); i += 1; }
+    }
+    return r;
+  }
+  // True if `word` occurs in `s` at least once outside every safe-word range.
+  function occursExposed(s, word, ranges) {
+    let i = 0;
+    while ((i = s.indexOf(word, i)) !== -1) {
+      const a = i, b = i + word.length;
+      if (!ranges.some(function (rr) { return a >= rr[0] && b <= rr[1]; })) return true;
+      i += 1;
+    }
+    return false;
+  }
+
   function validate(name) {
     const trimmed = String(name || '').trim();
     if (!trimmed) return { ok: false, reason: 'Enter your name first!' };
     // Match bad words against BOTH the normalized text and its de-stretched
     // form. The words themselves are left intact — collapsing them too would
     // turn "kkk" into "k" and reject every username containing the letter k
-    // (Mike, Nick, Kevin…), which is exactly the false-positive we must avoid.
+    // (Mike, Nick, Kevin…). Matches that fall entirely inside a safe word
+    // (bestie, spice…) are ignored so those legit names pass.
     const norm = normalize(trimmed);
     const collapsed = collapseRuns(norm);
+    const rNorm = safeRanges(norm);
+    const rColl = safeRanges(collapsed);
     for (const word of BAD) {
-      if (norm.includes(word) || collapsed.includes(word)) {
+      if (occursExposed(norm, word, rNorm) || occursExposed(collapsed, word, rColl)) {
         return { ok: false, reason: 'Please choose a different username.' };
       }
     }

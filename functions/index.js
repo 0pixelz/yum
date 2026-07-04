@@ -231,7 +231,19 @@ const BAD_WORDS = [
   ['d','y','k','e'], ['j','i','z','z'], ['c','u','m','s','h','o','t'],
   ['b','l','o','w','j','o','b'], ['h','a','n','d','j','o','b'],
   ['r','i','m','j','o','b'], ['a','n','a','l','s','e','x'],
-  ['h','i','t','l','e','r'], ['n','a','z','i'], ['k','k','k']
+  ['h','i','t','l','e','r'], ['n','a','z','i'], ['k','k','k'],
+  // Québécois sacres + French profanity/slurs (accents folded by normalizeName:
+  // é→e, â→a, ç→c …). Forms chosen to avoid common-word false positives.
+  ['t','a','b','a','r','n','a'], ['b','a','r','n','a','k'],
+  ['c','a','l','i','s','s','e'], ['c','a','l','i','c','e'], ['c','r','i','s','s','e'],
+  ['c','r','i','s','s'], ['e','s','t','i','e'],  // safe-listed vs Crissy / bestie
+  ['o','s','t','i','e'], ['c','i','b','o','i','r','e'], ['v','i','a','r','g','e'],
+  ['c','a','l','v','a','i','r','e'], ['m','a','r','d','e'], ['m','e','r','d','e'],
+  ['p','u','t','a','i','n'], ['s','a','l','o','p'], ['s','a','l','a','u','d'],
+  ['c','o','n','n','a','r','d'], ['c','o','n','n','a','s','s','e'],
+  ['e','n','c','u','l','e'], ['e','n','f','o','i','r','e'], ['t','a','p','e','t','t','e'],
+  ['n','e','g','r','e'], ['b','o','u','g','n','o','u','l','e'],
+  ['y','o','u','p','i','n'], ['g','u','i','d','o','u','n','e']
 ].map((a) => a.join(''));
 const LEET_MAP = {
   '0':'o','1':'i','!':'i','|':'i','3':'e','4':'a','@':'a','5':'s','$':'s',
@@ -252,11 +264,43 @@ function normalizeName(name) {
   }
   return out;
 }
+// Innocent words that merely contain a blocked substring. A block only fires
+// when a bad word appears outside every occurrence of a safe word, so "bestie"
+// and "crissy" pass while "estie"/"criss"/"crisslover" are still caught. Also
+// clears English false positives (Scunthorpe→cunt, spice→spic, shiitake→shit).
+// Keep in sync with js/username-filter.js.
+const SAFE_BASE = [
+  'bestie', 'besties', 'westie', 'crissy', 'crisscross', 'crisscrossing',
+  'spice', 'spices', 'spicy', 'spicier', 'conspicuous', 'suspicious',
+  'auspicious', 'despicable', 'scunthorpe', 'shiitake'
+];
+// Also cover de-stretched forms (e.g. "shiitake" → "shitake") so the safe word
+// is still found when scanning the collapsed name.
+const SAFE_WORDS = SAFE_BASE.concat(SAFE_BASE.map((w) => w.replace(/(.)\1+/g, '$1')));
+function safeRanges(s) {
+  const r = [];
+  for (const w of SAFE_WORDS) {
+    let i = 0;
+    while ((i = s.indexOf(w, i)) !== -1) { r.push([i, i + w.length]); i += 1; }
+  }
+  return r;
+}
+function occursExposed(s, word, ranges) {
+  let i = 0;
+  while ((i = s.indexOf(word, i)) !== -1) {
+    const a = i, b = i + word.length;
+    if (!ranges.some((rr) => a >= rr[0] && b <= rr[1])) return true;
+    i += 1;
+  }
+  return false;
+}
 function isNameClean(name) {
   const norm = normalizeName(name);
   const collapsed = norm.replace(/(.)\1+/g, '$1');
+  const rNorm = safeRanges(norm);
+  const rColl = safeRanges(collapsed);
   for (const w of BAD_WORDS) {
-    if (norm.includes(w) || collapsed.includes(w)) return false;
+    if (occursExposed(norm, w, rNorm) || occursExposed(collapsed, w, rColl)) return false;
   }
   return true;
 }
