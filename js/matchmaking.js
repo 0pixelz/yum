@@ -426,9 +426,18 @@
       return;
     }
 
+    // Server-authoritative username gate (auth is ready now, so setUsername
+    // won't bounce as unauthenticated).
+    let approvedName = name;
+    if (typeof window.ensureUsernameApproved === 'function') {
+      const appr = await window.ensureUsernameApproved(name);
+      if (!appr.ok) { lobbyErr(appr.reason); return; }
+      approvedName = appr.name;
+    }
+
     mmDb     = db;
     mmUid    = user.uid;
-    mmName   = name;
+    mmName   = approvedName;
     mmMode   = chosenMode;
     mmActive = true;
     mmRole   = null;
@@ -445,7 +454,7 @@
     setSearchText('LOOKING FOR PLAYER',
       'Searching for a ' + modeLabel + ' opponent<span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
     setModeBadge(chosenMode);
-    setMyName(name);
+    setMyName(approvedName);
     resetOpponentCard();
     const onlineEl = el('mmOnline');
     if (onlineEl) onlineEl.textContent = '…';

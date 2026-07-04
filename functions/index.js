@@ -209,6 +209,73 @@ exports.submitScore = onCall(async (req) => {
   return { score: finalScore, nextTurn, megaBonus: megaBonusTotal };
 });
 
+// ─── setUsername ─────────────────────────────────────────────────────
+// Server-authoritative display-name gate. The client runs the same filter
+// (js/username-filter.js) for instant feedback, but the name other players
+// can see must clear this check too, so a tampered client can't slip a blocked
+// name past the server. The approved name is stored at /users/$uid/name, a
+// path the RTDB rules keep read-only to clients (only this function writes it).
+//
+// Keep this list in sync with js/username-filter.js. Words are assembled from
+// char arrays so the source file carries no plain slurs.
+const USERNAME_MAX = 20;
+const BAD_WORDS = [
+  ['f','u','c','k'], ['s','h','i','t'], ['b','i','t','c','h'],
+  ['a','s','s','h','o','l','e'], ['b','a','s','t','a','r','d'],
+  ['d','i','c','k','h','e','a','d'], ['c','u','n','t'], ['p','u','s','s','y'],
+  ['c','o','c','k','s','u','c','k','e','r'], ['m','o','t','h','e','r','f','u','c','k'],
+  ['j','e','r','k','o','f','f'], ['w','h','o','r','e'], ['s','l','u','t'],
+  ['r','e','t','a','r','d'], ['n','i','g','g','e','r'], ['n','i','g','g','a'],
+  ['f','a','g','g','o','t'], ['f','a','g'], ['c','h','i','n','k'],
+  ['s','p','i','c'], ['k','i','k','e'], ['t','r','a','n','n','y'],
+  ['d','y','k','e'], ['j','i','z','z'], ['c','u','m','s','h','o','t'],
+  ['b','l','o','w','j','o','b'], ['h','a','n','d','j','o','b'],
+  ['r','i','m','j','o','b'], ['a','n','a','l','s','e','x'],
+  ['h','i','t','l','e','r'], ['n','a','z','i'], ['k','k','k']
+].map((a) => a.join(''));
+const LEET_MAP = {
+  '0':'o','1':'i','!':'i','|':'i','3':'e','4':'a','@':'a','5':'s','$':'s',
+  '7':'t','+':'t','8':'b','9':'g','¢':'c','€':'e','£':'l',
+  'á':'a','à':'a','ä':'a','â':'a','ã':'a','å':'a','ā':'a',
+  'é':'e','è':'e','ë':'e','ê':'e','ē':'e',
+  'í':'i','ì':'i','ï':'i','î':'i','ī':'i',
+  'ó':'o','ò':'o','ö':'o','ô':'o','õ':'o','ø':'o','ō':'o',
+  'ú':'u','ù':'u','ü':'u','û':'u','ū':'u',
+  'ý':'y','ÿ':'y','ñ':'n','ç':'c','ß':'s'
+};
+function normalizeName(name) {
+  const lower = String(name || '').toLowerCase();
+  let out = '';
+  for (const ch of lower) {
+    if (LEET_MAP[ch]) { out += LEET_MAP[ch]; continue; }
+    if (ch >= 'a' && ch <= 'z') { out += ch; }
+  }
+  return out;
+}
+function isNameClean(name) {
+  const norm = normalizeName(name);
+  const collapsed = norm.replace(/(.)\1+/g, '$1');
+  for (const w of BAD_WORDS) {
+    if (norm.includes(w) || collapsed.includes(w)) return false;
+  }
+  return true;
+}
+
+exports.setUsername = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const data = req.data || {};
+  const raw = (typeof data.name === 'string' ? data.name : '').trim();
+  if (!raw) throw new HttpsError('invalid-argument', 'Enter your name first!');
+  if (raw.length > USERNAME_MAX) {
+    throw new HttpsError('invalid-argument', 'Name is too long (max 20).');
+  }
+  if (!isNameClean(raw)) {
+    throw new HttpsError('invalid-argument', 'Please choose a different username.');
+  }
+  await db().ref('users/' + uid + '/name').set(raw);
+  return { name: raw };
+});
+
 // ─── claimDailyBonus ─────────────────────────────────────────────────
 // 7-day cycling streak. The reward table mirrors rewardForStreakDay in
 // js/daily-bonus-challenge-overlay.js. Server is the only place credits
