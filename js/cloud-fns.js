@@ -36,6 +36,7 @@
     claimDailyBonus: () => call('claimDailyBonus', {}),
     claimDailyChallenge: ({ challengeId }) => call('claimDailyChallenge', { challengeId }),
     purchaseSkin: ({ skinId }) => call('purchaseSkin', { skinId }),
-    grantAchievementCredits: ({ achievementId }) => call('grantAchievementCredits', { achievementId })
+    grantAchievementCredits: ({ achievementId }) => call('grantAchievementCredits', { achievementId }),
+    setUsername: ({ name }) => call('setUsername', { name })
   };
 })();
