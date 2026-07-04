@@ -1255,10 +1255,13 @@
           multiThrowing = false;
           abortTurnAuth(authError);
         } else if (authTargets) {
-          const slowing = inPlay.length === 0 || inPlay.every(b =>
-            b.sleepState === CANNON.Body.SLEEPING ||
-            (elapsed > 450 && b.velocity.length() < 1.2 && b.angularVelocity.length() < 2.8));
-          if (slowing || elapsed > 3500) {
+          // Take over while the dice are still ROLLING on the table (low, past
+          // the initial bounce) — not after they've come to rest, which would
+          // look like a spin at the end. The guided settle then reads as the
+          // die's natural roll-to-stop on its server face.
+          const onTable = inPlay.length === 0 || inPlay.every(b =>
+            b.position.y < TURN_DIE_HALF * 2.4 && b.velocity.length() < 4.5);
+          if ((elapsed > 550 && onTable) || elapsed > 1700) {
             multiThrowing = false;
             beginGuidedSettle(authTargets);
           }
@@ -1802,7 +1805,9 @@
     turnSettled = true;
     for (let i = 0; i < multiDiceBodies.length; i++) {
       const b = multiDiceBodies[i];
-      if (!b._kept) b._value = topFaceFor(b);
+      // In MP the value was set from the server during the guided settle — keep
+      // it (the die is already oriented to it); only read the physics face solo.
+      if (!b._kept && !authRollFn) b._value = topFaceFor(b);
     }
     if (yamStrike3D) { settleYamStrike(); return; }
     updateSettleStatus();
@@ -2070,12 +2075,16 @@
       if (typeof selectedScore !== 'undefined') selectedScore = pts;
     } catch (_) {}
     finalizeTurn(null, true);   // close the overlay without the toggle's writeback
+    // Separate try/catch per call: a renderDice() failure must NOT stop the
+    // score from being committed (that would silently drop the score, which is
+    // exactly the "tap score does nothing" bug in multiplayer). In MP the
+    // commit goes straight to the server (no 2D modal to wait for), so submit
+    // promptly rather than after the full overlay fade.
+    const isMp = (typeof mpMode !== 'undefined' && mpMode);
     setTimeout(() => {
-      try {
-        if (typeof renderDice === 'function') renderDice(true);
-        if (typeof confirmScore === 'function') confirmScore();
-      } catch (_) {}
-    }, 360);
+      try { if (typeof renderDice === 'function') renderDice(true); } catch (_) {}
+      try { if (typeof confirmScore === 'function') confirmScore(); } catch (e) { console.warn('confirmScore (3D) failed', e); }
+    }, isMp ? 80 : 360);
   }
 
   // Bottom row owns "Done" (+ "Scorecard"); "Roll again" floats on the table.
