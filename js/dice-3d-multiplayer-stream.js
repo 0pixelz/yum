@@ -73,7 +73,11 @@
       : state.dragging ? 'drag'
       : state.ready ? 'ready'
       : 'settle';
-    myLive3dRef().update({ f: flat, ph: ph, ts: now });
+    // Stream which dice we're holding (values, 0 = not kept) so the opponent's
+    // spectator view can show our kept dice. null when nothing is kept so the
+    // opponent's kept row clears.
+    const kept = Array.isArray(state.kept) && state.kept.some(v => v) ? state.kept : null;
+    myLive3dRef().update({ f: flat, ph: ph, k: kept, ts: now });
   }
 
   function onClose(closingMode) {
@@ -166,11 +170,13 @@
             spectator = handle;
             if (data.f) spectator.setFrame(unflatten(data.f));
             if (data.ph) spectator.setStatus(statusText(data.ph));
+            if (spectator.setKept) spectator.setKept(data.k || null);
           })
           .catch(() => { spectatorOpening = false; });
       } else if (spectator) {
         if (data.f) spectator.setFrame(unflatten(data.f));
         if (data.ph) spectator.setStatus(statusText(data.ph));
+        if (spectator.setKept) spectator.setKept(data.k || null);
       }
     } else {
       // The roll is over. Re-enable spectator for the next roll (the user
