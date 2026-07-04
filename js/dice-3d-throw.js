@@ -2074,17 +2074,31 @@
       if (typeof activeModal !== 'undefined') activeModal = catId;
       if (typeof selectedScore !== 'undefined') selectedScore = pts;
     } catch (_) {}
-    finalizeTurn(null, true);   // close the overlay without the toggle's writeback
-    // Separate try/catch per call: a renderDice() failure must NOT stop the
-    // score from being committed (that would silently drop the score, which is
-    // exactly the "tap score does nothing" bug in multiplayer). In MP the
-    // commit goes straight to the server (no 2D modal to wait for), so submit
-    // promptly rather than after the full overlay fade.
+    // Multiplayer: submit NOW, before closing the overlay. The old relay set
+    // activeModal, closed the overlay, and only called confirmScore() 360ms
+    // later — in MP that window let room-snapshot updates disturb the shared
+    // state (and a renderDice() throw abort the whole relay), silently dropping
+    // the score. Calling confirmScore() synchronously means its MP branch reads
+    // activeModal/currentTurnId exactly as just set and kicks off the server
+    // submit immediately; the overlay close follows.
     const isMp = (typeof mpMode !== 'undefined' && mpMode);
+    if (isMp) {
+      try { if (typeof confirmScore === 'function') confirmScore(); }
+      catch (e) { console.warn('confirmScore (3D MP) failed', e); }
+      finalizeTurn(null, true);   // close the overlay without the toggle's writeback
+      setTimeout(() => {
+        try { if (typeof renderDice === 'function') renderDice(true); } catch (_) {}
+      }, 120);
+      return;
+    }
+    finalizeTurn(null, true);   // close the overlay without the toggle's writeback
+    // Solo/bot: unchanged — wait out the overlay fade, then commit locally.
+    // Separate try/catch per call: a renderDice() failure must never stop the
+    // score from being committed.
     setTimeout(() => {
       try { if (typeof renderDice === 'function') renderDice(true); } catch (_) {}
       try { if (typeof confirmScore === 'function') confirmScore(); } catch (e) { console.warn('confirmScore (3D) failed', e); }
-    }, isMp ? 80 : 360);
+    }, 360);
   }
 
   // Bottom row owns "Done" (+ "Scorecard"); "Roll again" floats on the table.
