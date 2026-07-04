@@ -77,7 +77,10 @@
     // spectator view can show our kept dice. null when nothing is kept so the
     // opponent's kept row clears.
     const kept = Array.isArray(state.kept) && state.kept.some(v => v) ? state.kept : null;
-    myLive3dRef().update({ f: flat, ph: ph, k: kept, ts: now });
+    // Server face values (only present once the roller's resting dice were
+    // re-skinned) — lets the spectator show the same final faces.
+    const faces = Array.isArray(state.faces) ? state.faces : null;
+    myLive3dRef().update({ f: flat, ph: ph, k: kept, v: faces, ts: now });
   }
 
   function onClose(closingMode) {
@@ -171,12 +174,14 @@
             if (data.f) spectator.setFrame(unflatten(data.f));
             if (data.ph) spectator.setStatus(statusText(data.ph));
             if (spectator.setKept) spectator.setKept(data.k || null);
+            if (spectator.setFaces) spectator.setFaces(data.v || null);
           })
           .catch(() => { spectatorOpening = false; });
       } else if (spectator) {
         if (data.f) spectator.setFrame(unflatten(data.f));
         if (data.ph) spectator.setStatus(statusText(data.ph));
         if (spectator.setKept) spectator.setKept(data.k || null);
+        if (spectator.setFaces) spectator.setFaces(data.v || null);
       }
     } else {
       // The roll is over. Re-enable spectator for the next roll (the user

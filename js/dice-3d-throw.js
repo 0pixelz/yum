@@ -106,6 +106,8 @@
   let authAwaiting = false;        // a server roll is in flight
   let authError = null;            // server roll failed → abort the turn
   let authRollNum = 0;             // latest server roll number (0..3)
+  let authFaced = false;           // resting dice re-skinned to server values
+  let specFacesApplied = false;    // spectator applied the roller's face values
   let actionsEl = null;            // bottom action row (done)
   let keptEl = null;               // 2D "kept" dice faces shown under the header
   let rerollEl = null;             // floating "Roll again" button on the table
@@ -1247,32 +1249,13 @@
     } else if (mode === 'multi' && multiThrowing) {
       const elapsed = now - multiSettleStart;
       const inPlay = multiDiceBodies.filter(b => !b._kept);
-      if (authRollFn) {
-        // MP interactive turn: keep the dice tumbling until the server's values
-        // arrive, then steer them to rest on those faces during the tail of the
-        // tumble — so the player never sees a "wrong" face snap to a new number.
-        if (authError) {
-          multiThrowing = false;
-          abortTurnAuth(authError);
-        } else if (authTargets) {
-          // Take over while the dice are still ROLLING on the table (low, past
-          // the initial bounce) — not after they've come to rest, which would
-          // look like a spin at the end. The guided settle then reads as the
-          // die's natural roll-to-stop on its server face.
-          const onTable = inPlay.length === 0 || inPlay.every(b =>
-            b.position.y < TURN_DIE_HALF * 2.4 && b.velocity.length() < 4.5);
-          if ((elapsed > 550 && onTable) || elapsed > 1700) {
-            multiThrowing = false;
-            beginGuidedSettle(authTargets);
-          }
-        } else if (elapsed > 9000) {
-          multiThrowing = false;
-          abortTurnAuth(new Error('roll timed out'));
-        }
-        // else: still tumbling — waiting for the server or for the dice to slow
+      if (authRollFn && authError) {
+        multiThrowing = false;
+        abortTurnAuth(authError);
       } else {
-        // Only the in-play (non-kept) dice need to come to rest; kept dice are
-        // parked kinematically on the shelf.
+        // Identical natural settle for solo AND multiplayer: the dice roll with
+        // pure physics and simply come to rest. Only the in-play (non-kept)
+        // dice need to settle; kept dice are parked kinematically on the shelf.
         const allSettled = inPlay.length === 0 || inPlay.every(b => {
           if (b.sleepState === CANNON.Body.SLEEPING) return true;
           return elapsed > 900 &&
@@ -1284,6 +1267,21 @@
           // on another or cocked. If we moved any, keep simulating until rest.
           if (elapsed <= 8500 && relaxStacks()) {
             multiSettleStart = now;   // give the nudged dice a fresh settle window
+          } else if (authRollFn) {
+            // MP: the roll LOOKED exactly like solo (pure physics, no motion
+            // correction). Now make the resting dice SHOW the server's values
+            // by re-skinning their faces (a cube-rotated material order — no
+            // movement whatsoever). Usually the response beat the tumble; if
+            // not, the dice sit at rest until it arrives.
+            if (authTargets) {
+              multiThrowing = false;
+              applyAuthFaces(authTargets);
+              settleTurn();
+            } else if (elapsed > 9000) {
+              multiThrowing = false;
+              abortTurnAuth(new Error('roll timed out'));
+            }
+            // else: at rest, waiting on the server response
           } else {
             multiThrowing = false;
             if (mpRoll) mpOnPhysicsSettled();
@@ -1340,6 +1338,8 @@
       authAwaiting = false;
       authError = null;
       authRollNum = 0;
+      authFaced = false;
+      specFacesApplied = false;
       luckyPending = false;
       luckyBody = null;
       luckySnapping = false;
@@ -1447,6 +1447,10 @@
     const nonKept = multiDiceBodies.filter(x => !x._kept).length;
     const x = clamp(((nonKept - 1) - 2) * 0.7, -DRAG_X_LIMIT, DRAG_X_LIMIT);
     b.position.set(x, TURN_DIE_HALF, 0.4);
+    // Drop any face re-skin first: quatForFaceUp orients the GEOMETRIC face,
+    // which only shows _value when the materials are in canonical order.
+    const _pfm = multiDiceMeshes[meshIdx];
+    if (_pfm) _pfm.material = multiPerDieMats ? multiPerDieMats[meshIdx] : (multiMats || _pfm.material);
     b.quaternion.copy(quatForFaceUp(b._value || 1, 0));
   }
 
@@ -1627,6 +1631,11 @@
       b.velocity.set(0, 0, 0);
       b.angularVelocity.set(0, 0, 0);
       b.position.set(multiLanes[k].dx, TURN_DIE_HALF + 0.02, DRAG_Z_MAX - 0.2 + multiLanes[k].dz);
+      // Back to canonical materials for the new throw (any re-skin from the
+      // previous MP settle would skew the next remap). The orientation is
+      // randomized on the next line, so the face change can't be seen.
+      const _am = multiDiceMeshes[nk[k]];
+      if (_am) _am.material = multiPerDieMats ? multiPerDieMats[nk[k]] : (multiMats || _am.material);
       b.quaternion.setFromEuler(Math.random() * 0.35, Math.random() * 0.35, Math.random() * 0.35);
       const ax = Math.random() * 2 - 1, ay = Math.random() * 2 - 1, az = Math.random() * 2 - 1;
       const al = Math.hypot(ax, ay, az) || 1;
@@ -1654,7 +1663,9 @@
     const b = multiDiceBodies[idx];
     if (!b || b._kept) return;
     b._kept = true;
-    b._value = topFaceFor(b);
+    // MP: _value already holds the server value and the die may be re-skinned,
+    // so the geometric top face no longer matches what the player sees.
+    b._value = (authRollFn && b._value) ? b._value : topFaceFor(b);
     parkKeptBody(b, idx);
     renderKeptRow(idx);   // animate this die flying up to the row
     turnSfx('hold');
@@ -3032,7 +3043,7 @@
   // parallel with the tumble; the tick() settle branch waits for authTargets.
   function startAuthRoll() {
     if (!authRollFn) return;
-    authAwaiting = true; authTargets = null; authError = null;
+    authAwaiting = true; authTargets = null; authError = null; authFaced = false;
     const heldArr = multiDiceBodies.map(b => !!b._kept);
     let p;
     try { p = authRollFn(heldArr); } catch (e) { p = Promise.reject(e); }
@@ -3047,23 +3058,52 @@
     }).catch(err => { authAwaiting = false; authError = err || new Error('roll failed'); });
   }
 
-  // Steer each in-play die to rest on its server face with a flat (no-hop) fly,
-  // then hand off to settleTurn() which renders the keep/score UI as usual.
-  function beginGuidedSettle(targets) {
-    let pending = 0;
+  // Re-skin a die so the face physics left pointing up SHOWS `targetVal`,
+  // without moving anything. The 6 face materials are re-assigned in the order
+  // given by a real cube rotation (the one that carries the target face onto
+  // the current up face), so the whole die stays a coherent standard die —
+  // opposite faces still sum to 7. Visually indistinguishable from the die
+  // having simply landed on that number.
+  function remapDieMaterials(meshIdx, body, targetVal) {
+    const mesh = multiDiceMeshes[meshIdx];
+    if (!mesh || !THREE) return;
+    const base = multiPerDieMats ? multiPerDieMats[meshIdx] : multiMats;
+    if (!base) return;
+    const up = topFaceFor(body);        // geometric top face (canonical mapping)
+    if (!targetVal || targetVal === up) { mesh.material = base; return; }
+    const nT = NUM_TO_NORMAL[targetVal], nU = NUM_TO_NORMAL[up];
+    if (!nT || !nU) return;
+    const R = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(nT[0], nT[1], nT[2]),
+      new THREE.Vector3(nU[0], nU[1], nU[2]));
+    const Rinv = R.clone().invert();
+    const mats = new Array(6);
+    for (let s = 0; s < 6; s++) {
+      const n = NUM_TO_NORMAL[FACE_NUMBERS[s]];
+      const v = new THREE.Vector3(n[0], n[1], n[2]).applyQuaternion(Rinv);
+      const rx = Math.round(v.x), ry = Math.round(v.y), rz = Math.round(v.z);
+      let num = FACE_NUMBERS[s];
+      for (const k in NUM_TO_NORMAL) {
+        const a = NUM_TO_NORMAL[k];
+        if (a[0] === rx && a[1] === ry && a[2] === rz) { num = +k; break; }
+      }
+      mats[s] = base[FACE_NUMBERS.indexOf(num)];
+    }
+    mesh.material = mats;
+  }
+
+  // Make the naturally-settled dice show the server's values (MP): set each
+  // in-play die's value and re-skin its faces. No motion — the roll already
+  // ended exactly like a solo roll.
+  function applyAuthFaces(targets) {
+    authFaced = true;
     for (let i = 0; i < multiDiceBodies.length; i++) {
       const b = multiDiceBodies[i];
       if (b._kept) continue;
-      b._value = (targets[i] | 0) || topFaceFor(b);
-      const toQ = quatForFaceUp(b._value, Math.random() * Math.PI * 2);
-      const toP = { x: b.position.x, y: TURN_DIE_HALF, z: b.position.z };
-      pending++;
-      startFly(b, toP, toQ, function () {
-        try { b.type = CANNON.Body.STATIC; } catch (_) {}
-        if (--pending === 0) { authTargets = null; settleTurn(); }
-      }, { noHop: true, dur: 0.5 });
+      const val = (targets[i] | 0) || topFaceFor(b);
+      b._value = val;
+      try { remapDieMaterials(i, b, val); } catch (_) {}
     }
-    if (pending === 0) { authTargets = null; settleTurn(); }
   }
 
   // The server roll failed (not your turn / no rolls / network) — end the turn
@@ -3130,6 +3170,7 @@
       authAwaiting = false;
       authError = null;
       authRollNum = 0;
+      authFaced = false;
       // Park the single die out of view so it doesn't share the scene visibly.
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
       if (dieMesh) dieMesh.visible = false;
@@ -3418,6 +3459,27 @@
           if (mode !== 'spectator') return;
           try { renderSpectatorKept(keptArr); } catch (_) {}
         },
+        setFaces(vals) {
+          if (mode !== 'spectator') return;
+          if (!vals || !Array.isArray(vals)) {
+            if (specFacesApplied) {
+              specFacesApplied = false;   // new throw — canonical materials
+              for (let i = 0; i < multiDiceMeshes.length; i++) {
+                const base = multiPerDieMats ? multiPerDieMats[i] : multiMats;
+                if (multiDiceMeshes[i] && base) multiDiceMeshes[i].material = base;
+              }
+            }
+            return;
+          }
+          if (specFacesApplied) return;   // already applied for this roll
+          specFacesApplied = true;
+          for (let i = 0; i < multiDiceBodies.length && i < vals.length; i++) {
+            const v = vals[i] | 0;
+            if (v >= 1 && v <= 6) {
+              try { remapDieMaterials(i, multiDiceBodies[i], v); } catch (_) {}
+            }
+          }
+        },
         close() {
           if (mode === 'spectator') closeOverlay();
         }
@@ -3452,7 +3514,11 @@
         throwing: multiThrowing,
         transforms: transforms,
         // Per-die kept value (0 = not kept) so opponents can see what we hold.
-        kept: multiDiceBodies.map(b => b._kept ? (b._value | 0) : 0)
+        kept: multiDiceBodies.map(b => b._kept ? (b._value | 0) : 0),
+        // Server face values, present only after the resting dice were
+        // re-skinned — the spectator applies the same re-skin so both screens
+        // show identical final faces.
+        faces: (authFaced && authTargets) ? authTargets.slice() : null
       };
     },
     setOnFrame(fn) { _onFrameCb = (typeof fn === 'function') ? fn : null; },
