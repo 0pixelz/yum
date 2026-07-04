@@ -161,26 +161,29 @@
 
       if (window.__yum3dRollInFlight) return;
 
-      // ── Multiplayer: server-authoritative 3D roll ──
+      // ── Multiplayer: same turn-owning 3D overlay as vs-bot, but each throw's
+      // dice come from the server (anti-cheat) and settle naturally. The player
+      // keeps dice, rolls again, and picks a score all inside the 3D overlay —
+      // scoring routes through confirmScore3D → the MP-aware 2D confirmScore →
+      // server submitScore, so it "just works" like solo.
       if (isMP) {
-        if (typeof window.throw3DDiceMP !== 'function' ||
-            typeof window.__yumMpServerRoll !== 'function') {
-          return original();
-        }
+        if (typeof window.__yumMpServerRoll !== 'function') return original();
         window.__yum3dRollInFlight = true;
-        const heldSnapshot = held.slice();
-        window.throw3DDiceMP({
+        let lastRoll = 0;
+        window.throw3DDice({
           dice: dice.slice(),
-          held: heldSnapshot,
-          roll: () => window.__yumMpServerRoll(heldSnapshot)
+          held: held.slice(),
+          rollsLeft: rollsLeft,
+          authRoll: (heldArr) => window.__yumMpServerRoll(heldArr).then(r => {
+            if (r && typeof r.roll !== 'undefined') lastRoll = Number(r.roll) || lastRoll;
+            return r;
+          })
         }).then(res => {
           window.__yum3dRollInFlight = false;
-          if (!res || res.skipped) return;     // player skipped — nothing rolled
-          if (res.fallback) { original(); return; }  // 3D never opened / no server roll — safe 2D roll
-          if (res.error || !res.resp) {
-            // The roll was already committed to the server; surface the error
-            // but do NOT re-roll (that would double-consume the turn's roll).
-            const msg = String((res.error && res.error.message) || '');
+          if (!res) return;
+          if (res.fallback) { original(); return; }   // WebGL unavailable → 2D roll
+          if (res.authError) {
+            const msg = String((res.authError && res.authError.message) || '');
             if (typeof showToast === 'function') {
               if (/not your turn/i.test(msg)) showToast("It's not your turn!");
               else if (/no rolls left/i.test(msg)) showToast('No rolls left');
@@ -188,21 +191,17 @@
             }
             return;
           }
-          // The overlay already animated the dice; apply the authoritative
-          // result to the 2D game state without a second (2D) spin.
-          if (typeof window.__yumApplyMpRoll === 'function') {
-            window.__yumApplyMpRoll(res.resp, false);
-          }
-          // The 3D overlay outlasts the celebration wrapper's fixed timer, so
-          // re-check for a YAM now that the final dice are in game state.
-          if (typeof window.yumCheckCelebrate === 'function') {
-            setTimeout(() => { try { window.yumCheckCelebrate(); } catch (e) {} }, 80);
+          // A score picked in the overlay resolves skipped:true and was already
+          // submitted to the server by confirmScore3D — nothing to do here.
+          if (res.skipped) return;
+          // Player exited via "Done" without scoring — reflect the latest
+          // server roll into the 2D card so they can score/roll there.
+          if (Array.isArray(res.dice) && typeof window.__yumApplyMpRoll === 'function') {
+            window.__yumApplyMpRoll({ dice: res.dice, roll: lastRoll }, false);
           }
         }).catch(err => {
-          // throw3DDiceMP resolves rather than rejects, so this is unexpected.
-          // A server roll may already be in flight — don't re-roll here.
           window.__yum3dRollInFlight = false;
-          console.warn('3D MP roll error', err);
+          console.warn('3D MP turn error', err);
         });
         return;
       }
