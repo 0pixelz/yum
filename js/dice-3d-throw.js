@@ -1482,6 +1482,31 @@
     if (keptEl) { keptEl.innerHTML = ''; keptEl.classList.remove('show'); }
   }
 
+  // Read-only kept row for the spectator overlay — shows which dice the roller
+  // is holding (streamed from their live3d.k), with no tap-to-release.
+  function renderSpectatorKept(keptArr) {
+    if (!keptEl) return;
+    const vals = [];
+    if (Array.isArray(keptArr)) {
+      for (let i = 0; i < keptArr.length; i++) {
+        const v = keptArr[i] | 0;
+        if (v >= 1 && v <= 6) vals.push(v);
+      }
+    }
+    if (!vals.length) { keptEl.innerHTML = ''; keptEl.classList.remove('show'); return; }
+    const faceHtml = (v) => {
+      if (typeof dieIcon === 'function') { try { return dieIcon(v); } catch (_) {} }
+      if (typeof window.dieIcon === 'function') { try { return window.dieIcon(v); } catch (_) {} }
+      return '<span class="d3d-kept-glyph">' + (['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][v] || '') + '</span>';
+    };
+    const cells = vals.map(v =>
+      '<span class="d3d-kept-die" style="pointer-events:none">' + faceHtml(v) + '</span>'
+    ).join('');
+    keptEl.innerHTML = '<span class="d3d-kept-label">KEPT</span>' +
+      '<div class="d3d-kept-row">' + cells + '</div>';
+    keptEl.classList.add('show');
+  }
+
   // Smoothly move a (kinematic) die body from where it is to a target pose.
   function startFly(body, toP, toQ, onDone, opts) {
     opts = opts || {};
@@ -3366,6 +3391,10 @@
         setStatus(text) {
           if (statusEl) statusEl.textContent = text || '';
         },
+        setKept(keptArr) {
+          if (mode !== 'spectator') return;
+          try { renderSpectatorKept(keptArr); } catch (_) {}
+        },
         close() {
           if (mode === 'spectator') closeOverlay();
         }
@@ -3398,7 +3427,9 @@
         ready: multiReady,
         dragging: multiDragging,
         throwing: multiThrowing,
-        transforms: transforms
+        transforms: transforms,
+        // Per-die kept value (0 = not kept) so opponents can see what we hold.
+        kept: multiDiceBodies.map(b => b._kept ? (b._value | 0) : 0)
       };
     },
     setOnFrame(fn) { _onFrameCb = (typeof fn === 'function') ? fn : null; },
