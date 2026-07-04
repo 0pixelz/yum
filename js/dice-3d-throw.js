@@ -82,6 +82,19 @@
   let freezePending = false;       // Freeze Dice: awaiting the player to pick a die
   let luckyHalos = [];             // glow rings around the selectable dice (lucky / freeze)
   let flyTweens = [];              // {body, fromP, toP, fromQ, toQ, t, dur, onDone}
+  // ── Multiplayer roll state ───────────────────────────────────────
+  // In multiplayer the dice values are decided by the server, not physics.
+  // The overlay tumbles the dice for show (and broadcasts the tumble to
+  // opponents via the stream bridge), then re-faces the in-play dice to the
+  // server's authoritative values before resolving. It does NOT own holds or
+  // scoring — those stay in the 2D UI.
+  let mpRoll = false;              // this overlay is a server-authoritative MP roll
+  let mpRollFn = null;             // () => Promise<{dice, roll}> — the server roll
+  let mpResolve = null;            // resolves the throw3DDiceMP() promise
+  let mpServerResp = null;         // server response once it arrives
+  let mpPhysicsSettled = false;    // the tumble has come to rest
+  let mpFlicked = false;           // the player has flicked (roll committed)
+  let mpFinished = false;          // result delivered / overlay closing
   let actionsEl = null;            // bottom action row (done)
   let keptEl = null;               // 2D "kept" dice faces shown under the header
   let rerollEl = null;             // floating "Roll again" button on the table
@@ -765,6 +778,13 @@
         closeOverlay();
         return;
       }
+      if (mpRoll) {
+        // Server-authoritative MP roll: before the flick this is "Skip throw"
+        // (abort, change nothing). Once flicked, the roll is already committed
+        // to the server, so the button is inert until it resolves.
+        if (!mpFlicked) finishMpRoll({ skipped: true });
+        return;
+      }
       if (interactiveTurn) {
         // After at least one throw the button is a real "Done" (commit the hand
         // as it stands); before any throw it's "Skip" (abort, change nothing).
@@ -1231,7 +1251,8 @@
           multiSettleStart = now;   // give the nudged dice a fresh settle window
         } else {
           multiThrowing = false;
-          settleTurn();
+          if (mpRoll) mpOnPhysicsSettled();
+          else settleTurn();
         }
       }
     }
@@ -1271,6 +1292,13 @@
       turnResolve = null;
       yamStrike3D = false;
       yamStrikeAttempts = 0;
+      mpRoll = false;
+      mpRollFn = null;
+      mpResolve = null;
+      mpServerResp = null;
+      mpPhysicsSettled = false;
+      mpFlicked = false;
+      mpFinished = false;
       luckyPending = false;
       luckyBody = null;
       luckySnapping = false;
@@ -2830,6 +2858,9 @@
     closeBonus();
     statusEl.textContent = 'Rolling…';
     playThrowClatter();
+    // Multiplayer: the flick *is* the roll — ask the server for the
+    // authoritative dice exactly once, in parallel with the tumble.
+    if (mpRoll && !mpFlicked) { mpFlicked = true; startMpServerRoll(); }
   }
 
   let libsPromise = null;
@@ -2997,6 +3028,167 @@
     }).catch(e => {
       console.warn('throw3DDice failed, using fallback', e);
       return legacy ? legacyRandomArr() : randomResult();
+    });
+  };
+
+  // ── Multiplayer roll: server-authoritative 3D throw ─────────────
+  // Runs one roll inside the overlay: the player flicks the unheld dice for a
+  // real tumble (broadcast live to opponents via the stream bridge), while the
+  // server is asked for the authoritative faces in parallel. Once the tumble
+  // rests AND the server answers, the in-play dice are re-faced to the server
+  // values and the promise resolves with { skipped, resp, dice, roll }. Holds
+  // and scoring stay in the 2D UI — this owns a single roll, not the turn.
+  //
+  //   opts.dice   [5]   current face values (0 for un-rolled)
+  //   opts.held   [5]   which dice are being kept (stay on the shelf)
+  //   opts.roll   ()=>Promise<{dice:[5], roll:Number}>  the server roll call
+  function startMpServerRoll() {
+    let p;
+    try { p = mpRollFn ? mpRollFn() : null; }
+    catch (e) { p = Promise.reject(e); }
+    Promise.resolve(p).then(resp => {
+      if (resp && Array.isArray(resp.dice) && resp.dice.length === 5) {
+        mpServerResp = resp;
+        maybeFinishMpRoll();
+      } else {
+        finishMpRoll({ error: new Error('bad server response') });
+      }
+    }).catch(err => { finishMpRoll({ error: err || new Error('roll failed') }); });
+  }
+
+  function mpOnPhysicsSettled() {
+    mpPhysicsSettled = true;
+    if (!mpServerResp) statusEl.textContent = 'Locking it in…';
+    maybeFinishMpRoll();
+  }
+
+  function maybeFinishMpRoll() {
+    if (mpFinished) return;
+    if (!mpPhysicsSettled || !mpServerResp) return;
+    const resp = mpServerResp;
+    refaceToServer(resp.dice, () => finishMpRoll({ resp: resp }));
+  }
+
+  // Snap each in-play (non-kept) die to its server face, value-up, with a short
+  // fly so the change reads as the dice "settling" rather than a hard pop.
+  function refaceToServer(serverDice, done) {
+    const nonKept = [];
+    for (let i = 0; i < multiDiceBodies.length; i++) {
+      if (!multiDiceBodies[i]._kept) nonKept.push(i);
+    }
+    if (!nonKept.length) { done(); return; }
+    statusEl.innerHTML = 'Rolled!';
+    let pending = nonKept.length;
+    for (const i of nonKept) {
+      const b = multiDiceBodies[i];
+      const val = (serverDice[i] | 0) || topFaceFor(b);
+      b._value = val;
+      const toP = { x: b.position.x, y: TURN_DIE_HALF, z: b.position.z };
+      const toQ = quatForFaceUp(val, Math.random() * Math.PI * 2);
+      startFly(b, toP, toQ, () => {
+        try { b.type = CANNON.Body.STATIC; } catch (_) {}
+        if (--pending === 0) done();
+      });
+    }
+  }
+
+  function finishMpRoll(result) {
+    if (mpFinished) return;
+    mpFinished = true;
+    mpRoll = false;
+    const r = mpResolve; mpResolve = null;
+    let payload;
+    if (result.error) payload = { skipped: false, error: result.error };
+    else if (result.skipped) payload = { skipped: true };
+    else payload = {
+      skipped: false,
+      resp: result.resp,
+      dice: result.resp.dice.slice(),
+      roll: Number(result.resp.roll) || 0
+    };
+    // On a real result, hold the settled frame briefly so the roller (and any
+    // spectators watching the stream) see the final faces before we fade out.
+    const delay = (result.error || result.skipped) ? 0 : 550;
+    setTimeout(() => {
+      closeOverlay();
+      if (r) r(payload);
+    }, delay);
+  }
+
+  window.throw3DDiceMP = function (opts) {
+    const o = opts || {};
+    const startDice = Array.isArray(o.dice) ? o.dice.slice(0, 5) : [0, 0, 0, 0, 0];
+    const startHeld = Array.isArray(o.held) ? o.held.slice(0, 5) : [false, false, false, false, false];
+    while (startDice.length < 5) startDice.push(0);
+    while (startHeld.length < 5) startHeld.push(false);
+
+    return Promise.all([ensureLibs(), ensureBrandFont()]).then(() => {
+      if (!overlay) buildOverlay();
+      if (!renderer) {
+        try { initScene(); }
+        catch (e) { console.warn('3D MP dice init failed', e); return { fallback: true }; }
+      }
+      if (!renderer) return { fallback: true };  // WebGL unavailable — 2D fallback
+      mode = 'multi';
+      interactiveTurn = false;
+      turnSettled = false;
+      turnResolve = null;
+      turnRollsUsed = 0;
+      yamStrike3D = false;
+      luckyPending = false; luckyBody = null;
+      freezePending = false;
+      flyTweens = [];
+      mpRoll = true;
+      mpRollFn = (typeof o.roll === 'function') ? o.roll : null;
+      mpServerResp = null;
+      mpPhysicsSettled = false;
+      mpFlicked = false;
+      mpFinished = false;
+      // Park the single die out of view so it doesn't share the scene visibly.
+      if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
+      if (dieMesh) dieMesh.visible = false;
+      clearSuggest();
+      clearActions();
+      setupTurnDice(startDice, startHeld);
+      applyDiceTheme();
+      if (overlay) {
+        const _t = overlay.querySelector('.d3d-title');
+        if (_t) _t.textContent = 'YAMIO';
+      }
+      // Broadcast to opponents with the full die count so the spectator poses
+      // all five transforms 1:1 by index (kept dice stream from off-screen).
+      if (_onOpenCb) { try { _onOpenCb(multiDiceMeshes.length || 5); } catch (_) {} }
+      const keptN = startHeld.filter((b, i) => b && startDice[i] > 0).length;
+      statusEl.textContent = keptN
+        ? 'Kept dice are on the shelf — flick to roll the rest'
+        : 'Grab the dice and flick to throw';
+      cancelBtn.textContent = 'Skip throw';
+      cancelBtn.style.display = '';
+      canvasEl.style.pointerEvents = '';   // spectator mode may have disabled input
+      overlay.style.display = 'flex';
+      requestAnimationFrame(() => {
+        overlay.classList.add('open');
+        onResize();
+      });
+
+      if (!canvasEl._d3dBound) {
+        canvasEl._d3dBound = true;
+        canvasEl.addEventListener('pointerdown', onPointerDown);
+        canvasEl.addEventListener('pointermove', onPointerMove);
+        canvasEl.addEventListener('pointerup', onPointerUp);
+        canvasEl.addEventListener('pointercancel', onPointerUp);
+        window.addEventListener('resize', onResize);
+      }
+
+      if (!rafId) {
+        lastTime = 0;
+        rafId = requestAnimationFrame(tick);
+      }
+
+      return new Promise(res => { mpResolve = res; });
+    }).catch(e => {
+      console.warn('throw3DDiceMP failed', e);
+      return { fallback: true };  // never opened / no server roll made — safe 2D fallback
     });
   };
 
