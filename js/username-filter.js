@@ -60,18 +60,24 @@
       if (ch >= 'a' && ch <= 'z') { out += ch; continue; }
       // Drop spaces, punctuation, digits with no leet mapping, etc.
     }
-    // Collapse repeated letters (e.g. "fuuuuck" -> "fuck") so simple stretching
-    // doesn't bypass the filter.
-    return out.replace(/(.)\1+/g, '$1');
+    return out;
   }
+
+  // Collapse runs of the same letter (e.g. "fuuuuck" -> "fuck") so simple
+  // stretching doesn't bypass the filter.
+  function collapseRuns(s) { return s.replace(/(.)\1+/g, '$1'); }
 
   function validate(name) {
     const trimmed = String(name || '').trim();
     if (!trimmed) return { ok: false, reason: 'Enter your name first!' };
+    // Match bad words against BOTH the normalized text and its de-stretched
+    // form. The words themselves are left intact — collapsing them too would
+    // turn "kkk" into "k" and reject every username containing the letter k
+    // (Mike, Nick, Kevin…), which is exactly the false-positive we must avoid.
     const norm = normalize(trimmed);
+    const collapsed = collapseRuns(norm);
     for (const word of BAD) {
-      const collapsed = word.replace(/(.)\1+/g, '$1');
-      if (norm.includes(collapsed)) {
+      if (norm.includes(word) || collapsed.includes(word)) {
         return { ok: false, reason: 'Please choose a different username.' };
       }
     }

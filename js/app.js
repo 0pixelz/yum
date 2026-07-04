@@ -1086,6 +1086,47 @@ function getLobbyName() {
   return n;
 }
 
+// Server-authoritative username gate for the online flows (create / join /
+// find-match). Runs the instant client filter first, then confirms with the
+// setUsername Cloud Function so a tampered client can't push a blocked name to
+// paths other players can see. Approved names are cached per session, and a
+// transient Functions outage falls back to the client check rather than
+// locking the player out. Offline/bot play doesn't use this (nothing to show).
+window.__yumApprovedNames = window.__yumApprovedNames || {};
+window.ensureUsernameApproved = async function (rawName) {
+  const name = String(rawName || '').trim();
+  if (!name) return { ok: false, reason: 'Enter your name first!' };
+  // Instant client-side pre-check (obvious rejects never hit the network).
+  if (typeof window.yumValidateUsername === 'function') {
+    const pre = window.yumValidateUsername(name);
+    if (!pre.ok) return { ok: false, reason: pre.reason };
+  }
+  if (window.__yumApprovedNames[name]) {
+    return { ok: true, name: window.__yumApprovedNames[name] };
+  }
+  if (!window.YumCloud || typeof window.YumCloud.setUsername !== 'function') {
+    return { ok: true, name };   // Functions wrapper unavailable — don't block.
+  }
+  try {
+    const res = await window.YumCloud.setUsername({ name });
+    const approved = (res && res.name) || name;
+    window.__yumApprovedNames[name] = approved;
+    return { ok: true, name: approved };
+  } catch (err) {
+    const code = String((err && err.code) || '');
+    if (/invalid-argument/.test(code)) {
+      // Definitive server rejection (profanity / too long / empty).
+      const msg = String((err && err.message) || '');
+      const reason = msg.includes('failed: ') ? msg.split('failed: ').pop() : '';
+      return { ok: false, reason: reason || 'Please choose a different username.' };
+    }
+    // Network / unavailable / auth-not-ready: the client pre-check already
+    // passed, so allow play rather than hard-failing on a transient issue.
+    console.warn('setUsername unavailable, allowing via client check', err);
+    return { ok: true, name };
+  }
+};
+
 function showLobbyErr(msg, opts) {
   const el = document.getElementById('lobbyErr');
   if (!el) return;
@@ -1104,7 +1145,9 @@ async function createGame() {
   window.__yumCreateGameInFlight = true;
   try {
     const name = getLobbyName(); if(!name) return;
-    playerName = name;
+    const _appr = await window.ensureUsernameApproved(name);
+    if (!_appr.ok) { showLobbyErr(_appr.reason); return; }
+    playerName = _appr.name;
     isHost = true;
     roomCode = genCode();
 
@@ -1244,7 +1287,9 @@ async function joinGame() {
   const code = document.getElementById('joinCode').value.trim().toUpperCase();
   if(code.length !== 4) { promptForRoomCode(); return; }
 
-  playerName = name;
+  const _appr = await window.ensureUsernameApproved(name);
+  if (!_appr.ok) { showLobbyErr(_appr.reason); return; }
+  playerName = _appr.name;
   roomCode = code;
   isHost = false;
 
