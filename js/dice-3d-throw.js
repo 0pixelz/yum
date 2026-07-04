@@ -95,6 +95,17 @@
   let mpPhysicsSettled = false;    // the tumble has come to rest
   let mpFlicked = false;           // the player has flicked (roll committed)
   let mpFinished = false;          // result delivered / overlay closing
+  // ── Multiplayer interactive turn (server-authoritative, solo-style) ──
+  // The MP overlay owns the whole turn like solo/bot, but each throw's dice
+  // come from the server via authRollFn (not physics), and the dice are steered
+  // to rest on those values during the tumble — no post-drop snap. Score-picking
+  // works through the same confirmScore3D path solo uses (which routes to the
+  // MP-aware 2D confirmScore → server submitScore).
+  let authRollFn = null;           // (heldBoolArr) => Promise<{dice:[5], roll}>
+  let authTargets = null;          // this throw's authoritative dice, once in
+  let authAwaiting = false;        // a server roll is in flight
+  let authError = null;            // server roll failed → abort the turn
+  let authRollNum = 0;             // latest server roll number (0..3)
   let actionsEl = null;            // bottom action row (done)
   let keptEl = null;               // 2D "kept" dice faces shown under the header
   let rerollEl = null;             // floating "Roll again" button on the table
@@ -1235,24 +1246,46 @@
       }
     } else if (mode === 'multi' && multiThrowing) {
       const elapsed = now - multiSettleStart;
-      // Only the in-play (non-kept) dice need to come to rest; kept dice are
-      // parked kinematically on the shelf.
       const inPlay = multiDiceBodies.filter(b => !b._kept);
-      const allSettled = inPlay.length === 0 || inPlay.every(b => {
-        if (b.sleepState === CANNON.Body.SLEEPING) return true;
-        return elapsed > 900 &&
-          b.velocity.length() < 0.07 &&
-          b.angularVelocity.length() < 0.07;
-      });
-      if (allSettled || elapsed > 8500) {
-        // Before locking in the result, re-drop any die that settled stacked on
-        // another or cocked. If we moved any, keep simulating until they rest.
-        if (elapsed <= 8500 && relaxStacks()) {
-          multiSettleStart = now;   // give the nudged dice a fresh settle window
-        } else {
+      if (authRollFn) {
+        // MP interactive turn: keep the dice tumbling until the server's values
+        // arrive, then steer them to rest on those faces during the tail of the
+        // tumble — so the player never sees a "wrong" face snap to a new number.
+        if (authError) {
           multiThrowing = false;
-          if (mpRoll) mpOnPhysicsSettled();
-          else settleTurn();
+          abortTurnAuth(authError);
+        } else if (authTargets) {
+          const slowing = inPlay.length === 0 || inPlay.every(b =>
+            b.sleepState === CANNON.Body.SLEEPING ||
+            (elapsed > 450 && b.velocity.length() < 1.2 && b.angularVelocity.length() < 2.8));
+          if (slowing || elapsed > 3500) {
+            multiThrowing = false;
+            beginGuidedSettle(authTargets);
+          }
+        } else if (elapsed > 9000) {
+          multiThrowing = false;
+          abortTurnAuth(new Error('roll timed out'));
+        }
+        // else: still tumbling — waiting for the server or for the dice to slow
+      } else {
+        // Only the in-play (non-kept) dice need to come to rest; kept dice are
+        // parked kinematically on the shelf.
+        const allSettled = inPlay.length === 0 || inPlay.every(b => {
+          if (b.sleepState === CANNON.Body.SLEEPING) return true;
+          return elapsed > 900 &&
+            b.velocity.length() < 0.07 &&
+            b.angularVelocity.length() < 0.07;
+        });
+        if (allSettled || elapsed > 8500) {
+          // Before locking in the result, re-drop any die that settled stacked
+          // on another or cocked. If we moved any, keep simulating until rest.
+          if (elapsed <= 8500 && relaxStacks()) {
+            multiSettleStart = now;   // give the nudged dice a fresh settle window
+          } else {
+            multiThrowing = false;
+            if (mpRoll) mpOnPhysicsSettled();
+            else settleTurn();
+          }
         }
       }
     }
@@ -1299,6 +1332,11 @@
       mpPhysicsSettled = false;
       mpFlicked = false;
       mpFinished = false;
+      authRollFn = null;
+      authTargets = null;
+      authAwaiting = false;
+      authError = null;
+      authRollNum = 0;
       luckyPending = false;
       luckyBody = null;
       luckySnapping = false;
@@ -1445,7 +1483,8 @@
   }
 
   // Smoothly move a (kinematic) die body from where it is to a target pose.
-  function startFly(body, toP, toQ, onDone) {
+  function startFly(body, toP, toQ, onDone, opts) {
+    opts = opts || {};
     body.type = CANNON.Body.KINEMATIC;
     body.velocity.set(0, 0, 0); body.angularVelocity.set(0, 0, 0);
     body._spinAxis = null;
@@ -1458,7 +1497,9 @@
       toP: new THREE.Vector3(toP.x, toP.y, toP.z),
       fromQ: new THREE.Quaternion(body.quaternion.x, body.quaternion.y, body.quaternion.z, body.quaternion.w),
       toQ: toQ.clone(),
-      t: 0, dur: 0.42, onDone: onDone || null
+      // noHop: skip the "hop onto the shelf" arc so the MP guided settle reads
+      // as the die simply rolling to rest on its (server-chosen) face.
+      t: 0, dur: opts.dur || 0.42, noHop: !!opts.noHop, onDone: onDone || null
     });
   }
 
@@ -1470,8 +1511,9 @@
       // easeInOutQuad with a tiny overshoot-free arc
       const e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
       const p = tw.fromP.clone().lerp(tw.toP, e);
-      // lift slightly mid-flight so the die "hops" onto the shelf
-      p.y += Math.sin(Math.PI * u) * 0.5;
+      // lift slightly mid-flight so the die "hops" onto the shelf (skipped for
+      // the flat guided settle so MP dice just roll to rest, no visible pop)
+      if (!tw.noHop) p.y += Math.sin(Math.PI * u) * 0.5;
       tw.body.position.set(p.x, p.y, p.z);
       const q = tw.fromQ.clone().slerp(tw.toQ, e);
       tw.body.quaternion.set(q.x, q.y, q.z, q.w);
@@ -2861,6 +2903,9 @@
     // Multiplayer: the flick *is* the roll — ask the server for the
     // authoritative dice exactly once, in parallel with the tumble.
     if (mpRoll && !mpFlicked) { mpFlicked = true; startMpServerRoll(); }
+    // MP interactive turn: each flick asks the server for that throw's dice
+    // (passing which dice are kept), in parallel with the tumble.
+    if (authRollFn) startAuthRoll();
   }
 
   let libsPromise = null;
@@ -2934,6 +2979,54 @@
   //
   // Back-compat: if called the old way — throw3DDice(count) — it still resolves
   // with an array of rolled faces so any legacy caller keeps working.
+  // ── MP interactive-turn helpers (server-authoritative, solo-style) ──
+  // Ask the server for this throw's dice, passing which dice are kept. Runs in
+  // parallel with the tumble; the tick() settle branch waits for authTargets.
+  function startAuthRoll() {
+    if (!authRollFn) return;
+    authAwaiting = true; authTargets = null; authError = null;
+    const heldArr = multiDiceBodies.map(b => !!b._kept);
+    let p;
+    try { p = authRollFn(heldArr); } catch (e) { p = Promise.reject(e); }
+    Promise.resolve(p).then(resp => {
+      authAwaiting = false;
+      if (resp && Array.isArray(resp.dice) && resp.dice.length === 5) {
+        authTargets = resp.dice.slice();
+        authRollNum = Number(resp.roll) || authRollNum;
+      } else {
+        authError = new Error('bad server response');
+      }
+    }).catch(err => { authAwaiting = false; authError = err || new Error('roll failed'); });
+  }
+
+  // Steer each in-play die to rest on its server face with a flat (no-hop) fly,
+  // then hand off to settleTurn() which renders the keep/score UI as usual.
+  function beginGuidedSettle(targets) {
+    let pending = 0;
+    for (let i = 0; i < multiDiceBodies.length; i++) {
+      const b = multiDiceBodies[i];
+      if (b._kept) continue;
+      b._value = (targets[i] | 0) || topFaceFor(b);
+      const toQ = quatForFaceUp(b._value, Math.random() * Math.PI * 2);
+      const toP = { x: b.position.x, y: TURN_DIE_HALF, z: b.position.z };
+      pending++;
+      startFly(b, toP, toQ, function () {
+        try { b.type = CANNON.Body.STATIC; } catch (_) {}
+        if (--pending === 0) { authTargets = null; settleTurn(); }
+      }, { noHop: true, dur: 0.5 });
+    }
+    if (pending === 0) { authTargets = null; settleTurn(); }
+  }
+
+  // The server roll failed (not your turn / no rolls / network) — end the turn
+  // and let the toggle surface the error. No dice change locally.
+  function abortTurnAuth(err) {
+    authError = null; authTargets = null; authAwaiting = false;
+    const r = turnResolve; turnResolve = null;
+    closeOverlay();
+    if (r) { try { r({ skipped: false, authError: err || new Error('roll failed') }); } catch (_) {} }
+  }
+
   window.throw3DDice = function (arg, legacyOpts) {
     const optsIn = (arg && typeof arg === 'object') ? arg : (legacyOpts || {});
     const legacyCount = (typeof arg === 'number') ? Math.max(1, Math.min(5, arg | 0)) : 0;
@@ -2966,7 +3059,11 @@
       if (!overlay) buildOverlay();
       if (!renderer) {
         try { initScene(); }
-        catch (e) { console.warn('3D dice init failed', e); return legacy ? legacyRandomArr() : randomResult(); }
+        catch (e) {
+          console.warn('3D dice init failed', e);
+          if (typeof optsIn.authRoll === 'function') return { fallback: true };
+          return legacy ? legacyRandomArr() : randomResult();
+        }
       }
       mode = 'multi';
       interactiveTurn = true;
@@ -2980,6 +3077,11 @@
       luckyBody = null;
       freezePending = false;
       flyTweens = [];
+      authRollFn = (typeof optsIn.authRoll === 'function') ? optsIn.authRoll : null;
+      authTargets = null;
+      authAwaiting = false;
+      authError = null;
+      authRollNum = 0;
       // Park the single die out of view so it doesn't share the scene visibly.
       if (dieBody) { dieBody.type = CANNON.Body.STATIC; dieBody.position.set(0, -20, 0); }
       if (dieMesh) dieMesh.visible = false;
@@ -2987,7 +3089,9 @@
       clearActions();
       setupTurnDice(startDice, startHeld);
       applyDiceTheme();
-      if (_onOpenCb) { try { _onOpenCb(activeN || 5); } catch (_) {} }
+      // Broadcast the full die count in MP so the spectator poses all five
+      // transforms 1:1 by index (kept dice stream from off-screen).
+      if (_onOpenCb) { try { _onOpenCb(authRollFn ? (multiDiceMeshes.length || 5) : (activeN || 5)); } catch (_) {} }
       const keptN = startHeld.filter((b, i) => b && startDice[i] > 0).length;
       statusEl.textContent = keptN
         ? 'Kept dice are on the shelf — flick to roll the rest'
@@ -3027,6 +3131,7 @@
       });
     }).catch(e => {
       console.warn('throw3DDice failed, using fallback', e);
+      if (typeof optsIn.authRoll === 'function') return { fallback: true };
       return legacy ? legacyRandomArr() : randomResult();
     });
   };
