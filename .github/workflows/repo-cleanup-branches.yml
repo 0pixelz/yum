@@ -1,0 +1,63 @@
+# Deletes stale remote branches that are fully merged into main. Run from the
+# Actions tab. Defaults to a DRY RUN that only lists what would be deleted —
+# re-run with dry_run=false to actually delete.
+#
+# Only branches whose every commit is already reachable from main are touched
+# (nothing is lost — the content lives in main). Unmerged branches are listed
+# in the log but left alone.
+name: Repo — Clean up merged branches
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (list only, delete nothing)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-cleanup-branches
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete branches merged into main
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          git fetch --prune origin "+refs/heads/*:refs/remotes/origin/*"
+          DEFAULT=main
+          deleted=0; kept=0
+          for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | sed 's#^origin/##'); do
+            [ "$ref" = "$DEFAULT" ] && continue
+            [ "$ref" = "HEAD" ] && continue
+            ahead=$(git rev-list --count "origin/$DEFAULT..origin/$ref")
+            if [ "$ahead" = "0" ]; then
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "WOULD DELETE (merged): $ref"
+              else
+                echo "DELETING (merged): $ref"
+                git push origin --delete "$ref" || echo "  ...failed (protected or already gone)"
+              fi
+              deleted=$((deleted+1))
+            else
+              echo "KEEPING (has $ahead unmerged commit(s)): $ref"
+              kept=$((kept+1))
+            fi
+          done
+          echo ""
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN — would delete $deleted merged branch(es); $kept unmerged kept."
+            echo "Re-run this workflow with dry_run unchecked to actually delete."
+          else
+            echo "Deleted $deleted merged branch(es); $kept unmerged kept."
+          fi

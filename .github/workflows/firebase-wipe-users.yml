@@ -1,0 +1,119 @@
+# DANGER — wipes player data. Run from the Actions tab, on purpose, only.
+#
+# Deletes, depending on the toggles:
+#   • RTDB gameplay/user data: /users, /rooms, /presence, /matchmaking,
+#     /friendInvites, /leaderboard  (credits, skins, streaks, friend lists,
+#     leaderboard — everything players have accumulated)
+#   • ALL Firebase Auth accounts (Google/Apple/email/anonymous). Players are
+#     signed out and get fresh accounts on next launch.
+#
+# This is IRREVERSIBLE. The confirm input must be typed exactly as
+# WIPE-ALL-USERS or the run aborts without touching anything.
+#
+# Uses the same service account as the deploys (FIREBASE_SERVICE_ACCOUNT_YUM_GAME).
+# Deleting Auth accounts additionally needs the "Firebase Authentication Admin"
+# role on that service account; the run fails visibly if it's missing.
+name: Firebase — WIPE all user data
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type WIPE-ALL-USERS to confirm"
+        required: true
+      wipe_rtdb:
+        description: "Wipe RTDB data (users, rooms, presence, matchmaking, friendInvites, leaderboard)"
+        type: boolean
+        default: true
+      wipe_auth:
+        description: "Delete ALL Firebase Auth accounts"
+        type: boolean
+        default: true
+
+concurrency:
+  group: firebase-wipe-users
+  cancel-in-progress: false
+
+jobs:
+  wipe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation phrase
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" != "WIPE-ALL-USERS" ]; then
+            echo "::error::Confirmation phrase mismatch — nothing was touched."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install firebase-admin
+        working-directory: functions
+        run: npm ci || npm install
+
+      - name: Write service account credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT_YUM_GAME: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_YUM_GAME }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_YUM_GAME" ]; then
+            echo "::error::Missing FIREBASE_SERVICE_ACCOUNT_YUM_GAME secret."
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_YUM_GAME" > "$RUNNER_TEMP/firebase-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+
+      - name: Wipe
+        working-directory: functions
+        env:
+          WIPE_RTDB: ${{ inputs.wipe_rtdb }}
+          WIPE_AUTH: ${{ inputs.wipe_auth }}
+        run: |
+          node - <<'EOF'
+          const admin = require('firebase-admin');
+          admin.initializeApp({
+            credential: admin.credential.applicationDefault(),
+            databaseURL: 'https://yum-game-default-rtdb.firebaseio.com'
+          });
+
+          const WIPE_RTDB = process.env.WIPE_RTDB === 'true';
+          const WIPE_AUTH = process.env.WIPE_AUTH === 'true';
+          const RTDB_PATHS = ['users', 'rooms', 'presence', 'matchmaking',
+                              'friendInvites', 'leaderboard'];
+
+          async function wipeRtdb() {
+            for (const p of RTDB_PATHS) {
+              await admin.database().ref(p).set(null);
+              console.log('RTDB cleared: /' + p);
+            }
+          }
+
+          async function wipeAuth() {
+            let total = 0, token = undefined;
+            for (;;) {
+              const page = await admin.auth().listUsers(1000, token);
+              if (!page.users.length) break;
+              const uids = page.users.map(u => u.uid);
+              const res = await admin.auth().deleteUsers(uids);
+              total += res.successCount;
+              if (res.failureCount) {
+                console.log('Failed to delete ' + res.failureCount + ' account(s) this batch');
+              }
+              console.log('Auth accounts deleted so far: ' + total);
+              if (!page.pageToken) break;
+              token = page.pageToken;
+            }
+            console.log('Auth wipe complete: ' + total + ' account(s) deleted.');
+          }
+
+          (async () => {
+            if (WIPE_RTDB) await wipeRtdb(); else console.log('RTDB wipe skipped');
+            if (WIPE_AUTH) await wipeAuth(); else console.log('Auth wipe skipped');
+            process.exit(0);
+          })().catch(err => { console.error(err); process.exit(1); });
+          EOF
