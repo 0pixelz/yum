@@ -186,6 +186,34 @@ function cycleDie(i) {
 
 let _yumRollInFlight = false;
 
+// Server-authoritative multiplayer roll, shared by the 2D roll button (below)
+// and the 3D-roll overlay (js/dice-3d-roll-toggle.js). Kept as separate
+// window helpers so both paths request the same authoritative dice and mirror
+// the same liveDice stream — no divergence between the 2D and 3D flows.
+window.__yumMpServerRoll = function (heldArr) {
+  return window.YumCloud.rollDice({ roomId: roomCode, held: [...(heldArr || held)] });
+};
+window.__yumApplyMpRoll = function (resp, animate) {
+  dice = resp.dice.slice();
+  rolled = true;
+  rollsLeft = 3 - (Number(resp.roll) || 0);
+  // The 3D overlay already animated the dice; skip the 2D spin in that case.
+  renderDice(animate !== false);
+  renderScores();
+  const _rc = document.getElementById('rollCount');
+  if (_rc) _rc.textContent = `Rolls: ${3-rollsLeft} / 3`;
+  // Mirror to liveDice so the streaming opponent UI updates promptly. The
+  // opponent's score check on the server reads /serverDice, not /liveDice — so
+  // this stream is display-only.
+  const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+  let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
+  if (roomRef && playerId) {
+    roomRef.child('players/' + playerId + '/liveDice').set({
+      dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, perDieColors: _pdc, ts: Date.now()
+    });
+  }
+};
+
 async function rollDice() {
   if(mpMode && currentTurnId !== playerId) { showToast("It's not your turn!"); return; }
   if(botMode && !playerTurn) { showToast('Wait for the bot!'); return; }
@@ -201,22 +229,9 @@ async function rollDice() {
   if (mpMode && roomRef && window.YumCloud && roomCode) {
     _yumRollInFlight = true;
     try {
-      const resp = await window.YumCloud.rollDice({ roomId: roomCode, held: [...held] });
+      const resp = await window.__yumMpServerRoll([...held]);
       if (resp && Array.isArray(resp.dice) && resp.dice.length === 5) {
-        dice = resp.dice.slice();
-        rolled = true;
-        rollsLeft = 3 - (Number(resp.roll) || 0);
-        renderDice(true);
-        renderScores();
-        document.getElementById('rollCount').textContent = `Rolls: ${3-rollsLeft} / 3`;
-        // Mirror to liveDice so the streaming opponent UI updates promptly.
-        // The opponent's score check on the server reads /serverDice, not
-        // /liveDice — so this stream is display-only.
-        const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
-        let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
-        roomRef.child('players/' + playerId + '/liveDice').set({
-          dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, perDieColors: _pdc, ts: Date.now()
-        });
+        window.__yumApplyMpRoll(resp, true);
       }
     } catch (err) {
       console.warn('cloud rollDice failed:', err);

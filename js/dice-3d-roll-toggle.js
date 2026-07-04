@@ -125,12 +125,20 @@
     const original = rollDice;
 
     function rollDice3D() {
-      // Multiplayer dice must come from the server, not from the 3D physics
-      // simulation. Fall through to the original (async) rollDice which
-      // routes to Cloud Functions.
-      if (typeof mpMode !== 'undefined' && mpMode) return original();
       if (!window.is3DRollEnabled()) return original();
       if (typeof window.throw3DDice !== 'function') return original();
+      // Power-up "Yam or Strike" rerolls a single die with bespoke, client-side
+      // logic in powerup-mode.js (not a server/physics roll). Never take it over
+      // — defensive in case wrapper ordering puts this ahead of that handler.
+      if (typeof yamOrStrikeActive !== 'undefined' && yamOrStrikeActive) return original();
+
+      // Multiplayer dice are decided by the server, not by the physics sim. The
+      // MP branch (below) still runs the 3D overlay for the animation + live
+      // stream, but re-faces the dice to the server's authoritative values.
+      const isMP = (typeof mpMode !== 'undefined' && mpMode &&
+                    typeof roomRef !== 'undefined' && roomRef &&
+                    window.YumCloud &&
+                    typeof roomCode !== 'undefined' && roomCode);
 
       // Mirror the original's pre-roll guards so the 3D overlay never opens
       // on a turn the player can't actually roll on.
@@ -152,6 +160,53 @@
       if (!anyUnheld) return original();
 
       if (window.__yum3dRollInFlight) return;
+
+      // ── Multiplayer: server-authoritative 3D roll ──
+      if (isMP) {
+        if (typeof window.throw3DDiceMP !== 'function' ||
+            typeof window.__yumMpServerRoll !== 'function') {
+          return original();
+        }
+        window.__yum3dRollInFlight = true;
+        const heldSnapshot = held.slice();
+        window.throw3DDiceMP({
+          dice: dice.slice(),
+          held: heldSnapshot,
+          roll: () => window.__yumMpServerRoll(heldSnapshot)
+        }).then(res => {
+          window.__yum3dRollInFlight = false;
+          if (!res || res.skipped) return;     // player skipped — nothing rolled
+          if (res.fallback) { original(); return; }  // 3D never opened / no server roll — safe 2D roll
+          if (res.error || !res.resp) {
+            // The roll was already committed to the server; surface the error
+            // but do NOT re-roll (that would double-consume the turn's roll).
+            const msg = String((res.error && res.error.message) || '');
+            if (typeof showToast === 'function') {
+              if (/not your turn/i.test(msg)) showToast("It's not your turn!");
+              else if (/no rolls left/i.test(msg)) showToast('No rolls left');
+              else showToast("Couldn't roll — check your connection");
+            }
+            return;
+          }
+          // The overlay already animated the dice; apply the authoritative
+          // result to the 2D game state without a second (2D) spin.
+          if (typeof window.__yumApplyMpRoll === 'function') {
+            window.__yumApplyMpRoll(res.resp, false);
+          }
+          // The 3D overlay outlasts the celebration wrapper's fixed timer, so
+          // re-check for a YAM now that the final dice are in game state.
+          if (typeof window.yumCheckCelebrate === 'function') {
+            setTimeout(() => { try { window.yumCheckCelebrate(); } catch (e) {} }, 80);
+          }
+        }).catch(err => {
+          // throw3DDiceMP resolves rather than rejects, so this is unexpected.
+          // A server roll may already be in flight — don't re-roll here.
+          window.__yum3dRollInFlight = false;
+          console.warn('3D MP roll error', err);
+        });
+        return;
+      }
+
       window.__yum3dRollInFlight = true;
 
       // Hand the whole turn to the 3D overlay: it rolls, lets the player tap
