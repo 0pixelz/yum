@@ -37,7 +37,35 @@
     ['a','n','a','l','s','e','x'],
     ['h','i','t','l','e','r'],
     ['n','a','z','i'],
-    ['k','k','k']
+    ['k','k','k'],
+    // Québécois sacres + French profanity/slurs. Accents are folded to their
+    // base letters by normalize() (é→e, â→a, ç→c …), so the plain forms match
+    // "câlisse", "négre", etc. Forms chosen to avoid common-word false
+    // positives (e.g. "calis" would hit "calisthenics", so we keep "calisse").
+    // Keep in sync with functions/index.js.
+    ['t','a','b','a','r','n','a'],   // tabarnak / tabarnac / tabarnaque
+    ['b','a','r','n','a','k'],
+    ['c','a','l','i','s','s','e'],
+    ['c','a','l','i','c','e'],
+    ['c','r','i','s','s','e'],
+    ['o','s','t','i','e'],
+    ['c','i','b','o','i','r','e'],
+    ['v','i','a','r','g','e'],
+    ['c','a','l','v','a','i','r','e'],
+    ['m','a','r','d','e'],
+    ['m','e','r','d','e'],
+    ['p','u','t','a','i','n'],
+    ['s','a','l','o','p'],            // salop / salope / salopard
+    ['s','a','l','a','u','d'],
+    ['c','o','n','n','a','r','d'],
+    ['c','o','n','n','a','s','s','e'],
+    ['e','n','c','u','l','e'],        // encule / enculer / enculé
+    ['e','n','f','o','i','r','e'],
+    ['t','a','p','e','t','t','e'],
+    ['n','e','g','r','e'],
+    ['b','o','u','g','n','o','u','l','e'],
+    ['y','o','u','p','i','n'],
+    ['g','u','i','d','o','u','n','e']
   ].map(a => a.join(''));
 
   // Map common leet-speak / lookalikes back to letters so "f.u_c|<" still matches.
