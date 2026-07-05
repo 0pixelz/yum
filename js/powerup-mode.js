@@ -61,6 +61,10 @@ function startPowerupMode() {
   yamOrStrikeAttempts = 0;
   suppressNextYumEarn = false;
   upperBonusPowerupAwarded = false;
+  // Clear the solo game-over latch — if a previous power-up game ended and the
+  // player returned to the lobby (rather than rematch/quit), this stayed true
+  // and permanently suppressed the next game's game-over screen.
+  _pupGameOverPending = false;
   scores             = {};
 
   clearDice();

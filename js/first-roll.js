@@ -45,7 +45,7 @@ function showFirstRoll(players, onDone) {
     col.innerHTML = `
       <div class="fro-head">
         <div class="fro-avatar">${frAvatarMarkup(p)}</div>
-        <div class="fro-name">${p.name}${p.isMe?' (you)':''}</div>
+        <div class="fro-name">${(window.escapeHtml||(s=>s))(p.name)}${p.isMe?' (you)':''}</div>
       </div>
       <div class="fro-die" id="frDie${i}">–</div>
       <div class="fro-score" id="frScore${i}"></div>`;
@@ -266,7 +266,7 @@ function frCheckAllRolled() {
   document.getElementById('frStatus').innerHTML =
     winner.isMe
       ? '<i class="icn icn-trophy icn-gold"></i> YOU GO FIRST!'
-      : `<i class="icn icn-dice icn-gold"></i> ${winner.name} GOES FIRST!`;
+      : `<i class="icn icn-dice icn-gold"></i> ${(window.escapeHtml||(s=>s))(winner.name)} GOES FIRST!`;
   document.getElementById('frSub').textContent = '';
   const btn = document.getElementById('frBtn');
   btn.style.display = 'block';

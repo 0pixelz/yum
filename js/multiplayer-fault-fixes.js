@@ -284,7 +284,7 @@
       // Keep the lexical binding app.js shares fresh, and mirror to window for
       // any external reader.
       try { allPlayers = _players; } catch (e) {}
-      getAllPlayers() = _players;
+      window.allPlayers = _players;
       // Expose current host id so other modules (presence sweeper) can decide
       // whether to defer cleanup work to the host.
       window.currentHostId = (typeof data.host === 'string') ? data.host : null;

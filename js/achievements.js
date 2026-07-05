@@ -79,20 +79,61 @@ function checkAchievements() {
     saveUnlocked(unlocked);
     for (const ach of newlyUnlocked) {
       showAchievementNotif(ach);
-      // Ask the server to credit the achievement reward. The server keeps
-      // a no-replay record under /users/$uid/achievements; a second call
-      // for the same id no-ops.
-      if (window.YumCloud && typeof window.YumCloud.grantAchievementCredits === 'function') {
-        window.YumCloud.grantAchievementCredits({ achievementId: ach.id })
-          .then(() => {
-            if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
-              window.hydrateYumCreditsFromFirebase();
-            }
-          })
-          .catch(() => {});
-      }
+      // Queue the reward for granting, then try to flush. The unlock is saved
+      // above regardless, so without a durable queue a transient failure here
+      // (offline / flaky network) would lose the credit forever — checkAchievements
+      // never revisits an already-unlocked achievement. The server keeps a
+      // per-id no-replay record, so retrying is always safe.
+      queuePendingGrant(ach.id);
     }
+    flushPendingGrants();
   }
+}
+
+function loadPendingGrants() {
+  try { return JSON.parse(localStorage.getItem('yum_ach_pending_grants') || '[]'); }
+  catch(e) { return []; }
+}
+function savePendingGrants(list) {
+  try { localStorage.setItem('yum_ach_pending_grants', JSON.stringify(list)); } catch(e) {}
+}
+function queuePendingGrant(id) {
+  const list = loadPendingGrants();
+  if (!list.includes(id)) { list.push(id); savePendingGrants(list); }
+}
+
+let _flushingGrants = false;
+function flushPendingGrants() {
+  if (_flushingGrants) return;
+  if (!window.YumCloud || typeof window.YumCloud.grantAchievementCredits !== 'function') return;
+  const pending = loadPendingGrants();
+  if (pending.length === 0) return;
+  _flushingGrants = true;
+  let creditsChanged = false;
+  // Grant each queued reward; drop only the ids the server actually accepted
+  // (or has already recorded). Anything that errors stays queued for next time.
+  Promise.all(pending.map(id =>
+    window.YumCloud.grantAchievementCredits({ achievementId: id })
+      .then(() => { creditsChanged = true; return { id, ok: true }; })
+      .catch(() => ({ id, ok: false }))
+  )).then(results => {
+    // Drop only the ids the server accepted; keep failures queued. Re-read
+    // first in case new ids were queued while we were awaiting.
+    const settled = new Set(results.filter(r => r.ok).map(r => r.id));
+    const current = loadPendingGrants();
+    savePendingGrants(current.filter(id => !settled.has(id)));
+    if (creditsChanged && typeof window.hydrateYumCreditsFromFirebase === 'function') {
+      window.hydrateYumCreditsFromFirebase();
+    }
+  }).finally(() => { _flushingGrants = false; });
+}
+
+// Retry any credits stranded by an earlier offline unlock: once on load and
+// whenever the credit wallet syncs (a good proxy for "we're online again").
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => setTimeout(flushPendingGrants, 2500));
+  window.addEventListener('online', flushPendingGrants);
+  window.addEventListener('yumCreditsChanged', flushPendingGrants);
 }
 
 function achOnScore(catId, scored) {

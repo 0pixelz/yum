@@ -183,7 +183,9 @@
 
   const _origOpenOppViewer = window.openOppViewer;
   window.openOppViewer = function (targetId, targetName, targetScores, targetScoreDice) {
-    _origOpenOppViewer(targetId, targetName, targetScores, targetScoreDice);
+    // Forward every argument (incl. the 5th, megaBonus) so the viewer header
+    // total isn't silently missing the Mega Yam bonus.
+    _origOpenOppViewer.apply(this, arguments);
     if (typeof powerupMode === 'undefined' || !powerupMode) return;
 
     const data = _resolvePups(targetId);

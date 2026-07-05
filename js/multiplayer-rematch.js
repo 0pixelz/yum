@@ -25,7 +25,9 @@ function _setupRematchListener() {
 
     var noEntry = Object.entries(votes).find(function (e) { return e[1] === 'no'; });
     if (noEntry) {
-      var name = (allPlayers[noEntry[0]] || {}).name || 'A player';
+      var rawName = (allPlayers[noEntry[0]] || {}).name || 'A player';
+      // Remote name → goes into showToast's innerHTML, so escape it.
+      var name = (window.escapeHtml || function(s){ return String(s); })(rawName);
       cancelRematch(name + ' declined the rematch.');
       return;
     }
