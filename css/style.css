@@ -761,7 +761,21 @@
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     padding: 16px;
+    overflow: hidden;
   }
+  /* Auto-fit: js/lobby-fit.js wraps the menu in this block and scales it
+     down (transform) so the whole menu always fits the screen — no
+     scrolling on the main page, on any screen size. */
+  .lobby-fit-wrap {
+    display: flex; flex-direction: column;
+    align-items: center;
+    width: 100%;
+    flex-shrink: 0;
+    transform-origin: 50% 50%;
+  }
+  /* No page scroll while the main menu is visible — the game UI behind the
+     fixed overlay is taller than the screen and would still scroll under it. */
+  body.lobby-lock { overflow: hidden; overscroll-behavior: none; }
   .lobby-title {
     font-family: 'Bebas Neue', cursive;
     font-size: 2.4rem; letter-spacing: 4px;
