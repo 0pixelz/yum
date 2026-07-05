@@ -115,7 +115,14 @@
       #rewardsHubOverlay.open { display: flex; }
       .rh-sheet {
         background: var(--bg); width: 100%; max-width: 520px;
-        max-height: 92vh; border-radius: 24px 24px 0 0;
+        /* dvh tracks the *dynamic* viewport. On iOS Safari plain vh ignores the
+           address bar, so this bottom-anchored sheet grew taller than the visible
+           area and its sticky header (with the X) hid behind Safari's URL bar when
+           you scrolled to the top. dvh shrinks with the bar so the header stays
+           reachable. vh first as a fallback for browsers without dvh. */
+        max-height: 92vh;
+        max-height: 92dvh;
+        border-radius: 24px 24px 0 0;
         overflow-y: auto; padding-bottom: 28px;
         transform: translateY(100%);
         transition: transform .35s cubic-bezier(.34,1.2,.64,1);
@@ -123,7 +130,9 @@
       #rewardsHubOverlay.open .rh-sheet { transform: translateY(0); }
       .rh-header {
         position: sticky; top: 0; background: var(--panel);
-        padding: 16px 18px 14px;
+        /* Clear the notch / Dynamic Island when installed as a PWA so the X is
+           never under it. Falls back to 16px in a normal browser tab. */
+        padding: max(16px, env(safe-area-inset-top)) 18px 14px;
         border-bottom: 1px solid rgba(255,255,255,.08);
         display: flex; align-items: center; gap: 10px; z-index: 3;
       }
@@ -142,7 +151,10 @@
       }
       .rh-close {
         background: none; border: none; color: var(--muted);
-        font-size: 1.4rem; cursor: pointer; padding: 4px 8px;
+        font-size: 1.4rem; cursor: pointer;
+        /* Bigger, easier tap target for the close X. */
+        min-width: 40px; min-height: 40px; padding: 4px 8px;
+        display: inline-flex; align-items: center; justify-content: center;
       }
       .rh-section {
         margin: 14px 12px;
