@@ -422,9 +422,15 @@
     try {
       if (!roomRef || !mpMode) return;
       if (window.__skinSyncListeningRef === roomRef) return;
+      // Detach the previous room's players listener before rebinding, otherwise
+      // the old room's callback keeps firing and mutating the shared allPlayers
+      // from a room we already left (leaked listener across games).
+      if (window.__skinSyncListeningRef && window.__skinSyncPlayersCb) {
+        try { window.__skinSyncListeningRef.child('players').off('value', window.__skinSyncPlayersCb); } catch(e) {}
+      }
       window.__skinSyncListeningRef = roomRef;
 
-      roomRef.child('players').on('value', snap => {
+      window.__skinSyncPlayersCb = roomRef.child('players').on('value', snap => {
         const players = snap.val() || {};
         if (allPlayers) {
           Object.keys(players).forEach(id => {

@@ -1733,6 +1733,14 @@ function leaveGame() {
     try { roomRef.child('players/' + playerId + '/disconnectedAt').onDisconnect().cancel(); } catch(e) {}
     try { roomRef.onDisconnect().cancel(); } catch(e) {}
     roomRef.child('players/' + playerId).remove();
+    // roomRef.off() only clears listeners registered at the room node itself.
+    // The reactions child_added handler and the `started` listener (attached on
+    // a separate ref in the listenRoom wrapper) live at child paths and would
+    // otherwise keep firing for a room we've left — duplicate reaction bubbles
+    // and re-triggered reaction listeners in the next game. off() with no
+    // callback clears every listener at a path regardless of which ref bound it.
+    try { roomRef.child('reactions').off(); } catch(e) {}
+    try { if (window.db && roomCode) window.db.ref('rooms/' + roomCode + '/started').off(); } catch(e) {}
     roomRef.off();
     roomRef = null;
   }
@@ -1829,7 +1837,11 @@ function renderLeaderboard() {
 function calcTotal(sc) {
   const upperIds = ['ones','twos','threes','fours','fives','sixes'];
   const upperTotal = upperIds.reduce((s,id)=>s+(sc[id]||0),0);
-  const bonus = upperTotal >= 63 ? 35 : 0;
+  // House "Yam" rules give a 25-pt upper bonus; only Mega Yam mode uses the
+  // real-Yahtzee 35. Must match updateTotals in scoring-rules.js, otherwise
+  // the leaderboard/game-over/history totals (which use calcTotal) are 10 pts
+  // higher than the player's own scorecard and can name the wrong winner.
+  const bonus = upperTotal >= BONUS_TARGET ? (window.megaYamMode ? 35 : 25) : 0;
   return Object.values(sc).reduce((a,b)=>a+b,0) + bonus;
 }
 
@@ -2578,7 +2590,8 @@ function openOppViewer(targetId, targetName, targetScores, targetScoreDice, mega
 
   // Upper bonus
   const upperTotal = upperIds.reduce((s,id)=>s+(targetScores[id]||0),0);
-  const bonusEarned = upperTotal >= 63;
+  const bonusEarned = upperTotal >= BONUS_TARGET;
+  const bonusPts = window.megaYamMode ? 35 : 25;
 
   const html = `
     <div class="opp-section-title">UPPER SECTION</div>
@@ -2586,10 +2599,10 @@ function openOppViewer(targetId, targetName, targetScores, targetScoreDice, mega
     <div class="opp-bonus-row">
       <div>
         <div style="font-weight:800;font-size:0.85rem;color:var(--green)"><i class="icn icn-gift"></i> UPPER BONUS</div>
-        <div style="font-size:0.72rem;color:var(--muted)">${upperTotal}/63 → +35</div>
+        <div style="font-size:0.72rem;color:var(--muted)">${upperTotal}/${BONUS_TARGET} → +${bonusPts}</div>
       </div>
       <div style="font-family:'Bebas Neue',cursive;font-size:1.4rem;color:${bonusEarned?'var(--gold)':'var(--muted)'}">
-        ${bonusEarned?'+35':'–'}
+        ${bonusEarned?'+'+bonusPts:'–'}
       </div>
     </div>
     <div class="opp-section-title">LOWER SECTION</div>
@@ -2942,14 +2955,16 @@ function renderSessionGame(cont, game) {
     </tr>`;
   });
 
-  // Bonus row
+  // Bonus row — match the active rules (house Yam = 25, Mega Yam = 35) so the
+  // history sheet agrees with the grand totals shown elsewhere.
+  const histBonus = window.megaYamMode ? 35 : 25;
   const bonusVals = game.players.map(p => {
     const ut = upperIds.reduce((s,id)=>s+((p.scores||{})[id]||0),0);
-    return ut >= 63 ? 35 : 0;
+    return ut >= BONUS_TARGET ? histBonus : 0;
   });
   html += `<tr style="background:rgba(78,205,196,0.05)">
     <td><div class="sgc-cat-name" style="color:var(--green)">+Bonus</div></td>
-    ${bonusVals.map(v=>`<td><span class="sgc-val ${v>0?'best':'zero'}">${v>0?'+35':'–'}</span></td>`).join('')}
+    ${bonusVals.map(v=>`<td><span class="sgc-val ${v>0?'best':'zero'}">${v>0?'+'+histBonus:'–'}</span></td>`).join('')}
   </tr>`;
 
   // Lower section

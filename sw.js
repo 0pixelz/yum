@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yamio-pwa-v8';
+const CACHE_NAME = 'yamio-pwa-v9';
 const NAV_TIMEOUT_MS = 4000;
 
 // Files that must be available offline so the PWA splash always resolves to a
@@ -88,16 +88,21 @@ function networkFirstWithTimeout(request, bypassHttpCache) {
       resolve(response);
     };
 
-    const fallbackToCache = () => caches.match(request).then(cached => {
+    // A cached copy if we have one; the precached index.html for navigations;
+    // otherwise null (no substitute available).
+    const cachedOrIndex = () => caches.match(request).then(cached => {
       if (cached) return cached;
-      if (request.mode === 'navigate') {
-        return caches.match('./index.html').then(idx => idx || Response.error());
-      }
-      return Response.error();
+      if (request.mode === 'navigate') return caches.match('./index.html');
+      return null;
     });
 
     const timer = setTimeout(() => {
-      fallbackToCache().then(res => { if (res) finish(res); });
+      // Only pre-empt the still-pending network with a real cached response.
+      // On a cache miss do NOT settle with an error — the fetch may still
+      // succeed a moment later. Settling early here handed uncached code
+      // assets (~50 runtime-cached JS files) a network-error response on slow
+      // connections, so the app loaded only half its modules and broke.
+      cachedOrIndex().then(res => { if (res) finish(res); });
     }, NAV_TIMEOUT_MS);
 
     fetch(networkRequest).then(response => {
@@ -111,7 +116,9 @@ function networkFirstWithTimeout(request, bypassHttpCache) {
       finish(response);
     }).catch(() => {
       clearTimeout(timer);
-      fallbackToCache().then(finish);
+      // Network genuinely failed — now a cached copy (or an error) is the best
+      // we can do.
+      cachedOrIndex().then(res => finish(res || Response.error()));
     });
   });
 }

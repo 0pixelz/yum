@@ -39,6 +39,14 @@
   const getRoomCode   = () => L(() => (typeof roomCode   !== 'undefined') ? roomCode   : null) || null;
   const getPlayerName = () => L(() => (typeof playerName !== 'undefined') ? playerName : null) || null;
   const getMpMode     = () => L(() => (typeof mpMode     !== 'undefined') ? !!mpMode   : false) || false;
+  // Other single-player/alternate flows that must suppress the MP rejoin prompt:
+  // rejoining an MP room mid bot/power-up/Yam-World game leaves botMode+mpMode
+  // both set and joinGame() never tears the bot state down.
+  const getBusyOtherMode = () =>
+    L(() => (typeof botMode      !== 'undefined') && !!botMode)      ||
+    L(() => (typeof powerupMode  !== 'undefined') && !!powerupMode)  ||
+    L(() => !!window.yamWorldActive) ||
+    false;
 
   function serverNow() {
     try {
@@ -296,6 +304,7 @@
     if (!saved || !saved.code || !saved.uid) return;
     if (Date.now() - (saved.ts || 0) > STORE_TTL_MS) { clearPersist(); return; }
     if (getMpMode()) return; // already in a game
+    if (getBusyOtherMode()) return; // in a bot / power-up / Yam World game
 
     const db = await waitForDb();
     if (!db) return;
@@ -320,7 +329,7 @@
     });
     if (!liveOthers.length) { clearPersist(); return; } // opponent already gone
 
-    if (getMpMode()) return; // re-check: we may have joined while awaiting
+    if (getMpMode() || getBusyOtherMode()) return; // re-check: state may have changed while awaiting
     let name = saved.name;
     if (!name) { try { name = localStorage.getItem('yum_last_username') || ''; } catch (e) {} }
     showRejoin({ code: saved.code, uid: uid, name: name });
