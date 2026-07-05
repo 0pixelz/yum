@@ -2068,11 +2068,15 @@ function showReactionBubble(r) {
   const toText = isToMe ? 'you' : r.toName;
   const fromText = isFromMe ? 'You' : r.fromName;
 
+  // Every field here comes straight from Firebase and any authed user can
+  // write a reaction into any room, so all of it is untrusted — escape it
+  // (the rules only bound length, not content). Without this an attacker can
+  // land <img onerror> in emoji/label/name and run JS in a victim's session.
   div.innerHTML = `
-    <div class="rb-emoji">${r.emoji}</div>
+    <div class="rb-emoji">${escapeHtml(r.emoji)}</div>
     <div>
-      <div class="rb-text">${r.label}</div>
-      <div class="rb-name">${fromText} → ${toText}</div>
+      <div class="rb-text">${escapeHtml(r.label)}</div>
+      <div class="rb-name">${escapeHtml(fromText)} → ${escapeHtml(toText)}</div>
     </div>`;
 
   // Position randomly near top-center
