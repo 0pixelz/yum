@@ -773,9 +773,13 @@
     flex-shrink: 0;
     transform-origin: 50% 50%;
   }
-  /* No page scroll while the main menu is visible — the game UI behind the
-     fixed overlay is taller than the screen and would still scroll under it. */
-  body.lobby-lock { overflow: hidden; overscroll-behavior: none; }
+  /* Stop the rubber-band bounce under the fixed menu, but DON'T hard-lock
+     vertical scroll: on iOS Safari a fully non-scrolling page keeps the top
+     address bar expanded, which then covers the fixed top-corner buttons
+     (store / friends / settings). Allowing the page to scroll lets that bar
+     collapse. The menu itself is a fixed, scaled overlay so it never visibly
+     moves. overflow-x stays hidden to avoid any sideways jitter. */
+  body.lobby-lock { overflow-x: hidden; overscroll-behavior: none; }
   .lobby-title {
     font-family: 'Bebas Neue', cursive;
     font-size: 2.4rem; letter-spacing: 4px;
