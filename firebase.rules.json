@@ -392,6 +392,86 @@
         "updatedAt":    { ".validate": "newData.isNumber() && newData.val() <= now + 5000" },
         "$other":       { ".validate": false }
       }
+    },
+    "yumCard": {
+      "queue": {
+        ".read": "auth != null",
+        ".indexOn": ["ts"],
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "(!newData.exists()) || newData.hasChildren(['uid','name','ts'])",
+          "uid":  { ".validate": "newData.isString() && newData.val() === $uid" },
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+          "ts":   { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000" },
+          "mode": { ".validate": "newData.isString() && (newData.val() === 'yum' || newData.val() === 'yahtzee')" },
+          "$other": { ".validate": false }
+        }
+      },
+      "offers": {
+        "$uid": {
+          ".read":  "auth != null",
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid) || data.child('from').val() === auth.uid)",
+          ".validate": "(!newData.exists()) || newData.hasChildren(['from','fromName','ts'])",
+          "from":     { ".validate": "newData.isString() && newData.val() === auth.uid && newData.val().length <= 50" },
+          "fromName": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+          "roomCode": { ".validate": "newData.isString() && newData.val().length >= 4 && newData.val().length <= 8" },
+          "ts":       { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000" },
+          "$other":   { ".validate": false }
+        }
+      },
+      "rooms": {
+        "$roomId": {
+          ".read": "auth != null",
+          ".validate": "$roomId.matches(/^[A-Z0-9]{4,8}$/)",
+          ".write": "auth != null && (!data.exists() || (!newData.exists() && data.child('host').val() === auth.uid))",
+
+          "host": {
+            ".write": "auth != null && newData.val() === auth.uid && (!data.exists() || data.val() === auth.uid)",
+            ".validate": "newData.isString() && newData.val().length <= 50"
+          },
+          "createdAt": {
+            ".write": "auth != null && (!data.exists() || data.parent().child('host').val() === auth.uid)",
+            ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000"
+          },
+          "mode": {
+            ".write": "auth != null && root.child('yumCard/rooms').child($roomId).child('host').val() === auth.uid",
+            ".validate": "newData.isString() && (newData.val() === 'yum' || newData.val() === 'yahtzee')"
+          },
+          "createdBy": {
+            ".write": "auth != null && root.child('yumCard/rooms').child($roomId).child('host').val() === auth.uid",
+            ".validate": "newData.isString() && newData.val().length <= 20"
+          },
+          "status": {
+            ".write": "auth != null && root.child('yumCard/rooms').child($roomId).child('players').child(auth.uid).exists()",
+            ".validate": "newData.isString() && newData.val().length <= 20"
+          },
+
+          "players": {
+            "$playerId": {
+              ".write": "auth != null && (auth.uid === $playerId || (root.child('yumCard/rooms').child($roomId).child('host').val() === auth.uid && !newData.exists()))",
+              ".validate": "(!newData.exists()) || newData.hasChildren(['name'])",
+              "name":         { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+              "uid":          { ".validate": "newData.isString() && newData.val() === auth.uid" },
+              "joined":       { ".validate": "newData.isNumber() && newData.val() <= now + 5000" },
+              "lastActiveAt": { ".validate": "newData.isNumber() && newData.val() <= now + 5000 && newData.val() >= now - 86400000" },
+              "grand":        { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000" },
+              "upper":        { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000" },
+              "lower":        { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000" },
+              "done":         { ".validate": "newData.isBoolean()" },
+              "filledAll":    { ".validate": "newData.isBoolean()" },
+              "cells":        { ".validate": "newData.isString() && newData.val().length <= 2000" },
+              "$other":       { ".validate": false }
+            }
+          },
+          "rematch": {
+            "$playerId": {
+              ".write": "auth != null && auth.uid === $playerId && root.child('yumCard/rooms').child($roomId).child('players').child(auth.uid).exists()",
+              ".validate": "(!newData.exists()) || (newData.isNumber() && newData.val() <= now + 5000 && newData.val() > now - 86400000)"
+            }
+          },
+          "$other": { ".validate": false }
+        }
+      }
     }
   }
 }
