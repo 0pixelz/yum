@@ -459,7 +459,7 @@
               "lower":        { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000" },
               "done":         { ".validate": "newData.isBoolean()" },
               "filledAll":    { ".validate": "newData.isBoolean()" },
-              "cells":        { ".validate": "newData.isString() && newData.val().length <= 2000" },
+              "cells":        { ".validate": "newData.isString() && newData.val().length <= 4000" },
               "$other":       { ".validate": false }
             }
           },
