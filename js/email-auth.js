@@ -5,10 +5,11 @@
 //
 // Registration hardening:
 //   • Create Account asks for a confirm-password + a small human check.
-//   • New accounts must click the emailed VERIFICATION LINK before they can
-//     sign in: after registration (and after any sign-in attempt with an
-//     unverified email) the session is signed out immediately, so unverified
-//     accounts are unusable and bot registrations are worthless.
+//   • A verification link is emailed on signup and re-sent on unverified
+//     sign-ins, but it is a NUDGE, not a gate: some providers (notably
+//     iCloud Mail) silently drop Firebase's default sender, and a hard gate
+//     then bricks the account — Apple rejected v2.0.0 for exactly this
+//     (reviewer's @icloud.com verification email never arrived).
 //   • Server-side bot protection comes from Firebase App Check (reCAPTCHA v3,
 //     already active in firebase-init.js) — enforce it for Authentication in
 //     the Firebase console once the native apps also attest.
@@ -264,13 +265,13 @@
 
       if (mode === 'signup') {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
-        // Verification gate: send the link and immediately sign out — the
-        // account exists but is unusable until the emailed link is clicked.
+        // Send the confirmation link but keep the session — if the email
+        // never arrives (iCloud spam-drops Firebase's default sender) the
+        // player must still be able to use the account they just created.
         try { await cred.user.sendEmailVerification(ACTION_SETTINGS); } catch (e) {}
-        await auth.signOut();
-        setMode('signin');
-        showInfo(`Almost there! We emailed a confirmation link to ${email}. Click it, then sign in here.`);
-        if (window.showToast) showToast('Confirmation email sent — check your inbox');
+        saveProfile(cred.user);
+        closeModal();
+        if (window.showToast) showToast(`Account created! Confirmation link sent to ${email}`);
         return;
       }
 
@@ -280,18 +281,16 @@
       if (!user) throw new Error('No user returned');
 
       if (!user.emailVerified) {
-        // Re-send the link (best effort — may be rate limited) and refuse the
-        // session until the address is confirmed.
+        // Nudge, don't gate: re-send the link (best effort — may be rate
+        // limited) but let the session through regardless.
         try { await user.sendEmailVerification(ACTION_SETTINGS); } catch (e) {}
-        await auth.signOut();
-        showInfo(`Your email isn't confirmed yet. We re-sent the link to ${email} — click it, then sign in.`);
-        if (window.showToast) showToast('Please confirm your email first');
-        return;
+        if (window.showToast) showToast(`Signed in! Reminder: confirmation link re-sent to ${email}`);
+      } else if (window.showToast) {
+        showToast('Signed in!');
       }
 
       saveProfile(user);
       closeModal();
-      if (window.showToast) showToast('Signed in!');
     } catch (err) {
       console.warn('Email auth failed:', err);
       if (window.showToast) showToast(friendly(err && err.code));
