@@ -139,7 +139,7 @@
 
       .fr-head {
         background: linear-gradient(135deg, var(--panel), #1a1a5e);
-        padding: 18px 16px 14px;
+        padding: max(18px, env(safe-area-inset-top)) 16px 14px;
         border-bottom: 1px solid rgba(255,255,255,0.08);
         display: flex; align-items: center; gap: 10px;
       }
