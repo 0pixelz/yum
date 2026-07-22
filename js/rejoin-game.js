@@ -134,7 +134,7 @@
     // Above the who-goes-first overlay (z 880) — a disconnect during the
     // roll-off must still surface the reconnecting countdown.
     banner.style.cssText =
-      'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:940;' +
+      'position:fixed;left:50%;top:max(14px, env(safe-area-inset-top));transform:translateX(-50%);z-index:940;' +
       'display:none;align-items:center;gap:8px;max-width:92vw;' +
       'padding:9px 16px;border-radius:50px;' +
       'background:linear-gradient(135deg,#1a1a5e,#23234f);' +

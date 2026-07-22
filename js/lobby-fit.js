@@ -41,8 +41,14 @@
     const naturalW = wrap.scrollWidth;
     if (!naturalH || !naturalW) return;
 
-    const availH = overlay.clientHeight - MARGIN * 2;
-    const availW = overlay.clientWidth - MARGIN * 2;
+    // clientHeight/Width include the overlay's padding — subtract it so the
+    // scaled menu stays out of the safe-area zones the padding reserves
+    // (status bar / home indicator when the webview underlaps them).
+    const cs = getComputedStyle(overlay);
+    const padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    const padH = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    const availH = overlay.clientHeight - padV - MARGIN * 2;
+    const availW = overlay.clientWidth - padH - MARGIN * 2;
     const scale = Math.min(1, availH / naturalH, availW / naturalW);
 
     if (scale < 1) {
