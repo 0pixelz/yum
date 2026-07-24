@@ -176,7 +176,7 @@
         <div class="da-title" id="daTitle">Delete account?</div>
         <div class="da-msg">This permanently removes your Yamio account and all data tied to it. This cannot be undone.</div>
         <ul class="da-list">
-          <li>Your Google sign-in for Yamio</li>
+          <li>Your Yamio account and sign-in</li>
           <li>Credits, skins, achievements and stats</li>
           <li>Daily challenge progress and streaks</li>
           <li>This device's saved profile</li>
@@ -236,6 +236,37 @@
   window.confirmDeleteYumAccount = openModal;
   window.isYumGoogleSignedIn = isGoogleSignedIn;
 
+  // The lobby "Delete account" link points at the standalone deleteaccount.html
+  // page, whose sign-in is a Google OAuth popup. That popup can't run inside the
+  // native app's WebView, and it can't sign in email/password accounts at all —
+  // so a reviewer testing deletion with an email/password account gets stuck.
+  // Route the link to the in-app deletion flow instead, which works for every
+  // sign-in method (Google, Apple, email/password) with no website or email.
+  function isNativeApp() {
+    return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+  }
+  function wireLobbyDeleteLink() {
+    const link = document.getElementById('lobbyDeleteAccountLink');
+    if (!link || link.dataset.inAppWired) return;
+    link.dataset.inAppWired = '1';
+    link.addEventListener('click', function (e) {
+      if (isGoogleSignedIn()) {
+        // Signed in (any provider): delete right here, in-app.
+        e.preventDefault();
+        openModal();
+        return;
+      }
+      // Not signed in: deletion needs an account. Inside the native app the
+      // web page's OAuth popup is a dead end, so keep the user in-app.
+      if (isNativeApp()) {
+        e.preventDefault();
+        if (window.showToast) showToast('Sign in first, then tap Delete account');
+        if (typeof window.openEmailSignIn === 'function') window.openEmailSignIn();
+      }
+      // On the plain web build (not signed in), let the link open the page.
+    });
+  }
+
   // Strip any legacy standalone delete-account button left over in the
   // profile bar; the action lives inside the Profile Settings sheet now.
   function removeLegacyButton() {
@@ -246,10 +277,14 @@
   }
 
   injectStyles();
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', removeLegacyButton);
-  } else {
+  function initDeleteWiring() {
     removeLegacyButton();
+    wireLobbyDeleteLink();
   }
-  setInterval(removeLegacyButton, 1500);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDeleteWiring);
+  } else {
+    initDeleteWiring();
+  }
+  setInterval(initDeleteWiring, 1500);
 })();
