@@ -243,7 +243,7 @@
 
     if (!deferredInstallPrompt) {
       showInstallBanner(true);
-      if (window.showToast) showToast('Open in Chrome and try again if install does not appear');
+      if (window.showToast) showToast('Open in your browser and try again if install does not appear');
       return;
     }
 
