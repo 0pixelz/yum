@@ -2084,8 +2084,15 @@ function showReactionBubble(r) {
   // write a reaction into any room, so all of it is untrusted — escape it
   // (the rules only bound length, not content). Without this an attacker can
   // land <img onerror> in emoji/label/name and run JS in a victim's session.
+  //
+  // The reaction "emoji" is actually trusted icon markup (e.g. <i class="icn
+  // icn-flame">). We must NOT render the network-supplied HTML, but we can
+  // match it against our own hardcoded REACTIONS table and render OUR copy —
+  // that shows the icon (not escaped text) while never trusting DB content.
+  const known = REACTIONS.find(x => x.emoji === r.emoji);
+  const emojiHtml = known ? known.emoji : escapeHtml(r.emoji);
   div.innerHTML = `
-    <div class="rb-emoji">${escapeHtml(r.emoji)}</div>
+    <div class="rb-emoji">${emojiHtml}</div>
     <div>
       <div class="rb-text">${escapeHtml(r.label)}</div>
       <div class="rb-name">${escapeHtml(fromText)} → ${escapeHtml(toText)}</div>
