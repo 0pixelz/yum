@@ -688,7 +688,7 @@
 
   // Atomically claim an offer slot by writing our placeholder only if empty.
   async function winOfferSlot(offerRef) {
-    const placeholder = { from: mmUid, fromName: mmName, fromAvatar: myAvatarId() || null, ts: Date.now() };
+    const placeholder = { from: mmUid, fromName: mmName, fromAvatar: myAvatarId() || null, ts: window.yumServerTs() };
     try {
       const result = await offerRef.transaction(curr => {
         if (curr) return undefined;     // already claimed by someone else
@@ -1108,7 +1108,7 @@
     for (let attempt = 0; attempt < 3 && mmActive && !joined; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, 500 * attempt));
       if (!mmActive) return;
-      const entry = { uid: mmUid, name: mmName, ts: Date.now(), mode: mmMode, avatar: myAvatarId() || null };
+      const entry = { uid: mmUid, name: mmName, ts: window.yumServerTs(), mode: mmMode, avatar: myAvatarId() || null };
       try {
         await queueRef.set(entry);
         joined = true;

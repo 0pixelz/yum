@@ -1200,7 +1200,7 @@ async function createGame() {
         gameMode: 'normal',
         turnTimer: true,
         players: {
-          [playerId]: { name: playerName, uid: _authUser.uid, scores: {}, joined: Date.now(), skin: _joinSkin, perDieColors: _joinPdc, avatar: _joinAvatar }
+          [playerId]: { name: playerName, uid: _authUser.uid, scores: {}, joined: window.yumServerTs(), skin: _joinSkin, perDieColors: _joinPdc, avatar: _joinAvatar }
         }
       };
       try {
@@ -1351,7 +1351,7 @@ async function joinGame() {
     }
   } else {
     await roomRef.child('players/' + playerId).set({
-      name: playerName, uid: _authUser2.uid, scores: {}, joined: Date.now(), skin: _joinSkin2, perDieColors: _joinPdc2, avatar: _joinAvatar2
+      name: playerName, uid: _authUser2.uid, scores: {}, joined: window.yumServerTs(), skin: _joinSkin2, perDieColors: _joinPdc2, avatar: _joinAvatar2
     });
     showWaiting();
   }

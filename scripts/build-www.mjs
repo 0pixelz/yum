@@ -21,6 +21,7 @@ const COPY = [
   'css',
   'js',
   'icons',
+  'vendor',
 ];
 
 rmSync(out, { recursive: true, force: true });
