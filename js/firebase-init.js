@@ -34,6 +34,16 @@
     appId: "1:418931435506:web:1f37261a6bf89c596b2d6b"
   };
 
+  // Server-authoritative timestamp for values the database rules check against
+  // `now`. Using the server clock (not the device clock) means a phone whose
+  // clock is set wrong can't write timestamps that look "in the future" and get
+  // rejected. Falls back to the client clock only if the SDK isn't ready yet.
+  window.yumServerTs = function yumServerTs() {
+    return (window.firebase && firebase.database && firebase.database.ServerValue)
+      ? firebase.database.ServerValue.TIMESTAMP
+      : Date.now();
+  };
+
   window.ensureFirebaseDb = function ensureFirebaseDb() {
     try {
       if (!window.firebase || !firebase.database) {
@@ -94,15 +104,24 @@
     if (auth.currentUser) return Promise.resolve(auth.currentUser);
     if (window.__yumFirebaseAuthInFlight) return window.__yumFirebaseAuthInFlight;
     window.__yumFirebaseAuthInFlight = (async () => {
-      const initialUser = await new Promise(resolve => {
-        const unsub = auth.onAuthStateChanged(u => { unsub(); resolve(u); });
-      });
-      if (initialUser) return initialUser;
       try {
-        const cred = await auth.signInAnonymously();
-        return cred.user;
+        let user = await new Promise(resolve => {
+          const unsub = auth.onAuthStateChanged(u => { unsub(); resolve(u); });
+        });
+        if (!user) {
+          const cred = await auth.signInAnonymously();
+          user = cred.user;
+        }
+        // Don't return until a real ID token has been minted. The account can
+        // look signed in (currentUser set from a restored session) while the
+        // Realtime Database connection still has no token attached — every
+        // write then fails as if unauthenticated (PERMISSION_DENIED). Forcing
+        // getIdToken() here guarantees a valid token exists before any caller
+        // starts writing rooms / matchmaking entries.
+        if (user) { try { await user.getIdToken(); } catch (e) {} }
+        return user;
       } catch(e) {
-        console.warn('Anonymous sign-in failed:', e);
+        console.warn('Firebase auth not ready:', e);
         return null;
       } finally {
         window.__yumFirebaseAuthInFlight = null;
