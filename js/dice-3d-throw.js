@@ -3103,6 +3103,11 @@
       const val = (targets[i] | 0) || topFaceFor(b);
       b._value = val;
       try { remapDieMaterials(i, b, val); } catch (_) {}
+      // Freeze the die at its resting pose. remapDieMaterials paints the current
+      // top face to the server value; if physics kept nudging the body afterward
+      // the geometric top face could rotate past an edge and show a neighbouring
+      // (wrong) number. Zeroing motion + sleeping locks in the shown value.
+      try { b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.sleep(); } catch (_) {}
     }
   }
 
@@ -3471,7 +3476,14 @@
             }
             return;
           }
-          if (specFacesApplied) return;   // already applied for this roll
+          // Re-apply on EVERY streamed frame that carries values, not just the
+          // first. remapDieMaterials keys off the die's current resting face, so
+          // if the streamed dice are still micro-settling when the values first
+          // arrive, a one-shot paint bakes the wrong face and the numbers appear
+          // to "change" once the dice come fully to rest. Re-painting each frame
+          // (idempotent — values only stream once the roller is at rest) keeps
+          // the top face locked to the true value. specFacesApplied is kept only
+          // to detect the null → canonical reset for the next throw.
           specFacesApplied = true;
           for (let i = 0; i < multiDiceBodies.length && i < vals.length; i++) {
             const v = vals[i] | 0;
