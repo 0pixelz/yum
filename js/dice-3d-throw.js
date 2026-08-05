@@ -3289,7 +3289,18 @@
       const val = (serverDice[i] | 0) || topFaceFor(b);
       b._value = val;
       const toP = { x: b.position.x, y: TURN_DIE_HALF, z: b.position.z };
-      const toQ = quatForFaceUp(val, Math.random() * Math.PI * 2);
+      // Rotate the die onto its value face with the SMALLEST possible turn:
+      // of the four orientations that put `val` up, pick the one closest to the
+      // die's current resting pose. A random yaw made the die visibly spin
+      // (a big "flip"); the nearest orientation just tips the correct face up,
+      // so it reads as a small settle instead.
+      const cur = new THREE.Quaternion(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
+      let toQ = quatForFaceUp(val, 0), bestDot = -Infinity;
+      for (let k = 0; k < 4; k++) {
+        const q = quatForFaceUp(val, k * Math.PI / 2);
+        const d = Math.abs(q.dot(cur));   // closeness of the two orientations
+        if (d > bestDot) { bestDot = d; toQ = q; }
+      }
       startFly(b, toP, toQ, () => {
         try { b.type = CANNON.Body.STATIC; } catch (_) {}
         if (--pending === 0) done();
