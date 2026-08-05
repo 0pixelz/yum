@@ -174,7 +174,7 @@
           dice: dice.slice(),
           held: held.slice(),
           rollsLeft: rollsLeft,
-          authRoll: (heldArr) => window.__yumMpServerRoll(heldArr).then(r => {
+          authRoll: (heldArr, physicsDice) => window.__yumMpServerRoll(heldArr, physicsDice).then(r => {
             if (r && typeof r.roll !== 'undefined') lastRoll = Number(r.roll) || lastRoll;
             return r;
           })

@@ -1268,26 +1268,25 @@
           if (elapsed <= 8500 && relaxStacks()) {
             multiSettleStart = now;   // give the nudged dice a fresh settle window
           } else if (authRollFn) {
-            // MP: the roll tumbles with pure physics (like solo). Once the
-            // server's values are known, ROTATE each real die onto its value
-            // face (a short settling fly, canonical materials) instead of
-            // re-skinning it. Re-skinning changed the printed number, which
-            // read as the dice "changing value" after landing; rotating the
-            // real die keeps the numbers fixed and just seats the correct face,
-            // the same look as a solo/bot roll. Usually the response beat the
-            // tumble; if not, the dice sit at rest until it arrives.
-            if (authTargets) {
-              multiThrowing = false;
-              // Don't stream face values (leave authFaced false): the dice are
-              // physically rotated onto their real faces, so the spectator sees
-              // the correct number just by following the streamed orientation
-              // with canonical materials — no re-skin needed on either side.
-              refaceToServer(authTargets, settleTurn);
-            } else if (elapsed > 9000) {
-              multiThrowing = false;
-              abortTurnAuth(new Error('roll timed out'));
+            // MP (client-authoritative): the physics roll IS the result — same
+            // as the solo/bot roll and the who-goes-first roll. Read the settled
+            // faces, freeze the dice, and REPORT those values to the server
+            // (which records them for the opponent + score validation). No
+            // reface: the dice keep exactly the value they landed on, so nothing
+            // moves or changes after they come to rest.
+            multiThrowing = false;
+            const faces = [];
+            for (let i = 0; i < multiDiceBodies.length; i++) {
+              const b = multiDiceBodies[i];
+              const v = b._kept ? (b._value | 0) : topFaceFor(b);
+              b._value = v; faces[i] = v;
+              if (!b._kept) {
+                try { b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.sleep(); } catch (_) {}
+              }
             }
-            // else: at rest, waiting on the server response
+            authTargets = faces.slice();
+            reportPhysicsRoll(faces);
+            settleTurn();
           } else {
             multiThrowing = false;
             if (mpRoll) mpOnPhysicsSettled();
@@ -2968,9 +2967,10 @@
     // Multiplayer: the flick *is* the roll — ask the server for the
     // authoritative dice exactly once, in parallel with the tumble.
     if (mpRoll && !mpFlicked) { mpFlicked = true; startMpServerRoll(); }
-    // MP interactive turn: each flick asks the server for that throw's dice
-    // (passing which dice are kept), in parallel with the tumble.
-    if (authRollFn) startAuthRoll();
+    // MP interactive turn (client-authoritative): the physics decides the
+    // dice; we report them to the server AFTER the tumble settles (see the
+    // settle branch), so nothing is fetched here. Just clear any stale error.
+    if (authRollFn) { authError = null; authAwaiting = false; }
   }
 
   let libsPromise = null;
@@ -3044,24 +3044,43 @@
   //
   // Back-compat: if called the old way — throw3DDice(count) — it still resolves
   // with an array of rolled faces so any legacy caller keeps working.
-  // ── MP interactive-turn helpers (server-authoritative, solo-style) ──
-  // Ask the server for this throw's dice, passing which dice are kept. Runs in
-  // parallel with the tumble; the tick() settle branch waits for authTargets.
-  function startAuthRoll() {
+  // ── MP interactive-turn helper (client-authoritative, solo-style) ──
+  // The dice have settled on their physics faces; report those values to the
+  // server (which records them as this throw's dice for the opponent + score
+  // validation). Runs after the tumble — the dice already show the result, so
+  // there is no reface and nothing moves.
+  function reportPhysicsRoll(faces) {
     if (!authRollFn) return;
-    authAwaiting = true; authTargets = null; authError = null; authFaced = false;
+    authAwaiting = true; authError = null;
     const heldArr = multiDiceBodies.map(b => !!b._kept);
     let p;
-    try { p = authRollFn(heldArr); } catch (e) { p = Promise.reject(e); }
+    try { p = authRollFn(heldArr, faces); } catch (e) { p = Promise.reject(e); }
     Promise.resolve(p).then(resp => {
       authAwaiting = false;
       if (resp && Array.isArray(resp.dice) && resp.dice.length === 5) {
-        authTargets = resp.dice.slice();
         authRollNum = Number(resp.roll) || authRollNum;
+        // Safety net: if the server did NOT honour our physics dice (e.g. the
+        // updated rollDice function isn't deployed yet), correct the dice to the
+        // server's values so the score can never mismatch what's shown. With the
+        // updated server the values match → this is a no-op, no visible motion.
+        const srv = resp.dice;
+        let mismatch = false;
+        for (let i = 0; i < multiDiceBodies.length; i++) {
+          if (multiDiceBodies[i]._kept) continue;
+          if ((srv[i] | 0) !== (faces[i] | 0)) { mismatch = true; break; }
+        }
+        if (mismatch) {
+          authTargets = srv.slice();
+          refaceToServer(srv, () => { try { settleTurn(); } catch (_) {} });
+        }
       } else {
         authError = new Error('bad server response');
       }
-    }).catch(err => { authAwaiting = false; authError = err || new Error('roll failed'); });
+    }).catch(err => {
+      authAwaiting = false;
+      authError = err || new Error('roll failed');
+      if (window.showToast) showToast('Roll sync failed — try again');
+    });
   }
 
   // Re-skin a die so the face physics left pointing up SHOWS `targetVal`,
