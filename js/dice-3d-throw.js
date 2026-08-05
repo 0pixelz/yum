@@ -1268,15 +1268,21 @@
           if (elapsed <= 8500 && relaxStacks()) {
             multiSettleStart = now;   // give the nudged dice a fresh settle window
           } else if (authRollFn) {
-            // MP: the roll LOOKED exactly like solo (pure physics, no motion
-            // correction). Now make the resting dice SHOW the server's values
-            // by re-skinning their faces (a cube-rotated material order — no
-            // movement whatsoever). Usually the response beat the tumble; if
-            // not, the dice sit at rest until it arrives.
+            // MP: the roll tumbles with pure physics (like solo). Once the
+            // server's values are known, ROTATE each real die onto its value
+            // face (a short settling fly, canonical materials) instead of
+            // re-skinning it. Re-skinning changed the printed number, which
+            // read as the dice "changing value" after landing; rotating the
+            // real die keeps the numbers fixed and just seats the correct face,
+            // the same look as a solo/bot roll. Usually the response beat the
+            // tumble; if not, the dice sit at rest until it arrives.
             if (authTargets) {
               multiThrowing = false;
-              applyAuthFaces(authTargets);
-              settleTurn();
+              // Don't stream face values (leave authFaced false): the dice are
+              // physically rotated onto their real faces, so the spectator sees
+              // the correct number just by following the streamed orientation
+              // with canonical materials — no re-skin needed on either side.
+              refaceToServer(authTargets, settleTurn);
             } else if (elapsed > 9000) {
               multiThrowing = false;
               abortTurnAuth(new Error('roll timed out'));
