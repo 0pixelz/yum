@@ -1256,6 +1256,25 @@
         // Identical natural settle for solo AND multiplayer: the dice roll with
         // pure physics and simply come to rest. Only the in-play (non-kept)
         // dice need to settle; kept dice are parked kinematically on the shelf.
+        //
+        // Guided resolve (MP): once the server values are known, paint each
+        // in-play die's current top face to its target on every frame it is
+        // slow enough to be visually settling (not during the fast tumble). The
+        // die then comes to rest ALREADY showing the correct value, so there is
+        // no post-landing "snap" — it looks like it landed on that value, the
+        // same as a solo/bot roll. The final applyAuthFaces at full rest just
+        // locks in the identical value.
+        if (authRollFn && authTargets && !authFaced) {
+          for (let i = 0; i < multiDiceBodies.length; i++) {
+            const b = multiDiceBodies[i];
+            if (b._kept) continue;
+            const slow = b.sleepState === CANNON.Body.SLEEPING ||
+              (b.velocity.length() < 1.6 && b.angularVelocity.length() < 1.6);
+            if (slow) {
+              try { remapDieMaterials(i, b, (authTargets[i] | 0) || topFaceFor(b)); } catch (_) {}
+            }
+          }
+        }
         const allSettled = inPlay.length === 0 || inPlay.every(b => {
           if (b.sleepState === CANNON.Body.SLEEPING) return true;
           return elapsed > 900 &&
@@ -3103,6 +3122,11 @@
       const val = (targets[i] | 0) || topFaceFor(b);
       b._value = val;
       try { remapDieMaterials(i, b, val); } catch (_) {}
+      // Freeze the die at its resting pose. remapDieMaterials paints the current
+      // top face to the server value; if physics kept nudging the body afterward
+      // the geometric top face could rotate past an edge and show a neighbouring
+      // (wrong) number. Zeroing motion + sleeping locks in the shown value.
+      try { b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.sleep(); } catch (_) {}
     }
   }
 
@@ -3471,7 +3495,14 @@
             }
             return;
           }
-          if (specFacesApplied) return;   // already applied for this roll
+          // Re-apply on EVERY streamed frame that carries values, not just the
+          // first. remapDieMaterials keys off the die's current resting face, so
+          // if the streamed dice are still micro-settling when the values first
+          // arrive, a one-shot paint bakes the wrong face and the numbers appear
+          // to "change" once the dice come fully to rest. Re-painting each frame
+          // (idempotent — values only stream once the roller is at rest) keeps
+          // the top face locked to the true value. specFacesApplied is kept only
+          // to detect the null → canonical reset for the next throw.
           specFacesApplied = true;
           for (let i = 0; i < multiDiceBodies.length && i < vals.length; i++) {
             const v = vals[i] | 0;
