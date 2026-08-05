@@ -1256,6 +1256,25 @@
         // Identical natural settle for solo AND multiplayer: the dice roll with
         // pure physics and simply come to rest. Only the in-play (non-kept)
         // dice need to settle; kept dice are parked kinematically on the shelf.
+        //
+        // Guided resolve (MP): once the server values are known, paint each
+        // in-play die's current top face to its target on every frame it is
+        // slow enough to be visually settling (not during the fast tumble). The
+        // die then comes to rest ALREADY showing the correct value, so there is
+        // no post-landing "snap" — it looks like it landed on that value, the
+        // same as a solo/bot roll. The final applyAuthFaces at full rest just
+        // locks in the identical value.
+        if (authRollFn && authTargets && !authFaced) {
+          for (let i = 0; i < multiDiceBodies.length; i++) {
+            const b = multiDiceBodies[i];
+            if (b._kept) continue;
+            const slow = b.sleepState === CANNON.Body.SLEEPING ||
+              (b.velocity.length() < 1.6 && b.angularVelocity.length() < 1.6);
+            if (slow) {
+              try { remapDieMaterials(i, b, (authTargets[i] | 0) || topFaceFor(b)); } catch (_) {}
+            }
+          }
+        }
         const allSettled = inPlay.length === 0 || inPlay.every(b => {
           if (b.sleepState === CANNON.Body.SLEEPING) return true;
           return elapsed > 900 &&
