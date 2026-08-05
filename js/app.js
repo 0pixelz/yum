@@ -190,8 +190,15 @@ let _yumRollInFlight = false;
 // and the 3D-roll overlay (js/dice-3d-roll-toggle.js). Kept as separate
 // window helpers so both paths request the same authoritative dice and mirror
 // the same liveDice stream — no divergence between the 2D and 3D flows.
-window.__yumMpServerRoll = function (heldArr) {
-  return window.YumCloud.rollDice({ roomId: roomCode, held: [...(heldArr || held)] });
+window.__yumMpServerRoll = function (heldArr, dice) {
+  const payload = { roomId: roomCode, held: [...(heldArr || held)] };
+  // 3D roll (client-authoritative): the physics decides the faces and passes
+  // them here so the server records them instead of generating its own. The 2D
+  // roll omits `dice`, so the server still generates them (unchanged).
+  if (Array.isArray(dice) && dice.length === 5) {
+    payload.dice = dice.slice(0, 5).map(v => v | 0);
+  }
+  return window.YumCloud.rollDice(payload);
 };
 window.__yumApplyMpRoll = function (resp, animate) {
   dice = resp.dice.slice();

@@ -121,7 +121,21 @@ exports.rollDice = onCall(async (req) => {
     }
   }
 
-  const newDice = [0, 1, 2, 3, 4].map((i) => (held[i] ? prevDice[i] : rollOne()));
+  // Client-authoritative dice (3D roll): the client reports the faces its local
+  // physics landed on so the 3D dice never have to visibly correct to a
+  // different value. Accepted only for the non-held slots, and only when every
+  // reported value is a valid 1-6 die; otherwise (2D roll, or bad input) the
+  // server generates the roll itself as before. Held slots always keep their
+  // previous value regardless of what the client sends.
+  const clientDice = Array.isArray(data.dice) ? data.dice : null;
+  const clientValid = clientDice && clientDice.length === 5 &&
+    clientDice.every((v) => Number.isInteger(v) && v >= 1 && v <= 6);
+
+  const newDice = [0, 1, 2, 3, 4].map((i) => {
+    if (held[i]) return prevDice[i];
+    if (clientValid) return clientDice[i] | 0;
+    return rollOne();
+  });
   const newRoll = prevRoll + 1;
 
   await roomRef.child('players/' + uid + '/serverDice').set({
