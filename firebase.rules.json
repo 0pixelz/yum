@@ -184,11 +184,11 @@
               "inventory": {
                 ".validate": "(!newData.exists()) || (newData.hasChildren() && !newData.child('8').exists())",
                 "$idx": {
-                  ".validate": "newData.isString() && (newData.val() === 'extraRoll' || newData.val() === 'freezeDie' || newData.val() === 'doublePoints' || newData.val() === 'luckyDice' || newData.val() === 'undoMove')"
+                  ".validate": "newData.isString() && (newData.val() === 'extraRoll' || newData.val() === 'freezeDie' || newData.val() === 'doublePoints' || newData.val() === 'luckyDice' || newData.val() === 'undoMove' || newData.val() === 'chanceRoll' || newData.val() === 'yamOrStrike')"
                 }
               },
               "pending": {
-                ".validate": "(!newData.exists()) || (newData.isString() && (newData.val() === 'extraRoll' || newData.val() === 'freezeDie' || newData.val() === 'doublePoints' || newData.val() === 'luckyDice' || newData.val() === 'undoMove'))"
+                ".validate": "(!newData.exists()) || (newData.isString() && (newData.val() === 'extraRoll' || newData.val() === 'freezeDie' || newData.val() === 'doublePoints' || newData.val() === 'luckyDice' || newData.val() === 'undoMove' || newData.val() === 'chanceRoll' || newData.val() === 'yamOrStrike'))"
               },
               "doubleActive": { ".validate": "newData.isBoolean()" },
               "ts":           { ".validate": "newData.isNumber()" },

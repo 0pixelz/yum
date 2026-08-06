@@ -228,6 +228,33 @@ async function rollDice() {
   if(_yumRollInFlight) return;
   SFX.roll();
 
+  // Power-up multiplayer is client-authoritative (like vs-bot) so every power-up
+  // actually works: Extra Roll adjusts the local roll count, Double Points and
+  // the dice power-ups mutate local state, and confirmScore sends the final
+  // score to the server (functions submitScore trusts it for power-up rooms).
+  // We still write liveDice so the opponent watches the roll; turn ownership is
+  // enforced above and turn advancement happens in the server submitScore.
+  if (mpMode && typeof powerupMode !== 'undefined' && powerupMode) {
+    dice = dice.map((v,i) => held[i] ? v : Math.floor(Math.random()*6)+1);
+    rolled = true;
+    rollsLeft--;
+    renderDice(true);
+    renderScores();
+    document.getElementById('rollCount').textContent = `Rolls: ${3-rollsLeft} / 3`;
+    if (roomRef && playerId) {
+      const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+      let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
+      roomRef.child('players/' + playerId + '/liveDice').set({
+        dice: dice, held: held,
+        // liveDice.roll is display-only and rule-bounded to 0..3; clamp so an
+        // Extra Roll (rollsLeft can exceed 3) never trips the DB validation.
+        roll: Math.max(0, Math.min(3, 3 - rollsLeft)),
+        skin: _skinId, perDieColors: _pdc, ts: Date.now()
+      });
+    }
+    return;
+  }
+
   // Multiplayer: dice come from the server (functions/index.js rollDice).
   // The client's animation runs to mask the 200-500ms round trip; we then
   // patch the local dice array with the authoritative values before the
@@ -283,7 +310,7 @@ function toggleHold(i) {
     const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
     let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch(e) {}
     roomRef.child('players/' + playerId + '/liveDice').set({
-      dice: dice, held: held, roll: 3 - rollsLeft, skin: _skinId, perDieColors: _pdc, ts: Date.now()
+      dice: dice, held: held, roll: Math.max(0, Math.min(3, 3 - rollsLeft)), skin: _skinId, perDieColors: _pdc, ts: Date.now()
     });
   }
 }
@@ -1935,7 +1962,17 @@ confirmScore = async function() {
     _yumScoreInFlight = true;
     const categoryId = activeModal;
     try {
-      const resp = await window.YumCloud.submitScore({ roomId: roomCode, categoryId });
+      const payload = { roomId: roomCode, categoryId };
+      // Power-up mode is client-authoritative: the powerup-mode confirmScore
+      // wrapper (which runs before this one) has already applied Double Points
+      // to selectedScore, and dice-manipulating power-ups have mutated `dice`.
+      // Send that final score + dice so the server records them as-is instead
+      // of recomputing from /serverDice (see functions submitScore).
+      if (typeof powerupMode !== 'undefined' && powerupMode) {
+        payload.score = Math.max(0, selectedScore | 0);
+        payload.dice = dice.slice(0, 5).map(v => v | 0);
+      }
+      const resp = await window.YumCloud.submitScore(payload);
       const serverScore = (resp && typeof resp.score === 'number') ? resp.score : selectedScore;
       // Mirror what the server wrote into local state, then run the
       // original confirm flow (SFX, close modal, scroll) using that score.
