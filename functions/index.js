@@ -23,6 +23,12 @@ const SERVER_TIMESTAMP = admin.database.ServerValue.TIMESTAMP;
 const ROOM_ID_RE = /^[A-Z0-9]{4,8}$/;
 const MAX_ROLL = 3;
 const MAX_CREDITS = 1000000;
+// Power-up rooms are client-authoritative (Extra Roll grants more than the
+// standard 3 rolls; Double Points / dice power-ups adjust the score locally).
+// These ceilings only guard against runaway spam / absurd totals on the shared
+// board — the client enforces the real roll count and score.
+const POWERUP_MAX_ROLL = 8;
+const POWERUP_MAX_SCORE = 1000;
 
 // ─── Score calculators (mirror js/scoring-rules.js + js/app.js) ─────
 // These run server-side every time submitScore is called. If you ever
@@ -110,7 +116,11 @@ exports.rollDice = onCall(async (req) => {
   const prevDice = Array.isArray(sd.dice) && sd.dice.length === 5 ? sd.dice : [0, 0, 0, 0, 0];
   const prevRoll = typeof sd.roll === 'number' ? sd.roll : 0;
 
-  if (prevRoll >= MAX_ROLL) {
+  // Power-up mode grants Extra Roll (a client-authoritative roll count), so the
+  // server allows more than the standard 3 rolls; the client enforces the real
+  // remaining count. A generous ceiling still caps runaway roll spam.
+  const rollCap = room.gameMode === 'powerup' ? POWERUP_MAX_ROLL : MAX_ROLL;
+  if (prevRoll >= rollCap) {
     throw new HttpsError('failed-precondition', 'no rolls left');
   }
 
@@ -168,23 +178,46 @@ exports.submitScore = onCall(async (req) => {
   if (room.currentTurn !== uid) throw new HttpsError('permission-denied', 'not your turn');
 
   const player = (room.players && room.players[uid]) || {};
-  const sd = player.serverDice || {};
-  const dice = Array.isArray(sd.dice) ? sd.dice : null;
-  if (!dice || dice.length !== 5 || dice.some((v) => typeof v !== 'number' || v < 1 || v > 6)) {
-    throw new HttpsError('failed-precondition', 'no rolled dice on record');
-  }
+  const isPowerup = room.gameMode === 'powerup';
+
   if (player.scores && player.scores[categoryId] !== undefined) {
     throw new HttpsError('failed-precondition', 'category already scored');
   }
 
-  const score = SCORE_CALC[categoryId](dice);
+  const sd = player.serverDice || {};
+  const dice = Array.isArray(sd.dice) ? sd.dice : null;
+  const diceValid = !!dice && dice.length === 5 &&
+    dice.every((v) => typeof v === 'number' && v >= 1 && v <= 6);
+
+  let score = 0;
+  let finalScore;
+  if (isPowerup) {
+    // Power-up mode is client-authoritative (see rollDice): the client applies
+    // dice-manipulating power-ups (Chance Roll, Yam or Strike, Freeze, Lucky
+    // Dice) and the Double Points modifier locally, so /serverDice can't be
+    // trusted to reproduce the score. Take the client's computed score, bounded
+    // to a sane ceiling so a tampered client still can't post an absurd total
+    // onto the shared board.
+    const cs = Number(data.score);
+    if (!Number.isInteger(cs) || cs < 0 || cs > POWERUP_MAX_SCORE) {
+      throw new HttpsError('invalid-argument', 'bad score');
+    }
+    finalScore = cs;
+  } else {
+    if (!diceValid) {
+      throw new HttpsError('failed-precondition', 'no rolled dice on record');
+    }
+    score = SCORE_CALC[categoryId](dice);
+    finalScore = score;
+  }
 
   // ── Mega Yam mode ──────────────────────────────────────────────────
   // Real-Yahtzee scoring: the YAM! box is worth 50 (not 30). Once a real
   // YAM is banked, every additional 5-of-a-kind struck into another
   // category earns a +100 bonus chip, tracked in /players/$uid/megaYamBonus
   // (kept outside /scores so it never inflates the 13-category count).
-  let finalScore = score;
+  // (Mega Yam and power-up modes are mutually exclusive, so `dice`/`score`
+  // are always valid inside this block.)
   let megaBonusTotal = null;
   if (room.gameMode === 'megayam') {
     // Real-Yahtzee values (match js/scoring-rules.js YAHTZEE_RULES):

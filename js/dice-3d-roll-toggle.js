@@ -132,6 +132,13 @@
       // — defensive in case wrapper ordering puts this ahead of that handler.
       if (typeof yamOrStrikeActive !== 'undefined' && yamOrStrikeActive) return original();
 
+      // Power-up multiplayer is client-authoritative and rolls locally (app.js
+      // rollDice handles it, keeping the local roll count so Extra Roll works).
+      // The 3D overlay's MP branch round-trips through the server rollDice, which
+      // would clobber that count — so defer to the 2D local path in power-up MP.
+      if (typeof powerupMode !== 'undefined' && powerupMode &&
+          typeof mpMode !== 'undefined' && mpMode) return original();
+
       // Multiplayer dice are decided by the server, not by the physics sim. The
       // MP branch (below) still runs the 3D overlay for the animation + live
       // stream, but re-faces the dice to the server's authoritative values.

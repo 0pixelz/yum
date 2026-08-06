@@ -31,8 +31,14 @@
   }
 
   window.YumCloud = {
-    rollDice: ({ roomId, held }) => call('rollDice', { roomId, held }),
-    submitScore: ({ roomId, categoryId }) => call('submitScore', { roomId, categoryId }),
+    // `dice` is optional and only sent by the client-authoritative paths (3D
+    // roll, power-up mode). When omitted the server generates the roll itself.
+    rollDice: ({ roomId, held, dice }) => call('rollDice', { roomId, held, dice }),
+    // `score`/`dice` are only sent for power-up rooms, where scoring is
+    // client-authoritative (Double Points and dice-manipulating power-ups are
+    // applied locally). Non-power-up rooms omit them and the server recomputes.
+    submitScore: ({ roomId, categoryId, score, dice }) =>
+      call('submitScore', { roomId, categoryId, score, dice }),
     claimDailyBonus: () => call('claimDailyBonus', {}),
     claimDailyChallenge: ({ challengeId }) => call('claimDailyChallenge', { challengeId }),
     purchaseSkin: ({ skinId }) => call('purchaseSkin', { skinId }),
