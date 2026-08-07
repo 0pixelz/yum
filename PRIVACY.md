@@ -32,12 +32,6 @@ When you play Yamio, we collect:
 - App version
 - Operating system type (Android, iOS, web)
 
-### Camera Access (optional)
-Yamio includes a "Dice Scan" feature that uses your device's camera to read physical dice values. Camera access is only used when you tap the "Scan" button. Photos are processed and not stored or shared with third parties.
-
-### QR Code Scanning (optional)
-Yamio uses your camera to scan QR codes when joining multiplayer rooms. The camera is only activated when you tap to scan, and no images are saved.
-
 ---
 
 ## How We Use Your Information
@@ -67,7 +61,6 @@ Yamio uses the following third-party services:
 
 - **Google Firebase** (Authentication, Realtime Database, Hosting) — see Google's [Privacy Policy](https://policies.google.com/privacy)
 - **Apple Sign-In** (optional, for iOS users) — see Apple's [Privacy Policy](https://www.apple.com/legal/privacy/)
-- **Anthropic API** (optional, used only when you provide your own API key for the AI dice scan feature) — see Anthropic's [Privacy Policy](https://www.anthropic.com/legal/privacy)
 
 We do not sell or rent your personal information to third parties.
 

@@ -15,7 +15,7 @@
   const MODES = {
     normal:  { key: 'normal',  label: 'CLASSIC',  icon: 'icn-gamepad', cls: 'gm-classic',  desc: 'Standard rules, no power-ups.' },
     powerup: { key: 'powerup', label: 'POWER-UP', icon: 'icn-bolt',    cls: 'gm-powerup',  desc: 'Earn and spend power-ups during the match.' },
-    megayam: { key: 'megayam', label: 'MEGA YAM', icon: 'icn-trophy',  cls: 'gm-megayam',  desc: 'Yahtzee scoring — YAM 50 pts, +100 for each extra YAM.' }
+    megayam: { key: 'megayam', label: 'MEGA YAM', icon: 'icn-trophy',  cls: 'gm-megayam',  desc: 'Pro scoring — YAM 50 pts, +100 for each extra YAM.' }
   };
 
   function currentMode() {

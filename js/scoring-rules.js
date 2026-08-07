@@ -13,15 +13,15 @@
     largeStraightPoints: 20,
     smallStraightPoints: 15
   };
-  // Mega Yam mode uses real-Yahtzee values (matching the printed card).
-  const YAHTZEE_RULES = {
+  // Mega Yam mode uses the traditional 50-point YAM values (matching the printed card).
+  const MEGAYAM_RULES = {
     upperBonusPoints: 35,
     yumPoints: 50,
     largeStraightPoints: 40,
     smallStraightPoints: 30
   };
   function activeRules() {
-    return (typeof window !== 'undefined' && window.megaYamMode) ? YAHTZEE_RULES : YAM_RULES;
+    return (typeof window !== 'undefined' && window.megaYamMode) ? MEGAYAM_RULES : YAM_RULES;
   }
 
   function patchCategories() {

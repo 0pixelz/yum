@@ -47,8 +47,8 @@ self.addEventListener('fetch', event => {
   try { url = new URL(request.url); } catch (e) { return; }
 
   // Critical: never intercept cross-origin traffic. Firebase Realtime DB,
-  // Firebase Auth, App Check (reCAPTCHA), gstatic SDK scripts, Google Fonts
-  // and the Anthropic API must reach the network directly. A previous version
+  // Firebase Auth, App Check (reCAPTCHA), gstatic SDK scripts and Google Fonts
+  // must reach the network directly. A previous version
   // of this SW cached every cross-origin GET, which corrupted short-lived
   // Firebase auth/poll URLs and made data fail to load on some Android
   // devices (browser shell visible, no data).

@@ -1,6 +1,6 @@
 # 🎲 Yamio — Multiplayer Dice Game
 
-**Yamio** is a mobile-friendly Yam / Yahtzee-style web game where you can play against a smart bot, or with friends in real-time multiplayer. It includes live rooms, QR-code lobby sharing, dice rolling, score tracking, AI-powered move prediction, real-dice scanning, achievements, daily rewards, daily challenges, credits, and a dice Skin Store.
+**Yamio** is a mobile-friendly Yam-style dice web game where you can play against a smart bot, or with friends in real-time multiplayer. It includes live rooms, QR-code lobby sharing, dice rolling, score tracking, AI-powered move prediction, achievements, daily rewards, daily challenges, credits, and a dice Skin Store.
 
 🔗 **Live App:** [yamio.io](https://yamio.io)
 
@@ -17,7 +17,6 @@ The game supports:
 - **Room codes and QR codes** for easy joining
 - **Live dice and score syncing** through Firebase
 - **Score suggestions and AI predictions** using Monte Carlo simulations
-- **Camera dice scan** for reading real dice from a photo
 - **Achievements and progression**
 - **Google login support**
 - **Credits, daily bonus, daily challenge, and Skin Store**
@@ -31,7 +30,7 @@ The game supports:
 Create a multiplayer room and invite friends using a short room code or QR code. The host can choose the game mode and start the game when players are ready.
 
 ### 👥 Join Multiplayer Game
-Join an existing room by typing the room code or scanning the host’s QR code with your camera.
+Join an existing room by typing the room code shared by the host.
 
 ### 🤖 Play vs Bot
 Play against a bot that uses the same prediction logic as the helper system. The bot evaluates possible dice holds and scoring options to make strong decisions.
@@ -47,11 +46,6 @@ Play against a bot that uses the same prediction logic as the helper system. The
 - Held dice are visually highlighted
 - Dice faces use classic dot-style dice symbols
 
-### 📷 Dice Scanner
-- Take a photo of real dice
-- The app reads the dice values using AI vision
-- Useful when playing with physical dice but tracking scores digitally
-
 ### 🔮 AI Move Prediction
 - Runs Monte Carlo-style simulations to evaluate possible moves
 - Suggests the best dice to hold
@@ -59,7 +53,7 @@ Play against a bot that uses the same prediction logic as the helper system. The
 - Highlights strong scoring opportunities, including YAM chances
 
 ### 🧮 Smart Scorecard
-- Full Yam / Yahtzee-style scorecard
+- Full Yam-style scorecard
 - Upper section: Ones, Twos, Threes, Fours, Fives, Sixes
 - Lower section: 3 of a Kind, 4 of a Kind, Full House, Small Straight, Large Straight, YAM!, Chance
 - Upper bonus tracker: **63+ points = +35 bonus**
@@ -254,7 +248,6 @@ Each category can only be used **once**. If you cannot or do not want to score, 
 | **Firebase Realtime Database** | Multiplayer rooms, live dice, player sync |
 | **Firebase Auth** | Google login support |
 | **QRCode.js** | QR room code generation |
-| **AI Vision / API integration** | Dice photo scanning |
 | **Monte Carlo simulation** | Prediction engine and bot decision-making |
 | **PWA Manifest** | Installable Android / iOS app experience |
 
