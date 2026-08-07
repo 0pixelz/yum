@@ -116,7 +116,8 @@
   // a generated handle and a normal dice avatar. Its turn is paced the same as
   // any local game (dice are held one at a time — botHoldOneAtATime).
   let mmQuickMatchTimer = null;
-  const MM_QUICKMATCH_MS = 40000;
+  const QM_MIN_MS = 35000;   // earliest a Quick Match can start
+  const QM_MAX_MS = 45000;   // latest — randomised each search so the wait never feels fixed
   const QM_PREFIX = ['Silent','Lucky','Turbo','Shadow','Pixel','Rapid','Chill','Epic',
     'Ninja','Cosmic','Frost','Golden','Sneaky','Wild','Rogue','Mighty','Swift','Solar','Neon','Lunar'];
   const QM_NOUN = ['Fox','Wolf','Panda','Tiger','Raven','Comet','Yeti','Falcon','Otter','Viper',
@@ -133,7 +134,8 @@
 
   function startQuickMatchTimer() {
     clearQuickMatchTimer();
-    mmQuickMatchTimer = setTimeout(beginQuickMatch, MM_QUICKMATCH_MS);
+    const delay = QM_MIN_MS + Math.floor(Math.random() * (QM_MAX_MS - QM_MIN_MS + 1));
+    mmQuickMatchTimer = setTimeout(beginQuickMatch, delay);
   }
   function clearQuickMatchTimer() {
     if (mmQuickMatchTimer) { clearTimeout(mmQuickMatchTimer); mmQuickMatchTimer = null; }
