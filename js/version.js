@@ -17,14 +17,37 @@
   window.APP_VERSION = version;
   window.APP_BUILD_TIME = builtAt;
 
-  function render() {
+  function paint(label, tip) {
     var el = document.getElementById('appVersion');
     if (!el) return;
-    el.textContent = 'Yamio · ' + version;
+    el.textContent = 'Yamio · ' + label;
+    if (tip) el.title = tip;
+  }
+
+  function render() {
+    var tip = null;
     if (builtAt) {
       var d = new Date(builtAt);
-      if (!isNaN(d.getTime())) el.title = 'Built ' + d.toLocaleString();
+      if (!isNaN(d.getTime())) tip = 'Built ' + d.toLocaleString();
     }
+    paint(version, tip);
+
+    // Inside the native app the __BUILD_VERSION__ token is never stamped (that
+    // only happens on web deploy), so the label would read "dev". Replace it
+    // with the real bundled app version from Capacitor, e.g. "2.0.2 (17)".
+    try {
+      var cap = window.Capacitor;
+      var isNative = !!(cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform());
+      var App = isNative && cap.Plugins && cap.Plugins.App;
+      if (App && typeof App.getInfo === 'function') {
+        App.getInfo().then(function (info) {
+          if (!info || !info.version) return;
+          var label = info.version + (info.build ? ' (' + info.build + ')' : '');
+          window.APP_VERSION = info.version;
+          paint(label, tip);
+        }).catch(function () {});
+      }
+    } catch (e) {}
   }
 
   if (document.readyState === 'loading') {
