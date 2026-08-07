@@ -12,7 +12,7 @@ const ACHIEVEMENTS = [
   { id: 'bonus',         icon: 'icn-gift',     name: 'Bonus Earner',  desc: 'Earn the upper section bonus (63+ pts)',       check: s => s.bonusCount >= 1 },
   { id: 'perfect_upper', icon: 'icn-sparkle',  name: 'Perfect Upper', desc: 'Max out all 6 upper categories in one game',  check: s => s.perfectUpperCount >= 1 },
   { id: 'score_250',     icon: 'icn-medal',    name: 'High Roller',   desc: 'Score 250+ points in a game',                 check: s => s.highScore >= 250 },
-  { id: 'score_300',     icon: 'icn-gem',      name: 'Yahtzee Pro',   desc: 'Score 300+ points in a game',                 check: s => s.highScore >= 300 },
+  { id: 'score_300',     icon: 'icn-gem',      name: 'Yam Pro',       desc: 'Score 300+ points in a game',                 check: s => s.highScore >= 300 },
   { id: 'bot_slayer',    icon: 'icn-bot',      name: 'Bot Slayer',    desc: 'Beat the bot 5 times',                        check: s => s.botWins >= 5 },
   { id: 'no_scratch',    icon: 'icn-flame',    name: 'Clean Sheet',   desc: 'Finish a game without any scratches (zeros)', check: s => s.noScratchGames >= 1 },
   { id: 'games_10',      icon: 'icn-flag',     name: 'Dedicated',     desc: 'Play 10 games',                               check: s => s.gamesPlayed >= 10 },

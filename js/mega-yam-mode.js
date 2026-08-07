@@ -1,6 +1,6 @@
 // ─── MEGA YAM MODE ───────────────────────────────────────────────────
 // Alternate scoring mode (vs Bot and multiplayer). The YAM! box is worth
-// 50 (real-Yahtzee value). Once a real YAM is banked, every additional
+// 50 (the traditional five-of-a-kind value). Once a real YAM is banked, every additional
 // 5-of-a-kind you roll earns a +100 MEGA YAM bonus — but, just like the
 // YAM box is already used, you must "strike" the extra YAM into another
 // open category (joker placement). The bonus stacks on top of the normal
@@ -37,12 +37,12 @@
 
   // Category point values (YAM=50, straights 30/40, upper bonus 35 in this
   // mode) are owned by scoring-rules.js, which is mode-aware and re-applies
-  // them on an interval. applyYahtzeeScoring just forces an immediate
+  // them on an interval. applyMegaYamScoring just forces an immediate
   // re-render so the switch takes effect without waiting for that interval.
-  function applyYahtzeeScoring(on) {
+  function applyMegaYamScoring(on) {
     if (typeof renderScores === 'function') renderScores();
   }
-  window.applyYahtzeeScoring = applyYahtzeeScoring;
+  window.applyMegaYamScoring = applyMegaYamScoring;
 
   // The local player's current Mega Yam bonus. In vs Bot it's tracked
   // client-side (bonusPlayer); in multiplayer the Cloud Function is
@@ -163,7 +163,7 @@
     startVsBot = function (mode) {
       window.megaYamMode = (mode === 'megayam');
       resetMegaYam();
-      applyYahtzeeScoring(window.megaYamMode);
+      applyMegaYamScoring(window.megaYamMode);
       _megaOrigStartVsBot(mode);
     };
   }
@@ -183,7 +183,7 @@
     quitGame = function () {
       window.megaYamMode = false;
       resetMegaYam();
-      applyYahtzeeScoring(false);
+      applyMegaYamScoring(false);
       _megaOrigQuitGame();
     };
   }
@@ -192,7 +192,7 @@
     leaveGame = function () {
       window.megaYamMode = false;
       resetMegaYam();
-      applyYahtzeeScoring(false);
+      applyMegaYamScoring(false);
       _megaOrigLeaveGame();
     };
   }

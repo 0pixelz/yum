@@ -1520,7 +1520,7 @@ function listenRoom() {
       // the scorecard and modal preview show the right YAM value (50).
       window.megaYamMode = ((data.gameMode || 'normal') === 'megayam');
       if (typeof resetMegaYam === 'function') resetMegaYam();
-      if (typeof applyYahtzeeScoring === 'function') applyYahtzeeScoring(window.megaYamMode);
+      if (typeof applyMegaYamScoring === 'function') applyMegaYamScoring(window.megaYamMode);
 
       renderScores();
       syncDiceUI();
@@ -1588,7 +1588,7 @@ function listenRoom() {
       const _gmMega = ((data.gameMode || 'normal') === 'megayam');
       if (window.megaYamMode !== _gmMega) {
         window.megaYamMode = _gmMega;
-        if (typeof applyYahtzeeScoring === 'function') applyYahtzeeScoring(_gmMega);
+        if (typeof applyMegaYamScoring === 'function') applyMegaYamScoring(_gmMega);
         renderScores();
       }
 
@@ -1872,7 +1872,7 @@ function calcTotal(sc) {
   const upperIds = ['ones','twos','threes','fours','fives','sixes'];
   const upperTotal = upperIds.reduce((s,id)=>s+(sc[id]||0),0);
   // House "Yam" rules give a 25-pt upper bonus; only Mega Yam mode uses the
-  // real-Yahtzee 35. Must match updateTotals in scoring-rules.js, otherwise
+  // traditional 35. Must match updateTotals in scoring-rules.js, otherwise
   // the leaderboard/game-over/history totals (which use calcTotal) are 10 pts
   // higher than the player's own scorecard and can name the wrong winner.
   const bonus = upperTotal >= BONUS_TARGET ? (window.megaYamMode ? 35 : 25) : 0;

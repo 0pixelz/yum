@@ -17,7 +17,7 @@
     const manifest = {
       name: "Yamio",
       short_name: "Yamio",
-      description: "Yam / Yahtzee scorecard with dice scanner and predictions",
+      description: "Yam-style dice scorecard with dice scanner and predictions",
       start_url: ".",
       display: "standalone",
       background_color: "#1a1a2e",

@@ -212,7 +212,7 @@ exports.submitScore = onCall(async (req) => {
   }
 
   // ── Mega Yam mode ──────────────────────────────────────────────────
-  // Real-Yahtzee scoring: the YAM! box is worth 50 (not 30). Once a real
+  // Mega Yam scoring: the YAM! box is worth 50 (not 30). Once a real
   // YAM is banked, every additional 5-of-a-kind struck into another
   // category earns a +100 bonus chip, tracked in /players/$uid/megaYamBonus
   // (kept outside /scores so it never inflates the 13-category count).
@@ -220,7 +220,7 @@ exports.submitScore = onCall(async (req) => {
   // are always valid inside this block.)
   let megaBonusTotal = null;
   if (room.gameMode === 'megayam') {
-    // Real-Yahtzee values (match js/scoring-rules.js YAHTZEE_RULES):
+    // Mega Yam values (match js/scoring-rules.js MEGAYAM_RULES):
     // YAM 50, small straight 30, large straight 40.
     const isFiveKind = Object.values(counts(dice)).some((v) => v === 5);
     if (categoryId === 'yum' && isFiveKind) {
