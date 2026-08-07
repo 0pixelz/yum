@@ -9,14 +9,12 @@
         It stays in sync by observing the existing #rollCount text,
         so none of the ~12 places that update roll state need to
         change.
-     2. Drops held dice below a dashed divider into a labelled
-        "kept" lane (pure CSS :has(); falls back to the current
-        single-row look on browsers without :has()). The die
-        elements never leave #diceRow, so renderDice's
-        querySelector logic, skins and the 3D overlay all keep
-        working untouched.
-     3. Adds haptic feedback (navigator.vibrate) on tap, hold,
+     2. Adds haptic feedback (navigator.vibrate) on tap, hold,
         roll, and a celebratory buzz on a YAM.
+
+   The dice themselves are left in their natural single row at all
+   times (owned by dice-size-fix.js) — holding a die only highlights
+   it in place, it never moves to a separate lane.
    ============================================================ */
 (function () {
   'use strict';
@@ -33,35 +31,11 @@
       '.tr-roll-pips i{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7);transition:transform .2s,background .2s,box-shadow .2s;}',
       '.tr-roll-pips i.spent{background:rgba(255,255,255,.22);box-shadow:none;transform:scale(.8);}',
       '.btn-roll.tr-empty{filter:grayscale(.5) brightness(.82);opacity:.85;}',
-      '.roll-count.tr-hide{display:none;}',
-      /* Reserve the two-lane height at all times so holding a die never
-         grows the card and resizes the screen — the row keeps a constant
-         height and just re-flows internally. Centred so the single row and
-         the split layout sit in the same place. */
-      '.dice-section .dice-row.dice-row{min-height:208px !important;align-items:center !important;align-content:center !important;}',
-      /* two-lane "kept" shelf — only splits when dice are held, so the
-         default single row enforced by dice-size-fix.js is preserved.
-         :has() outranks that rule's plain selector, so wrap wins here.
-         Held dice rise to the TOP lane; the rolling dice drop below. */
-      '.dice-section .dice-row:has(.die.held){flex-wrap:wrap !important;}',
-      '.tr-shelf-break{display:none;order:1;flex:0 0 100%;min-width:100%;width:100%;height:0;}',
-      '.dice-section .dice-row .die-wrap:has(.die.held){order:0;}',
-      '.dice-section .dice-row:has(.die.held) .die-wrap:not(:has(.die.held)){order:2;}',
-      '.dice-section .dice-row:has(.die.held) .tr-shelf-break{display:flex;align-items:center;justify-content:center;height:auto;margin:6px 0;border-top:1px dashed rgba(245,166,35,.35);}',
-      '.dice-section .dice-row:has(.die.held) .tr-shelf-break::before{content:"\\270B KEPT \\2014 tap to roll the rest";font:800 .6rem "Nunito",sans-serif;letter-spacing:1px;color:var(--gold);opacity:.85;text-transform:uppercase;padding-top:6px;}',
-      /* Held dice live in the top lane, so their button is redundant —
-         shrink it and label it RELEASE instead of HOLD. */
-      '.dice-section .die-hold-btn.held-active{font-size:0 !important;letter-spacing:0;padding:2px 8px !important;}',
-      '.dice-section .die-hold-btn.held-active::after{content:"RELEASE";display:inline-block;font:800 .5rem "Nunito",sans-serif;letter-spacing:.5px;color:#111;}',
-      /* No rolls left: collapse back to one row so the whole hand is
-         visible together for scoring (overrides the shelf split above). */
-      '.dice-section .dice-row.tr-no-rolls:has(.die.held){flex-wrap:nowrap !important;}',
-      '.dice-section .dice-row.tr-no-rolls .die-wrap:has(.die.held){order:0 !important;}',
-      '.dice-section .dice-row.tr-no-rolls .tr-shelf-break{display:none !important;}',
-      '.dice-section .dice-row.tr-no-rolls .die.held{transform:none !important;}',
-      /* No rolls left: hide the HOLD / RELEASE buttons — there is no next
-         roll for a hold to affect, so the controls are meaningless. */
-      '.dice-section .dice-row.tr-no-rolls .die-hold-btn{display:none !important;}'
+      '.roll-count.tr-hide{display:none;}'
+      /* The dice stay in their natural single row at all times — held dice
+         keep their position (they're just highlighted), so nothing re-flows
+         into a separate "kept" lane and nothing collapses after the last
+         roll. The single-row layout is owned by dice-size-fix.js. */
     ].join('');
     (document.head || document.documentElement).appendChild(st);
   }
@@ -105,7 +79,6 @@
     var label = btn.querySelector('.tr-roll-label');
     var pips = btn.querySelectorAll('.tr-roll-pips i');
     var rc = document.getElementById('rollCount');
-    var row = document.getElementById('diceRow');
     var txt = rc ? rc.textContent.trim() : '';
     var m = txt.match(/Rolls:\s*(\d)\s*\/\s*3/);
 
@@ -118,35 +91,19 @@
       if (left === 0) btn.setAttribute('disabled', '');
       else btn.removeAttribute('disabled');
       if (rc) rc.classList.add('tr-hide'); // pips replace the redundant count
-      // No rolls left → collapse the kept shelf so the whole hand is on
-      // one line and easy to read before scoring.
-      if (row) row.classList.toggle('tr-no-rolls', left === 0);
     } else {
-      // Non-standard status ("Waiting for X to roll…", scanning, etc.)
-      // Leave the button neutral and let the status text show through.
+      // Non-standard status ("Waiting for X to roll…", etc.) — leave the
+      // button neutral and let the status text show through.
       label.textContent = 'ROLL';
       pips.forEach(function (p) { p.classList.remove('spent'); });
       btn.classList.remove('tr-empty');
       btn.removeAttribute('disabled');
       if (rc) rc.classList.remove('tr-hide');
-      if (row) row.classList.remove('tr-no-rolls');
-    }
-  }
-
-  /* ---- two-lane shelf divider -------------------------------- */
-  function insertShelfBreak() {
-    var row = document.getElementById('diceRow');
-    if (row && !row.querySelector('.tr-shelf-break')) {
-      var b = document.createElement('div');
-      b.className = 'tr-shelf-break';
-      b.setAttribute('aria-hidden', 'true');
-      row.appendChild(b); // order:1 places it between rolling (0) and kept (2)
     }
   }
 
   /* ---- init -------------------------------------------------- */
   function init() {
-    insertShelfBreak();
     syncRollUI();
     var rc = document.getElementById('rollCount');
     if (rc) {
