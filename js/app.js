@@ -2214,7 +2214,41 @@ function closeBotModeChoice() {
 
 function chooseBotMode(mode) {
   document.getElementById('botModeModal').classList.remove('open');
+  // Explicit "Play vs Bot" — clear any Quick Match presentation state left
+  // over from a previous game.
+  window.__yumQuickMatch = false;
+  window.__yumQuickMatchAvatarId = null;
+  botName = 'Bot';
   startVsBot(mode);
+}
+
+// Quick Match: start an instant local game shown in the standard match UI with
+// a generated handle and a normal dice avatar. Called by matchmaking.js when no
+// live opponent is found in time. The opponent's turn is paced like any local
+// game (botHoldOneAtATime holds dice one at a time).
+window.startQuickMatchGame = function (mode, handle, avatarId) {
+  window.__yumQuickMatch = true;
+  window.__yumQuickMatchAvatarId = avatarId || null;
+  botName = (handle && String(handle).trim()) || 'Player';
+  startVsBot(mode);
+};
+
+// Switch the turn-status bar between the vs-bot look (robot icon) and the
+// neutral look used for Quick Match.
+function setBotThinkBarIdentity(isHuman) {
+  var tb = document.getElementById('botThinkBar');
+  if (!tb) return;
+  var iconSpan = tb.querySelector('span');
+  if (iconSpan) iconSpan.innerHTML = isHuman
+    ? '<i class="icn icn-player"></i>'
+    : '<i class="icn icn-bot"></i>';
+  var msg = document.getElementById('botThinkMsg');
+  if (msg) {
+    msg.textContent = isHuman ? (botName + ' is playing…') : 'Bot is thinking…';
+    if (msg.nextElementSibling) {
+      msg.nextElementSibling.textContent = isHuman ? 'Taking their turn' : 'Calculating best move';
+    }
+  }
 }
 
 function startVsBot(mode) {
@@ -2250,19 +2284,22 @@ function startVsBot(mode) {
   document.getElementById('lobbyOverlay').style.display = 'none';
   document.getElementById('leaderboard').style.display = 'block';
   if (typeof renderPowerupBar === 'function') renderPowerupBar();
+  setBotThinkBarIdentity(!!window.__yumQuickMatch);
   renderBotLeaderboard();
   renderScores();
   syncDiceUI();
 
   // Roll to decide who goes first
   showFirstRoll(
-    [{ name: playerName, isMe: true, id: 'player' }, { name: botName, isMe: false, id: 'bot' }],
+    [{ name: playerName, isMe: true, id: 'player' },
+     { name: botName, isMe: false, id: 'bot',
+       avatar: window.__yumQuickMatch ? window.__yumQuickMatchAvatarId : null }],
     function(winnerId) {
       playerTurn = winnerId === 'player';
       if(playerTurn) {
         // closeFirstRoll() now handles the smooth dice-roller transition and turn popup.
       } else {
-        showToast('Bot goes first!');
+        showToast(window.__yumQuickMatch ? (botName + ' goes first!') : 'Bot goes first!');
         setTimeout(botTakeTurn, 800);
       }
     }
@@ -2289,7 +2326,9 @@ function renderBotLeaderboard() {
   const myLbAvatar = window.YumAvatars
     ? `<div class="lb-avatar">${window.YumAvatars.markupForProfile()}</div>`
     : '';
-  const botLbAvatar = '<div class="lb-avatar lb-avatar-bot"><i class="icn icn-bot"></i></div>';
+  const botLbAvatar = (window.__yumQuickMatch && window.YumAvatars && window.__yumQuickMatchAvatarId)
+    ? `<div class="lb-avatar">${window.YumAvatars.markup(window.__yumQuickMatchAvatarId, botName)}</div>`
+    : '<div class="lb-avatar lb-avatar-bot"><i class="icn icn-bot"></i></div>';
   document.getElementById('lbRows').innerHTML = `
     <div class="lb-row me" style="cursor:pointer" onclick="openOppViewer('me', playerName, scores, playerScoreDice, window.megaYamPlayerBonus?megaYamPlayerBonus():0)">
       <div class="lb-rank">${pLeading?'1':'2'}</div>
@@ -2495,7 +2534,9 @@ function showBotActionPopup(name, diceArr, catName, scored, isPerfect, isZero, i
   }
   document.getElementById('bapAvatar').innerHTML = isMp
     ? '<i class="icn icn-players"></i>'
-    : '<i class="icn icn-bot"></i>';
+    : (window.__yumQuickMatch && window.YumAvatars && window.__yumQuickMatchAvatarId
+        ? window.YumAvatars.markup(window.__yumQuickMatchAvatarId, name)
+        : '<i class="icn icn-bot"></i>');
   document.getElementById('bapName').textContent = name.toUpperCase();
   const diceEl = document.getElementById('bapDice');
   if(diceArr && diceArr.length > 0) {
@@ -2616,7 +2657,9 @@ function openOppViewer(targetId, targetName, targetScores, targetScoreDice, mega
   const total = calcTotal(targetScores) + (megaBonus || 0);
   let avatarHtml;
   if (targetId === 'bot') {
-    avatarHtml = '<i class="icn icn-bot"></i>';
+    avatarHtml = (window.__yumQuickMatch && window.YumAvatars && window.__yumQuickMatchAvatarId)
+      ? window.YumAvatars.markup(window.__yumQuickMatchAvatarId, targetName)
+      : '<i class="icn icn-bot"></i>';
   } else {
     const oppAvatarId = (typeof allPlayers !== 'undefined' && allPlayers[targetId] && allPlayers[targetId].avatar) || null;
     if (oppAvatarId && window.YumAvatars) {

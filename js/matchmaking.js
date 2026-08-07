@@ -109,6 +109,71 @@
     }[c]));
   }
 
+  // ── Quick Match fallback ─────────────────────────────────────────
+  // If no live opponent is found within MM_QUICKMATCH_MS, start an instant
+  // match so the player is never left waiting on the queue. The opponent is
+  // provided by the local game engine and shown in the standard match UI with
+  // a generated handle and a normal dice avatar. Its turn is paced the same as
+  // any local game (dice are held one at a time — botHoldOneAtATime).
+  let mmQuickMatchTimer = null;
+  const QM_MIN_MS = 35000;   // earliest a Quick Match can start
+  const QM_MAX_MS = 45000;   // latest — randomised each search so the wait never feels fixed
+  const QM_PREFIX = ['Silent','Lucky','Turbo','Shadow','Pixel','Rapid','Chill','Epic',
+    'Ninja','Cosmic','Frost','Golden','Sneaky','Wild','Rogue','Mighty','Swift','Solar','Neon','Lunar'];
+  const QM_NOUN = ['Fox','Wolf','Panda','Tiger','Raven','Comet','Yeti','Falcon','Otter','Viper',
+    'Koala','Dragon','Phoenix','Bison','Lynx','Gecko','Hawk','Dicer','Roller','Shark'];
+  const QM_AVATARS = ['classic','ruby','sapphire','emerald','amethyst','onyx','pearl','lava','ice','galaxy'];
+
+  function randInt(n) { return Math.floor(Math.random() * n); }
+  function randomHandle() {
+    let name = QM_PREFIX[randInt(QM_PREFIX.length)] + QM_NOUN[randInt(QM_NOUN.length)];
+    if (Math.random() < 0.6) name += (randInt(89) + 10); // ~60% carry a 2-digit suffix
+    return name.slice(0, 20);
+  }
+  function randomAvatarId() { return QM_AVATARS[randInt(QM_AVATARS.length)]; }
+
+  function startQuickMatchTimer() {
+    clearQuickMatchTimer();
+    const delay = QM_MIN_MS + Math.floor(Math.random() * (QM_MAX_MS - QM_MIN_MS + 1));
+    mmQuickMatchTimer = setTimeout(beginQuickMatch, delay);
+  }
+  function clearQuickMatchTimer() {
+    if (mmQuickMatchTimer) { clearTimeout(mmQuickMatchTimer); mmQuickMatchTimer = null; }
+  }
+  function beginQuickMatch() {
+    clearQuickMatchTimer();
+    if (!mmActive || mmReadyShown) return; // a live match already committed
+
+    // Stop reacting to the live queue immediately so nobody pairs with us
+    // during the brief "opponent found" transition.
+    mmActive = false;
+    stopElapsedTicker();
+    detachQueueWatcher();
+    detachPresenceWatcher();
+    detachOfferListener();
+    if (mmDb && mmUid) {
+      mmDb.ref(QUEUE_PATH  + '/' + mmUid).remove().catch(() => {});
+      mmDb.ref(OFFERS_PATH + '/' + mmUid).remove().catch(() => {});
+    }
+
+    const handle = randomHandle();
+    const avatarId = randomAvatarId();
+    const mode = mmMode;
+    setSearchText('OPPONENT FOUND',
+      'Matched with <b>' + escapeHtml(handle) + '</b><span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
+
+    // Track the transition timeout in the same handle so any teardown (e.g. the
+    // player taps Cancel) aborts the launch.
+    mmQuickMatchTimer = setTimeout(function () {
+      mmQuickMatchTimer = null;
+      hideSearchOverlay();
+      cleanupMatchmakingState();
+      if (typeof window.startQuickMatchGame === 'function') {
+        window.startQuickMatchGame(mode, handle, avatarId);
+      }
+    }, 1600);
+  }
+
   function showSearchOverlay() {
     const o = el('mmSearchOverlay');
     if (o) o.classList.add('mm-show');
@@ -460,6 +525,7 @@
     if (onlineEl) onlineEl.textContent = '…';
     startElapsedTicker();
     showSearchOverlay();
+    startQuickMatchTimer();
     lobbyErr('');
 
     const lobby = el('lobbyOverlay');
@@ -878,6 +944,7 @@
   // takes over and keeps both sides' ready/declined state in sync.
   function showReadyOverlayOptimistic(oppName, oppAvatar, role) {
     if (mmReadyShown) return;
+    clearQuickMatchTimer(); // a live opponent committed — cancel the quick-match fallback
     mmReadyShown = true;
     mmBothSeen = false;
 
@@ -976,6 +1043,7 @@
       const oppDeclined = !!(oppId && players[oppId] && players[oppId].declined);
 
       if (!mmReadyShown) {
+        clearQuickMatchTimer(); // a live opponent is here — cancel the quick-match fallback
         mmReadyShown = true;
 
         const meNameEl  = el('mmReadyMeName');
@@ -1265,6 +1333,7 @@
 
   async function cancelFindMatch() {
     if (!mmActive) {
+      clearQuickMatchTimer(); // abort a pending quick-match launch mid-transition
       hideSearchOverlay();
       hideReadyOverlay();
       stopReadyCountdown();
@@ -1343,6 +1412,7 @@
   }
 
   function cleanupMatchmakingState() {
+    clearQuickMatchTimer();
     mmRole   = null;
     mmDb     = null;
     mmUid    = null;
