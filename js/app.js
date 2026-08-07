@@ -2560,7 +2560,9 @@ function showBotActionPopup(name, diceArr, catName, scored, isPerfect, isZero, i
   pop.classList.remove('perfect', 'zero', 'mp');
   if(isPerfect) pop.classList.add('perfect');
   else if(isZero) pop.classList.add('zero');
-  if(isMp) pop.classList.add('mp');
+  // Quick Match uses the same cyan popup styling as a live opponent (not the
+  // purple vs-bot look), so the score popup matches real multiplayer.
+  if(isMp || window.__yumQuickMatch) pop.classList.add('mp');
   if(_botActionTimer) clearTimeout(_botActionTimer);
   pop.classList.add('show');
   _botActionTimer = setTimeout(() => pop.classList.remove('show'), 3000);
