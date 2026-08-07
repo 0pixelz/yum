@@ -2437,7 +2437,11 @@ function botTakeTurn() {
               setTimeout(() => {
                 if(!move2) { finishBotTurn(null); return; }
                 botDice = move2.held.map((v,i) => v === 0 ? randDie() : v);
-                botHeld = [true,true,true,true,true];
+                // Keep only the dice actually kept going into this roll held —
+                // not all five. Forcing every die "held" right before scoring
+                // looks fake (a real player doesn't lock all dice with no roll
+                // left); the freshly-rolled dice should read as just rolled.
+                botHeld = targetHeld2.slice();
                 document.getElementById('botThinkMsg').textContent = 'Roll 3 of 3…';
                 showBotDiceInRoller(botDice, botHeld, true);
 
@@ -2560,7 +2564,9 @@ function showBotActionPopup(name, diceArr, catName, scored, isPerfect, isZero, i
   pop.classList.remove('perfect', 'zero', 'mp');
   if(isPerfect) pop.classList.add('perfect');
   else if(isZero) pop.classList.add('zero');
-  if(isMp) pop.classList.add('mp');
+  // Quick Match uses the same cyan popup styling as a live opponent (not the
+  // purple vs-bot look), so the score popup matches real multiplayer.
+  if(isMp || window.__yumQuickMatch) pop.classList.add('mp');
   if(_botActionTimer) clearTimeout(_botActionTimer);
   pop.classList.add('show');
   _botActionTimer = setTimeout(() => pop.classList.remove('show'), 3000);
