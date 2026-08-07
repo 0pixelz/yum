@@ -1525,21 +1525,27 @@ function listenRoom() {
       renderScores();
       syncDiceUI();
 
-      // Activate power-up mode if the room was set to power-up mode
-      if((data.gameMode || 'normal') === 'powerup') {
-        powerupMode = true;
-        playerPowerups = [];
-        pendingPowerup = null;
-        doublePointsActive = false;
-        undoPowerupState = null;
-        freezeDieIndex = -1;
-        frozenDieValue = 0;
-        if (typeof pendingFreezeIdx !== 'undefined') {
-          pendingFreezeIdx = -1;
-          pendingFreezeVal = 0;
-        }
-        renderPowerupBar();
+      // Set power-up mode from the room's gameMode. Assign unconditionally
+      // (true AND false) so a leftover powerupMode from a previous Power-Up
+      // game can't leak into a Classic / Find-Match game — the bug where
+      // choosing Power-Up, then Find Match → Classic, started a power-up game.
+      powerupMode = ((data.gameMode || 'normal') === 'powerup');
+      playerPowerups = [];
+      pendingPowerup = null;
+      doublePointsActive = false;
+      undoPowerupState = null;
+      freezeDieIndex = -1;
+      frozenDieValue = 0;
+      if (typeof pendingFreezeIdx !== 'undefined') {
+        pendingFreezeIdx = -1;
+        pendingFreezeVal = 0;
       }
+      if (typeof yamOrStrikeActive !== 'undefined') {
+        yamOrStrikeActive = false;
+        yamOrStrikeAttempts = 0;
+      }
+      if (typeof suppressNextYumEarn !== 'undefined') suppressNextYumEarn = false;
+      renderPowerupBar();
 
       // Roll to decide who goes first (only host triggers, result synced via currentTurn)
       if(isHost) {
@@ -1592,9 +1598,13 @@ function listenRoom() {
         renderScores();
       }
 
-      // Re-activate power-up mode if Firebase says so but local state was lost
-      // (e.g. page reload mid-game — the waiting-overlay transition won't fire again)
-      if((data.gameMode || 'normal') === 'powerup' && !powerupMode) {
+      // Keep local power-up mode in sync with the room's gameMode. This covers
+      // paths that skip the waiting-overlay start block above — Find Match, or
+      // a page reload mid-game. Both directions matter: activate if the room is
+      // power-up but local state was lost, and clear if the room is NOT power-up
+      // but a leftover powerupMode leaked from a previous Power-Up game.
+      const _gmPower = ((data.gameMode || 'normal') === 'powerup');
+      if(_gmPower && !powerupMode) {
         powerupMode = true;
         playerPowerups = [];
         pendingPowerup = null;
@@ -1605,6 +1615,23 @@ function listenRoom() {
         if (typeof pendingFreezeIdx !== 'undefined') {
           pendingFreezeIdx = -1;
           pendingFreezeVal = 0;
+        }
+        renderPowerupBar();
+      } else if(!_gmPower && powerupMode) {
+        powerupMode = false;
+        playerPowerups = [];
+        pendingPowerup = null;
+        doublePointsActive = false;
+        undoPowerupState = null;
+        freezeDieIndex = -1;
+        frozenDieValue = 0;
+        if (typeof pendingFreezeIdx !== 'undefined') {
+          pendingFreezeIdx = -1;
+          pendingFreezeVal = 0;
+        }
+        if (typeof yamOrStrikeActive !== 'undefined') {
+          yamOrStrikeActive = false;
+          yamOrStrikeAttempts = 0;
         }
         renderPowerupBar();
       }
