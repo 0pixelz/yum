@@ -822,7 +822,7 @@ renderDice = function(justRolled){
     const ov = document.getElementById('predOverlay');
     if(ov) ov.classList.remove('open');
   }
-  // Hide tap label and scan button in multiplayer/bot
+  // Hide the tap-to-edit label in multiplayer/bot
   syncDiceUI();
 };
 
