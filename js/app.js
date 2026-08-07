@@ -2437,7 +2437,11 @@ function botTakeTurn() {
               setTimeout(() => {
                 if(!move2) { finishBotTurn(null); return; }
                 botDice = move2.held.map((v,i) => v === 0 ? randDie() : v);
-                botHeld = [true,true,true,true,true];
+                // Keep only the dice actually kept going into this roll held —
+                // not all five. Forcing every die "held" right before scoring
+                // looks fake (a real player doesn't lock all dice with no roll
+                // left); the freshly-rolled dice should read as just rolled.
+                botHeld = targetHeld2.slice();
                 document.getElementById('botThinkMsg').textContent = 'Roll 3 of 3…';
                 showBotDiceInRoller(botDice, botHeld, true);
 
