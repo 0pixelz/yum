@@ -140,12 +140,25 @@
   function clearQuickMatchTimer() {
     if (mmQuickMatchTimer) { clearTimeout(mmQuickMatchTimer); mmQuickMatchTimer = null; }
   }
+  // While a Quick Match ready-check is on screen, qmPending holds the match to
+  // start once both sides accept. The opponent's "accept" is simulated locally.
+  let qmPending = null;
+  let qmMeReady = false;
+  let qmOppReady = false;
+  let qmOppAcceptTimer = null;
+
+  function qmClear() {
+    qmPending = null;
+    qmMeReady = false;
+    qmOppReady = false;
+    if (qmOppAcceptTimer) { clearTimeout(qmOppAcceptTimer); qmOppAcceptTimer = null; }
+  }
+
   function beginQuickMatch() {
     clearQuickMatchTimer();
     if (!mmActive || mmReadyShown) return; // a live match already committed
 
-    // Stop reacting to the live queue immediately so nobody pairs with us
-    // during the brief "opponent found" transition.
+    // From here it's a local match — stop reacting to the live queue.
     mmActive = false;
     stopElapsedTicker();
     detachQueueWatcher();
@@ -158,20 +171,75 @@
 
     const handle = randomHandle();
     const avatarId = randomAvatarId();
-    const mode = mmMode;
-    setSearchText('OPPONENT FOUND',
-      'Matched with <b>' + escapeHtml(handle) + '</b><span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
+    qmPending = { mode: mmMode, handle: handle, avatarId: avatarId };
+    qmMeReady = false;
+    qmOppReady = false;
+    mmReadyShown = true;
+    mmReadyHandled = false;
 
-    // Track the transition timeout in the same handle so any teardown (e.g. the
-    // player taps Cancel) aborts the launch.
-    mmQuickMatchTimer = setTimeout(function () {
-      mmQuickMatchTimer = null;
-      hideSearchOverlay();
-      cleanupMatchmakingState();
-      if (typeof window.startQuickMatchGame === 'function') {
-        window.startQuickMatchGame(mode, handle, avatarId);
-      }
-    }, 1600);
+    // Present the same Accept/Decline ready-check a live match uses.
+    const meNameEl  = el('mmReadyMeName');
+    const oppNameEl = el('mmReadyOppName');
+    if (meNameEl)  meNameEl.textContent  = mmName || 'You';
+    if (oppNameEl) oppNameEl.textContent = handle;
+    setOppMatchmakingAvatar(avatarId, handle);
+    setReadyMode(qmPending.mode);
+    setReadyTag('me', 'pending');
+    setReadyTag('opp', 'pending');
+    setAvatarStatus('me', null);
+    setAvatarStatus('opp', null);
+    setReadyButtonsState('idle');
+    setReadySub('Both players must tap <b>Accept</b> within 15 seconds');
+    hideSearchOverlay();
+    showReadyOverlay();
+    startReadyCountdown();
+
+    // The opponent accepts on its own after a short, human-ish beat.
+    qmOppAcceptTimer = setTimeout(function () {
+      qmOppAcceptTimer = null;
+      if (!qmPending || mmReadyHandled) return;
+      qmOppReady = true;
+      setReadyTag('opp', 'ready');
+      setAvatarStatus('opp', 'accepted');
+      if (qmMeReady) qmStartGame();
+    }, 900 + randInt(1700)); // ~0.9–2.6s
+  }
+
+  function qmAccept() {
+    if (!qmPending || mmReadyHandled) return;
+    qmMeReady = true;
+    setReadyButtonsState('waiting');
+    setReadyTag('me', 'ready');
+    setAvatarStatus('me', 'accepted');
+    if (qmOppReady) {
+      qmStartGame();
+    } else {
+      setReadySub('Waiting for <b>' + escapeHtml(qmPending.handle) +
+        '</b><span class="mm-dots"><span>.</span><span>.</span><span>.</span></span>');
+    }
+  }
+
+  function qmStartGame() {
+    if (!qmPending || mmReadyHandled) return;
+    mmReadyHandled = true;
+    const p = qmPending;
+    stopReadyCountdown();
+    hideReadyOverlay();
+    cleanupMatchmakingState(); // clears qm state via qmClear()
+    if (typeof window.startQuickMatchGame === 'function') {
+      window.startQuickMatchGame(p.mode, p.handle, p.avatarId);
+    }
+  }
+
+  function qmDecline() {
+    if (!qmPending) return;
+    mmReadyHandled = true;
+    stopReadyCountdown();
+    hideReadyOverlay();
+    cleanupMatchmakingState();
+    const lobby = el('lobbyOverlay');
+    if (lobby) lobby.style.display = 'flex';
+    lobbyErr('You declined the match.');
   }
 
   function showSearchOverlay() {
@@ -1092,6 +1160,7 @@
   }
 
   async function mmAcceptMatch() {
+    if (qmPending) { qmAccept(); return; }
     if (!mmReadyShown || mmReadyHandled || !mmDb || !mmUid || !mmRoomCode) return;
     setReadyButtonsState('waiting');
     setReadyTag('me', 'ready');
@@ -1108,6 +1177,7 @@
   }
 
   async function mmDeclineMatch() {
+    if (qmPending) { qmDecline(); return; }
     if (mmReadyHandled) return;
     mmReadyHandled = true;
     setReadyButtonsState('waiting');
@@ -1126,6 +1196,16 @@
 
   function handleReadyTimeout() {
     if (mmReadyHandled) return;
+    if (qmPending) {
+      mmReadyHandled = true;
+      stopReadyCountdown();
+      hideReadyOverlay();
+      cleanupMatchmakingState();
+      const lobby = el('lobbyOverlay');
+      if (lobby) lobby.style.display = 'flex';
+      lobbyErr('Match canceled — accept timed out.');
+      return;
+    }
     mmReadyHandled = true;
     cancelFindMatch().then(() => {
       lobbyErr('Match canceled — accept timed out.');
@@ -1334,6 +1414,7 @@
   async function cancelFindMatch() {
     if (!mmActive) {
       clearQuickMatchTimer(); // abort a pending quick-match launch mid-transition
+      qmClear();
       hideSearchOverlay();
       hideReadyOverlay();
       stopReadyCountdown();
@@ -1413,6 +1494,7 @@
 
   function cleanupMatchmakingState() {
     clearQuickMatchTimer();
+    qmClear();
     mmRole   = null;
     mmDb     = null;
     mmUid    = null;
