@@ -132,20 +132,23 @@
       // — defensive in case wrapper ordering puts this ahead of that handler.
       if (typeof yamOrStrikeActive !== 'undefined' && yamOrStrikeActive) return original();
 
-      // Power-up multiplayer is client-authoritative and rolls locally (app.js
-      // rollDice handles it, keeping the local roll count so Extra Roll works).
-      // The 3D overlay's MP branch round-trips through the server rollDice, which
-      // would clobber that count — so defer to the 2D local path in power-up MP.
-      if (typeof powerupMode !== 'undefined' && powerupMode &&
-          typeof mpMode !== 'undefined' && mpMode) return original();
+      // Power-up multiplayer is client-authoritative — the dice are decided by
+      // the local physics sim, not the server. So it uses the same LOCAL 3D path
+      // as vs-bot (below), not the server-round-trip MP branch that would clobber
+      // the local roll count Extra Roll depends on. The live-stream module still
+      // broadcasts the tumble to the opponent, and the settled values are synced
+      // into liveDice in the local branch's resolve.
+      const isPowerupMP = (typeof powerupMode !== 'undefined' && powerupMode &&
+                           typeof mpMode !== 'undefined' && mpMode);
 
-      // Multiplayer dice are decided by the server, not by the physics sim. The
-      // MP branch (below) still runs the 3D overlay for the animation + live
+      // Non-power-up multiplayer dice are decided by the server, not the physics
+      // sim. The MP branch (below) runs the 3D overlay for the animation + live
       // stream, but re-faces the dice to the server's authoritative values.
       const isMP = (typeof mpMode !== 'undefined' && mpMode &&
                     typeof roomRef !== 'undefined' && roomRef &&
                     window.YumCloud &&
-                    typeof roomCode !== 'undefined' && roomCode);
+                    typeof roomCode !== 'undefined' && roomCode &&
+                    !isPowerupMP);
 
       // Mirror the original's pre-roll guards so the 3D overlay never opens
       // on a turn the player can't actually roll on.
@@ -237,6 +240,24 @@
         if (typeof renderScores === 'function') renderScores();
         const rcEl = document.getElementById('rollCount');
         if (rcEl) rcEl.textContent = 'Rolls: ' + (3 - rollsLeft) + ' / 3';
+
+        // Power-up multiplayer (client-authoritative): mirror the settled dice
+        // into liveDice so the opponent's card shows them. The 3D stream already
+        // shows the tumble live; this syncs the final values. Harmless no-op in
+        // solo / vs-bot (guarded on mpMode).
+        if (typeof mpMode !== 'undefined' && mpMode &&
+            typeof roomRef !== 'undefined' && roomRef &&
+            typeof playerId !== 'undefined' && playerId) {
+          try {
+            const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+            let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch (e) {}
+            roomRef.child('players/' + playerId + '/liveDice').set({
+              dice: dice, held: held,
+              roll: Math.max(0, Math.min(3, 3 - rollsLeft)),
+              skin: _skinId, perDieColors: _pdc, ts: Date.now()
+            });
+          } catch (e) {}
+        }
 
         // The player tapped a suggested score in the overlay — open its modal
         // now that the final dice are in game state.
