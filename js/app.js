@@ -2399,7 +2399,10 @@ let botDice = [1,1,1,1,1];
 function botTakeTurn() {
   if(!botMode || playerTurn) return;
   const bar = document.getElementById('botThinkBar');
-  bar.style.display = 'flex';
+  // Real multiplayer has no "thinking" status bar and no purple dice-section
+  // glow, so keep both hidden in Quick Match — the opponent reads as a live
+  // player.
+  if (bar) bar.style.display = window.__yumQuickMatch ? 'none' : 'flex';
 
   // Show bot is in control of the dice area
   showBotDiceOverlay(true);
@@ -2495,7 +2498,7 @@ function showBotDiceOverlay(active) {
   // Add/remove a subtle tint to the dice section
   const sec = document.querySelector('.dice-section');
   if(!sec) return;
-  if(active) {
+  if(active && !window.__yumQuickMatch) {
     sec.style.border = '1.5px solid rgba(168,85,247,0.5)';
     sec.style.boxShadow = '0 0 20px rgba(168,85,247,0.15)';
   } else {
