@@ -458,12 +458,21 @@ function checkPowerupYumEarn(savedDice, scoreVal) {
   }
 }
 
-function checkPowerupUpperBonusEarn() {
+function checkPowerupUpperBonusEarn(justScoredId, justScoredValue) {
   if (!powerupMode) return;
   if (upperBonusPowerupAwarded) return;
   const ids = (typeof UPPER_IDS !== 'undefined') ? UPPER_IDS : ['ones','twos','threes','fours','fives','sixes'];
   const target = (typeof BONUS_TARGET !== 'undefined') ? BONUS_TARGET : 63;
-  const upperTotal = ids.reduce((s, id) => s + (Number(scores[id]) || 0), 0);
+  let upperTotal = ids.reduce((s, id) => s + (Number(scores[id]) || 0), 0);
+  // In multiplayer the just-scored value lands in `scores` asynchronously (after
+  // the server submit resolves), so it isn't in `scores` yet when this runs.
+  // Fold it in explicitly so the bonus reward fires on the same turn instead of
+  // a round late. In solo/bot the score is already in `scores`, so this guard
+  // (undefined check) prevents double-counting.
+  if (justScoredId && ids.indexOf(justScoredId) !== -1 &&
+      (scores[justScoredId] === undefined || scores[justScoredId] === null)) {
+    upperTotal += (Number(justScoredValue) || 0);
+  }
   if (upperTotal >= target) {
     upperBonusPowerupAwarded = true;
     setTimeout(() => openPowerupPickerModal('bonus'), 900);
@@ -503,6 +512,11 @@ confirmScore = function() {
   // Track undo target
   undoPowerupState = { catId };
 
+  // The value being recorded for this category (after any Double Points). In MP
+  // it's written to `scores` asynchronously, so capture it here to feed the
+  // upper-bonus check below.
+  const finalScore = selectedScore;
+
   _pupOrigConfirmScore();
 
   // After scoring, reset freeze index (it was just used to carry a die,
@@ -511,8 +525,10 @@ confirmScore = function() {
 
   // Check for YUM earn
   checkPowerupYumEarn(savedDice, baseScore);
-  // Check for Upper Bonus earn (first time crossing 63 in upper section)
-  checkPowerupUpperBonusEarn();
+  // Check for Upper Bonus earn (first time crossing 63 in upper section).
+  // Pass the just-scored category + value so MP's async scores write doesn't
+  // delay the reward by a full round.
+  checkPowerupUpperBonusEarn(catId, finalScore);
 };
 
 // Pending freeze carry-over — survives across bot's / opponent's turn so the
