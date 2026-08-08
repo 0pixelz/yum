@@ -17,6 +17,7 @@
   let activeBoard = 'online'; // 'online' | 'bot'
   let worldRows = null;       // cached last fetch
   let worldLoading = false;
+  let rowByUid = {};          // uid -> row, for the tap-to-view player detail
 
   // ── storage helpers ──────────────────────────────────────────────
   function readJSON(key, fallback) {
@@ -89,7 +90,7 @@
 
   // ── record a finished game ───────────────────────────────────────
   // Called from the showGameOver patch. `mode` is 'online' or 'bot'.
-  function recordResult(mode, iWon) {
+  function recordResult(mode, iWon, score, gameMode) {
     const stats = loadStats();
     if (mode === 'bot') {
       if (iWon) stats.botGameWins = num(stats.botGameWins) + 1;
@@ -97,6 +98,14 @@
     } else {
       if (iWon) stats.onlineWins = num(stats.onlineWins) + 1;
       else      stats.onlineLosses = num(stats.onlineLosses) + 1;
+    }
+    // Track the best final score per game mode (across bot + online).
+    const s = num(score);
+    if (s > 0) {
+      const key = gameMode === 'powerup' ? 'bestPowerup'
+                : gameMode === 'megayam' ? 'bestMegayam'
+                : 'bestClassic';
+      if (s > num(stats[key])) stats[key] = s;
     }
     saveStats(stats);
     syncToFirebase(stats);
@@ -135,6 +144,9 @@
         avatar: String(myAvatarId()).slice(0, 30),
         onlineWins, onlineLosses, botWins, botLosses,
         totalWins: onlineWins + botWins,
+        bestClassic: num(stats.bestClassic),
+        bestPowerup: num(stats.bestPowerup),
+        bestMegayam: num(stats.bestMegayam),
         updatedAt: Date.now()
       };
       return ref.child(uid).set(payload).catch(e => {
@@ -175,7 +187,10 @@
             onlineWins: num(v.onlineWins),
             onlineLosses: num(v.onlineLosses),
             botWins: num(v.botWins),
-            botLosses: num(v.botLosses)
+            botLosses: num(v.botLosses),
+            bestClassic: num(v.bestClassic),
+            bestPowerup: num(v.bestPowerup),
+            bestMegayam: num(v.bestMegayam)
           });
         });
         return rows;
@@ -413,13 +428,15 @@
     const uid = currentUid();
     const medal = ['#f5d76e', '#d3d3d3', '#cd7f32'];
 
+    rowByUid = {};
     el.innerHTML = ranked.slice(0, 100).map((r, i) => {
+      rowByUid[r.uid] = r;
       const isMe = uid && r.uid === uid;
       const rankHtml = i < 3
         ? `<i class="icn icn-medal" style="color:${medal[i]}"></i>`
         : (i + 1);
       const rate = winRate(r.w, r.l);
-      return `<div class="lb-row${isMe ? ' me' : ''}">
+      return `<div class="lb-row lb-row-tap${isMe ? ' me' : ''}" data-uid="${esc(r.uid)}" role="button" tabindex="0" title="Tap to see best scores">
         <div class="lb-rank">${rankHtml}</div>
         <div class="lb-av">${avatarMarkup(r.avatar, r.name, isMe)}</div>
         <div class="lb-who">
@@ -432,6 +449,96 @@
         </div>
       </div>`;
     }).join('');
+
+    // Delegate row taps → open the per-player best-scores card. Attached once;
+    // the #lbWorld element persists across innerHTML re-renders.
+    if (!el.__lbTapBound) {
+      el.__lbTapBound = true;
+      el.addEventListener('click', (e) => {
+        const row = e.target.closest('.lb-row-tap');
+        if (row && row.dataset.uid) showPlayerDetail(row.dataset.uid);
+      });
+    }
+  }
+
+  // ── Per-player detail card (best score in each mode) ─────────────
+  function fmtBest(v) { return num(v) > 0 ? String(num(v)) : '—'; }
+
+  function ensureDetailStyles() {
+    if (document.getElementById('lbPlayerDetailStyles')) return;
+    const s = document.createElement('style');
+    s.id = 'lbPlayerDetailStyles';
+    s.textContent = `
+      .lb-row-tap { cursor: pointer; transition: background 0.12s; }
+      .lb-row-tap:hover, .lb-row-tap:focus { background: rgba(255,255,255,0.06); outline: none; }
+      #lbPlayerDetail {
+        position: fixed; inset: 0; z-index: 10000;
+        background: rgba(0,0,0,0.72);
+        display: none; align-items: center; justify-content: center; padding: 20px;
+      }
+      #lbPlayerDetail.show { display: flex; }
+      .lbpd-card {
+        position: relative;
+        background: linear-gradient(145deg, var(--card,#1a1a3e), #14143a);
+        border: 1px solid rgba(78,205,196,0.35);
+        border-radius: 20px; padding: 22px 20px 18px;
+        width: min(90vw, 340px); color: var(--white,#fff);
+        font-family: Nunito, sans-serif;
+        box-shadow: 0 22px 70px rgba(0,0,0,0.6);
+      }
+      .lbpd-close {
+        position: absolute; top: 10px; right: 10px;
+        background: rgba(255,255,255,0.08); border: none; color: var(--muted,#aab);
+        width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+      }
+      .lbpd-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+      .lbpd-av { width: 46px; height: 46px; flex-shrink: 0; }
+      .lbpd-av .ya-die, .lbpd-av svg, .lbpd-av img, .lbpd-av .ya-initials { width: 46px !important; height: 46px !important; border-radius: 12px; }
+      .lbpd-name { font-family: 'Bebas Neue', cursive; font-size: 1.4rem; letter-spacing: 1.5px; color: var(--gold,#f5a623); }
+      .lbpd-label { font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted,#aab); margin-bottom: 8px; font-weight: 800; }
+      .lbpd-rows { display: flex; flex-direction: column; gap: 8px; }
+      .lbpd-r {
+        display: flex; align-items: center; justify-content: space-between;
+        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 12px; padding: 10px 14px;
+      }
+      .lbpd-m { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.9rem; }
+      .lbpd-v { font-family: 'Bebas Neue', cursive; font-size: 1.5rem; letter-spacing: 1px; color: var(--green,#4ecdc4); }
+      .lbpd-wins { text-align: center; font-size: 0.72rem; color: var(--muted,#aab); margin-top: 14px; letter-spacing: 0.5px; }
+    `;
+    document.head.appendChild(s);
+  }
+
+  function showPlayerDetail(playerUid) {
+    const r = rowByUid[playerUid];
+    if (!r) return;
+    ensureDetailStyles();
+    let ov = document.getElementById('lbPlayerDetail');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'lbPlayerDetail';
+      ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('show'); });
+      document.body.appendChild(ov);
+    }
+    const meUid = currentUid();
+    const isMe = meUid && r.uid === meUid;
+    ov.innerHTML =
+      '<div class="lbpd-card">' +
+        '<button class="lbpd-close" type="button" aria-label="Close"><i class="icn icn-close"></i></button>' +
+        '<div class="lbpd-head">' +
+          '<div class="lbpd-av">' + avatarMarkup(r.avatar, r.name, isMe) + '</div>' +
+          '<div class="lbpd-name">' + esc(r.name) + (isMe ? ' (you)' : '') + '</div>' +
+        '</div>' +
+        '<div class="lbpd-label">Best score by mode</div>' +
+        '<div class="lbpd-rows">' +
+          '<div class="lbpd-r"><span class="lbpd-m"><i class="icn icn-gamepad"></i> Classic</span><span class="lbpd-v">' + fmtBest(r.bestClassic) + '</span></div>' +
+          '<div class="lbpd-r"><span class="lbpd-m"><i class="icn icn-bolt"></i> Power-Up</span><span class="lbpd-v">' + fmtBest(r.bestPowerup) + '</span></div>' +
+          '<div class="lbpd-r"><span class="lbpd-m"><i class="icn icn-trophy"></i> Mega Yam</span><span class="lbpd-v">' + fmtBest(r.bestMegayam) + '</span></div>' +
+        '</div>' +
+        '<div class="lbpd-wins">' + num(r.onlineWins) + ' online · ' + num(r.botWins) + ' vs-bot wins</div>' +
+      '</div>';
+    ov.querySelector('.lbpd-close').addEventListener('click', () => ov.classList.remove('show'));
+    ov.classList.add('show');
   }
 
   function refreshWorld() {
@@ -480,7 +587,12 @@
           if (me && (isBot || isOnline)) {
             const maxScore = players.reduce((m, p) => Math.max(m, p.score || 0), 0);
             const iWon = (me.score || 0) >= maxScore; // ties count as a win
-            recordResult(isBot ? 'bot' : 'online', iWon);
+            let gameMode = 'classic';
+            try {
+              if (typeof powerupMode !== 'undefined' && powerupMode) gameMode = 'powerup';
+              else if (window.megaYamMode) gameMode = 'megayam';
+            } catch (e) {}
+            recordResult(isBot ? 'bot' : 'online', iWon, me.score || 0, gameMode);
           }
         }
       } catch(e) { console.warn('Leaderboard record failed:', e); }

@@ -389,6 +389,9 @@
         "botWins":      { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
         "botLosses":    { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
         "totalWins":    { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "bestClassic":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "bestPowerup":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "bestMegayam":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
         "updatedAt":    { ".validate": "newData.isNumber() && newData.val() <= now + 3600000" },
         "$other":       { ".validate": false }
       }
