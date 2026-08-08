@@ -135,13 +135,17 @@
       .ach-card .ach-mini-label{margin-top:5px;font-size:.64rem;font-weight:800;color:var(--muted);letter-spacing:.5px}
       .ach-card.unlocked .ach-mini-label{color:var(--green)}
       .diamond-badge{display:inline-flex;align-items:center;margin-left:5px;font-size:.78em;letter-spacing:1px;filter:drop-shadow(0 0 5px rgba(91,199,255,.55))}
-      #yourTurnPop{align-items:flex-start!important;justify-content:center!important;padding-top:calc(env(safe-area-inset-top,0px) + 92px)!important;pointer-events:none!important}
-      #yourTurnPop .your-turn-box{transform:translateY(0) scale(.96)!important;margin:0 auto!important;max-width:min(88vw,360px)!important}
-      #yourTurnPop.show .your-turn-box,#yourTurnPop.open .your-turn-box{transform:translateY(0) scale(1)!important}
+      /* "Your turn" — compact popup pinned to the bottom, snappy slide-up. */
+      #yourTurnPop{align-items:flex-end!important;justify-content:center!important;padding:0 0 calc(env(safe-area-inset-bottom,0px) + 96px)!important;pointer-events:none!important}
+      #yourTurnPop .your-turn-box{margin:0 auto!important;max-width:min(78vw,300px)!important;padding:9px 20px!important;border-radius:16px!important;animation:turnPopBottom .2s cubic-bezier(.34,1.56,.64,1) forwards!important}
+      #yourTurnPop .your-turn-emoji{font-size:1.25rem!important;margin-bottom:0!important;display:inline-block!important}
+      #yourTurnPop .your-turn-text{font-size:1.3rem!important;letter-spacing:3px!important}
+      #yourTurnPop .your-turn-sub{font-size:.62rem!important;margin-top:2px!important;letter-spacing:1.5px!important}
+      @keyframes turnPopBottom{0%{transform:translateY(26px) scale(.96);opacity:0}100%{transform:translateY(0) scale(1);opacity:1}}
       #botActionPopup{align-items:flex-start!important;justify-content:center!important;padding-top:calc(env(safe-area-inset-top,0px) + 88px)!important;pointer-events:none!important}
       #botActionPopup .bap-box{margin:0 auto!important;max-width:min(90vw,380px)!important;transform:translateY(0) scale(.96)!important}
       #botActionPopup.show .bap-box,#botActionPopup.open .bap-box{transform:translateY(0) scale(1)!important}
-      @media (max-height:720px){#yourTurnPop{padding-top:calc(env(safe-area-inset-top,0px) + 68px)!important}#botActionPopup{padding-top:calc(env(safe-area-inset-top,0px) + 64px)!important}#yourTurnPop .your-turn-box,#botActionPopup .bap-box{transform:translateY(0) scale(.9)!important}}
+      @media (max-height:720px){#botActionPopup{padding-top:calc(env(safe-area-inset-top,0px) + 64px)!important}#botActionPopup .bap-box{transform:translateY(0) scale(.9)!important}}
     `;
     document.head.appendChild(style);
   }
