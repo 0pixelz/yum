@@ -247,6 +247,15 @@ exports.submitScore = onCall(async (req) => {
   if (megaBonusTotal !== null) {
     updates['players/' + uid + '/megaYamBonus'] = megaBonusTotal;
   }
+  // Wildcard power-up (power-up rooms only): strike a second, still-empty
+  // category to 0 in the same turn. Must be a valid category, different from the
+  // one just scored, and not already filled.
+  const strikeCategory = data.strikeCategory;
+  if (isPowerup && typeof strikeCategory === 'string' &&
+      VALID_CATEGORIES.has(strikeCategory) && strikeCategory !== categoryId &&
+      !(player.scores && player.scores[strikeCategory] !== undefined)) {
+    updates['players/' + uid + '/scores/' + strikeCategory] = 0;
+  }
   updates['players/' + uid + '/serverDice'] = null;
   updates['players/' + uid + '/liveDice'] = null;
   updates['currentTurn'] = nextTurn;
