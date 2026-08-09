@@ -39,6 +39,8 @@ let yamOrStrikeActive   = false;
 let yamOrStrikeAttempts = 0;     // number of attempts used (max 2)
 let suppressNextYumEarn = false; // forced YAM via yamOrStrike shouldn't earn another power-up
 let upperBonusPowerupAwarded = false; // upper-bonus reward fires once per game
+let wildcardMaxCat   = null;   // Wildcard step 1: category chosen to fill with max
+let wildcardMaxScore = 0;      // its max value, applied once the strike is picked
 
 // ─── START ──────────────────────────────────────────────────────────────────
 
@@ -501,34 +503,73 @@ cycleDie = function(i) {
   _pupOrigCycleDie(i);
 };
 
-// Patch openModal — Wildcard power-up: while it's pending, tapping any category
-// (except Yam) fills it with its MAX score instead of opening the score modal.
+// ── Wildcard power-up (two-step) ──────────────────────────────────────────────
+// Step 1: tap a category (not Yam) → remember it as the MAX fill.
+// Step 2: tap a different empty category → that one is STRUCK (0). Both are then
+// scored in one turn: max into the first, 0 into the second.
+function _wcTurnOk() {
+  if (typeof mpMode !== 'undefined' && mpMode &&
+      typeof currentTurnId !== 'undefined' && currentTurnId !== playerId) {
+    showToast("It's not your turn!"); return false;
+  }
+  if (typeof botMode !== 'undefined' && botMode &&
+      typeof playerTurn !== 'undefined' && !playerTurn) {
+    showToast('Wait for the bot!'); return false;
+  }
+  return true;
+}
+function _wcCat(id) {
+  return (typeof categories !== 'undefined') ? categories.find(c => c.id === id) : null;
+}
+
 const _pupOrigOpenModal = openModal;
 openModal = function(id) {
+  // Step 1 — pick the category to fill with its max score.
   if (powerupMode && pendingPowerup === 'wildcard') {
-    if (typeof mpMode !== 'undefined' && mpMode &&
-        typeof currentTurnId !== 'undefined' && currentTurnId !== playerId) {
-      showToast("It's not your turn!"); return;
-    }
-    if (typeof botMode !== 'undefined' && botMode &&
-        typeof playerTurn !== 'undefined' && !playerTurn) {
-      showToast('Wait for the bot!'); return;
-    }
+    if (!_wcTurnOk()) return;
     if (id === 'yum') { showToast("Wildcard can't be used on Yam!"); return; }
-    if (typeof scores !== 'undefined' && scores[id] !== undefined) {
-      showToast('Already scored!'); return;
-    }
-    const cat = (typeof categories !== 'undefined') ? categories.find(c => c.id === id) : null;
+    if (typeof scores !== 'undefined' && scores[id] !== undefined) { showToast('Already scored!'); return; }
+    const cat = _wcCat(id);
     if (!cat) return;
+    wildcardMaxCat   = id;
+    wildcardMaxScore = Number(cat.max) || 0;
+    pendingPowerup   = 'wildcardStrike';
+    renderPowerupBar();
+    showToast(`Wildcard: ${cat.name} → ${wildcardMaxScore} pts. Now tap an empty category to STRIKE.`);
+    return;
+  }
+  // Step 2 — pick an empty category to strike (0); this finalizes the turn.
+  if (powerupMode && pendingPowerup === 'wildcardStrike') {
+    if (!_wcTurnOk()) return;
+    if (id === wildcardMaxCat) {   // tapping the picked category again cancels
+      pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
+      renderPowerupBar();
+      showToast('Wildcard cancelled.');
+      return;
+    }
+    if (typeof scores !== 'undefined' && scores[id] !== undefined) { showToast('Pick an EMPTY category to strike!'); return; }
+    const strikeId = id;
+    const maxCat   = wildcardMaxCat;
+    const maxVal   = wildcardMaxScore;
     consumePowerup('wildcard');
-    pendingPowerup = null;
-    activeModal    = id;
-    selectedScore  = Number(cat.max) || 0;   // fill with the category's max score
+    pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
+    activeModal    = maxCat;
+    selectedScore  = maxVal;
     renderPowerupBar();
     syncPowerupsToDb();
-    showToast(`Wildcard — ${cat.name}: ${selectedScore} pts!`);
-    // Route through the normal confirm chain (applies Double Points if armed,
-    // submits to the server in multiplayer, advances the turn).
+    showToast(`Wildcard — max on ${(_wcCat(maxCat)||{}).name || maxCat}, struck ${(_wcCat(strikeId)||{}).name || strikeId}.`);
+    if (typeof mpMode !== 'undefined' && mpMode) {
+      // Multiplayer: the server writes BOTH categories in one submit (see the
+      // strikeCategory handling in functions submitScore). Mirror the strike
+      // locally so the card updates before the room snapshot echoes back.
+      window.__yumWildcardStrike = strikeId;
+      if (typeof scores !== 'undefined') scores[strikeId] = 0;
+    } else {
+      // Solo / bot: write the strike locally; confirmScore scores the max and
+      // ends the turn (triggering the bot).
+      if (typeof scores !== 'undefined') scores[strikeId] = 0;
+      if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
+    }
     if (typeof confirmScore === 'function') confirmScore();
     return;
   }

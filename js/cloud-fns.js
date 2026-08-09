@@ -37,8 +37,10 @@
     // `score`/`dice` are only sent for power-up rooms, where scoring is
     // client-authoritative (Double Points and dice-manipulating power-ups are
     // applied locally). Non-power-up rooms omit them and the server recomputes.
-    submitScore: ({ roomId, categoryId, score, dice }) =>
-      call('submitScore', { roomId, categoryId, score, dice }),
+    // `strikeCategory` is the Wildcard power-up's second category (struck to 0
+    // in the same turn); power-up rooms only.
+    submitScore: ({ roomId, categoryId, score, dice, strikeCategory }) =>
+      call('submitScore', { roomId, categoryId, score, dice, strikeCategory }),
     claimDailyBonus: () => call('claimDailyBonus', {}),
     claimDailyChallenge: ({ challengeId }) => call('claimDailyChallenge', { challengeId }),
     purchaseSkin: ({ skinId }) => call('purchaseSkin', { skinId }),
