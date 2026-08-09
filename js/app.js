@@ -433,7 +433,7 @@ function renderScores() {
     const bonusBadge = bonusInfo !== null && bonusInfo.count > 0
       ? `<div class="dice-bonus-need ${bonusInfo.count >= 5 ? 'danger' : bonusInfo.count >= 4 ? 'warning' : ''}">${bonusInfo.count}×${bonusInfo.face}</div>`
       : '';
-    html += `<div class="score-row ${filled?'filled':''} ${filled&&val===0?'scratched':''} ${suggested!==null&&!filled?'suggested':''}" onclick="openModal('${id}')">
+    html += `<div class="score-row ${filled?'filled':''} ${filled&&val===0?'scratched':''} ${suggested!==null&&!filled?'suggested':''}" data-cat="${id}" onclick="openModal('${id}')">
       <div class="score-icon">${renderIcon(cat.icon)}</div>
       <div class="score-info">
         <div class="score-name">${cat.name}</div>
@@ -473,7 +473,7 @@ function renderScores() {
     const suggested = !filled && dice.every(v=>v>0) ? cat.calc(dice) : null;
     const pct = filled ? Math.round((val/cat.max)*100) : (suggested !== null ? Math.round((suggested/cat.max)*100) : null);
     const pctColor = pct >= 75 ? '#4ecdc4' : pct >= 40 ? '#f5a623' : '#e94560';
-    html += `<div class="score-row ${filled?'filled':''} ${filled&&val===0?'scratched':''} ${suggested!==null&&!filled?'suggested':''}" onclick="openModal('${id}')">
+    html += `<div class="score-row ${filled?'filled':''} ${filled&&val===0?'scratched':''} ${suggested!==null&&!filled?'suggested':''}" data-cat="${id}" onclick="openModal('${id}')">
       <div class="score-icon">${renderIcon(cat.icon)}</div>
       <div class="score-info">
         <div class="score-name">${cat.name}</div>

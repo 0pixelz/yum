@@ -196,6 +196,7 @@ function activatePowerup(id) {
     pendingPowerup = null;
     renderPowerupBar();
     refreshDieFreezeVisual();
+    refreshWildcardHighlight();
     syncPowerupsToDb();
     return;
   }
@@ -245,6 +246,7 @@ function activatePowerup(id) {
       // category with its max score. Ignores the dice, so no roll required.
       pendingPowerup = 'wildcard';
       renderPowerupBar();
+      refreshWildcardHighlight();
       showToast('Wildcard — tap any category (not Yam) to fill it with max points!');
       syncPowerupsToDb();
       break;
@@ -535,6 +537,7 @@ openModal = function(id) {
     wildcardMaxScore = Number(cat.max) || 0;
     pendingPowerup   = 'wildcardStrike';
     renderPowerupBar();
+    refreshWildcardHighlight();
     showToast(`Wildcard: ${cat.name} → ${wildcardMaxScore} pts. Now tap an empty category to STRIKE.`);
     return;
   }
@@ -544,6 +547,7 @@ openModal = function(id) {
     if (id === wildcardMaxCat) {   // tapping the picked category again cancels
       pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
       renderPowerupBar();
+      refreshWildcardHighlight();
       showToast('Wildcard cancelled.');
       return;
     }
@@ -574,6 +578,54 @@ openModal = function(id) {
     return;
   }
   _pupOrigOpenModal(id);
+};
+
+// ── Wildcard scorecard highlight ──────────────────────────────────────────────
+// While Wildcard is picking, glow the categories you can tap: green (with a 👉)
+// for the max fill / strike targets, gold for the one already chosen.
+function ensureWildcardStyles() {
+  if (document.getElementById('wildcardPickStyles')) return;
+  const s = document.createElement('style');
+  s.id = 'wildcardPickStyles';
+  s.textContent = `
+    #scoreSection .score-row.wc-pick, #scoreSection .score-row.wc-strike { cursor:pointer; position:relative; }
+    #scoreSection .score-row.wc-pick   { animation: wcPulseGreen 1.1s ease-in-out infinite; }
+    #scoreSection .score-row.wc-strike { animation: wcPulseRed 1.1s ease-in-out infinite; }
+    #scoreSection .score-row.wc-chosen { box-shadow: inset 0 0 0 2px rgba(245,166,35,0.9), 0 0 16px rgba(245,166,35,0.4); }
+    #scoreSection .score-row.wc-pick::after, #scoreSection .score-row.wc-strike::after {
+      content:'\\1F449'; position:absolute; right:10px; top:50%; transform:translateY(-50%);
+      font-size:1rem; opacity:.9; pointer-events:none;
+    }
+    @keyframes wcPulseGreen { 0%,100%{box-shadow:inset 0 0 0 2px rgba(78,205,196,0.5),0 0 8px rgba(78,205,196,0.2)} 50%{box-shadow:inset 0 0 0 2px rgba(78,205,196,0.95),0 0 18px rgba(78,205,196,0.5)} }
+    @keyframes wcPulseRed { 0%,100%{box-shadow:inset 0 0 0 2px rgba(233,69,96,0.45),0 0 8px rgba(233,69,96,0.2)} 50%{box-shadow:inset 0 0 0 2px rgba(233,69,96,0.95),0 0 18px rgba(233,69,96,0.45)} }
+  `;
+  document.head.appendChild(s);
+}
+
+function refreshWildcardHighlight() {
+  const rows = document.querySelectorAll('#scoreSection .score-row');
+  rows.forEach(r => r.classList.remove('wc-pick', 'wc-strike', 'wc-chosen'));
+  if (!powerupMode) return;
+  if (pendingPowerup !== 'wildcard' && pendingPowerup !== 'wildcardStrike') return;
+  ensureWildcardStyles();
+  rows.forEach(r => {
+    const id = r.getAttribute('data-cat');
+    if (!id) return;
+    const filled = r.classList.contains('filled');
+    if (pendingPowerup === 'wildcard') {
+      if (id !== 'yum' && !filled) r.classList.add('wc-pick');
+    } else { // wildcardStrike
+      if (id === wildcardMaxCat) r.classList.add('wc-chosen');
+      else if (!filled) r.classList.add('wc-strike');
+    }
+  });
+}
+
+// renderScores rebuilds the rows (dropping the classes), so re-apply after it.
+const _pupOrigRenderScoresWc = renderScores;
+renderScores = function() {
+  _pupOrigRenderScoresWc();
+  refreshWildcardHighlight();
 };
 
 // Patch confirmScore — apply double points + track undo + check yum earn
