@@ -23,6 +23,9 @@ const POWERUPS = [
   { id:'yamOrStrike', name:'Yam or Strike', icon:'<i class="icn icn-skull"></i>',
     desc:'First roll only: 4×1 + 2 rerolls on last dice — YAM or strike Yum!',
     color:'#e74c3c', gradient:'linear-gradient(135deg,#e74c3c,#c0392b)' },
+  { id:'wildcard',    name:'Wildcard',      icon:'<i class="icn icn-target"></i>',
+    desc:'Fill any category with its MAX score — Yam not allowed',
+    color:'#f39c12', gradient:'linear-gradient(135deg,#f6c343,#e67e22)' },
 ];
 
 let powerupMode    = false;
@@ -231,6 +234,16 @@ function activatePowerup(id) {
       pendingPowerup = 'luckyDice';
       renderPowerupBar();
       refreshDieFreezeVisual();
+      syncPowerupsToDb();
+      break;
+    }
+
+    case 'wildcard': {
+      // Arms a category pick — the openModal patch below fills the tapped
+      // category with its max score. Ignores the dice, so no roll required.
+      pendingPowerup = 'wildcard';
+      renderPowerupBar();
+      showToast('Wildcard — tap any category (not Yam) to fill it with max points!');
       syncPowerupsToDb();
       break;
     }
@@ -486,6 +499,40 @@ const _pupOrigCycleDie = cycleDie;
 cycleDie = function(i) {
   if (tryPowerupDieClick(i)) return;
   _pupOrigCycleDie(i);
+};
+
+// Patch openModal — Wildcard power-up: while it's pending, tapping any category
+// (except Yam) fills it with its MAX score instead of opening the score modal.
+const _pupOrigOpenModal = openModal;
+openModal = function(id) {
+  if (powerupMode && pendingPowerup === 'wildcard') {
+    if (typeof mpMode !== 'undefined' && mpMode &&
+        typeof currentTurnId !== 'undefined' && currentTurnId !== playerId) {
+      showToast("It's not your turn!"); return;
+    }
+    if (typeof botMode !== 'undefined' && botMode &&
+        typeof playerTurn !== 'undefined' && !playerTurn) {
+      showToast('Wait for the bot!'); return;
+    }
+    if (id === 'yum') { showToast("Wildcard can't be used on Yam!"); return; }
+    if (typeof scores !== 'undefined' && scores[id] !== undefined) {
+      showToast('Already scored!'); return;
+    }
+    const cat = (typeof categories !== 'undefined') ? categories.find(c => c.id === id) : null;
+    if (!cat) return;
+    consumePowerup('wildcard');
+    pendingPowerup = null;
+    activeModal    = id;
+    selectedScore  = Number(cat.max) || 0;   // fill with the category's max score
+    renderPowerupBar();
+    syncPowerupsToDb();
+    showToast(`Wildcard — ${cat.name}: ${selectedScore} pts!`);
+    // Route through the normal confirm chain (applies Double Points if armed,
+    // submits to the server in multiplayer, advances the turn).
+    if (typeof confirmScore === 'function') confirmScore();
+    return;
+  }
+  _pupOrigOpenModal(id);
 };
 
 // Patch confirmScore — apply double points + track undo + check yum earn
