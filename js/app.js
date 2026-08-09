@@ -1998,6 +1998,11 @@ confirmScore = async function() {
       if (typeof powerupMode !== 'undefined' && powerupMode) {
         payload.score = Math.max(0, selectedScore | 0);
         payload.dice = dice.slice(0, 5).map(v => v | 0);
+        // Wildcard: also strike a second empty category to 0 in the same submit.
+        if (window.__yumWildcardStrike) {
+          payload.strikeCategory = window.__yumWildcardStrike;
+          window.__yumWildcardStrike = null;
+        }
       }
       const resp = await window.YumCloud.submitScore(payload);
       const serverScore = (resp && typeof resp.score === 'number') ? resp.score : selectedScore;
