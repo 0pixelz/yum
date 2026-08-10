@@ -419,6 +419,17 @@ function renderScores() {
   const sec = document.getElementById('scoreSection');
   let html = '';
 
+  // When the Double Points power-up is armed, preview the DOUBLED value in the
+  // scorecard so the boost is visible before you lock a category. Only a
+  // positive score doubles (a strike/0 stays 0), matching how it's applied.
+  const _dblActive = (typeof doublePointsActive !== 'undefined' && doublePointsActive) &&
+                     (typeof powerupMode !== 'undefined' && powerupMode);
+  const _sugView = (cat, filled) => {
+    const raw = !filled && dice.every(v => v > 0) ? cat.calc(dice) : null;
+    const doubled = _dblActive && raw !== null && raw > 0;
+    return { raw, show: doubled ? raw * 2 : raw, doubled };
+  };
+
   // Upper section
   html += `<div class="score-card">`;
   html += `<div style="padding:10px 14px 6px;"><div class="section-title">UPPER SECTION</div></div>`;
@@ -426,8 +437,9 @@ function renderScores() {
     const cat = categories.find(c=>c.id===id);
     const val = scores[id];
     const filled = val !== undefined;
-    const suggested = !filled && dice.every(v=>v>0) ? cat.calc(dice) : null;
-    const pct = filled ? Math.round((val/cat.max)*100) : (suggested !== null ? Math.round((suggested/cat.max)*100) : null);
+    const _sv = _sugView(cat, filled);
+    const suggested = _sv.raw;
+    const pct = filled ? Math.round((val/cat.max)*100) : (_sv.raw !== null ? Math.min(100, Math.round((_sv.show/cat.max)*100)) : null);
     const pctColor = pct >= 75 ? '#4ecdc4' : pct >= 40 ? '#f5a623' : '#e94560';
     const bonusInfo = diceBonusNeeded(id);
     const bonusBadge = bonusInfo !== null && bonusInfo.count > 0
@@ -442,7 +454,7 @@ function renderScores() {
       </div>
       ${pct!==null?`<div class="score-pct" style="color:${pctColor}">${pct}%</div>`:'<div class="score-pct">–</div>'}
       ${bonusBadge}
-      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:var(--green);font-size:1.1rem">${suggested}?</span>`:'–')}</div>
+      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:${_sv.doubled?'var(--gold)':'var(--green)'};font-size:1.1rem">${_sv.show}?${_sv.doubled?' <span style="font-size:.72rem;font-weight:900">×2</span>':''}</span>`:'–')}</div>
     </div>`;
   });
   html += `</div>`;
@@ -470,8 +482,9 @@ function renderScores() {
     const cat = categories.find(c=>c.id===id);
     const val = scores[id];
     const filled = val !== undefined;
-    const suggested = !filled && dice.every(v=>v>0) ? cat.calc(dice) : null;
-    const pct = filled ? Math.round((val/cat.max)*100) : (suggested !== null ? Math.round((suggested/cat.max)*100) : null);
+    const _sv = _sugView(cat, filled);
+    const suggested = _sv.raw;
+    const pct = filled ? Math.round((val/cat.max)*100) : (_sv.raw !== null ? Math.min(100, Math.round((_sv.show/cat.max)*100)) : null);
     const pctColor = pct >= 75 ? '#4ecdc4' : pct >= 40 ? '#f5a623' : '#e94560';
     html += `<div class="score-row ${filled?'filled':''} ${filled&&val===0?'scratched':''} ${suggested!==null&&!filled?'suggested':''}" data-cat="${id}" onclick="openModal('${id}')">
       <div class="score-icon">${renderIcon(cat.icon)}</div>
@@ -481,7 +494,7 @@ function renderScores() {
         ${pct!==null?`<div class="pct-bar-wrap"><div class="pct-bar" style="width:${pct}%;background:${pctColor}"></div></div>`:''}
       </div>
       ${pct!==null?`<div class="score-pct" style="color:${pctColor}">${pct}%</div>`:'<div class="score-pct">–</div>'}
-      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:var(--green);font-size:1.1rem">${suggested}?</span>`:'–')}</div>
+      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:${_sv.doubled?'var(--gold)':'var(--green)'};font-size:1.1rem">${_sv.show}?${_sv.doubled?' <span style="font-size:.72rem;font-weight:900">×2</span>':''}</span>`:'–')}</div>
     </div>`;
   });
   html += `</div>`;
