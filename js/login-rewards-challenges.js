@@ -44,7 +44,26 @@
 
   window.isYumLoggedIn = isLoggedIn;
 
+  // The uid of the LIVE Firebase auth session — the exact uid the server keys
+  // every credit mutation on (purchaseSkin / claimDailyBonus / claimDailyChallenge
+  // all use req.auth.uid). Empty when there is no active session yet.
+  function liveAuthUid() {
+    try {
+      if (window.firebase && firebase.auth && firebase.auth().currentUser) {
+        return String(firebase.auth().currentUser.uid || '').trim();
+      }
+    } catch (e) {}
+    return '';
+  }
+
   function profileId() {
+    // Prefer the live auth uid so the local wallet is scoped to the same node
+    // the server actually charges. A stale localStorage profile can carry a uid
+    // from a previous session; scoping on it would show a balance the server
+    // won't honor (credits look present, but purchaseSkin rejects them). Fall
+    // back to the stored profile only while auth is still restoring.
+    const live = liveAuthUid();
+    if (live) return live;
     const p = getLoginProfile();
     if (!p) return '';
     return String(p.uid || p.email || '').trim();
@@ -85,9 +104,13 @@
     try {
       if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
       if (!window.db || !window.firebase || !window.firebase.database) return null;
-      const p = getLoginProfile();
-      if (!p || !p.uid) return null;
-      return window.db.ref('users/' + p.uid + '/creditWallet');
+      // Read the wallet under the live auth uid — the same node the server
+      // writes — so hydrate reflects what purchaseSkin will actually charge.
+      // Only fall back to the stored profile uid while auth is still restoring.
+      let uid = liveAuthUid();
+      if (!uid) { const p = getLoginProfile(); uid = p && p.uid ? p.uid : ''; }
+      if (!uid) return null;
+      return window.db.ref('users/' + uid + '/creditWallet');
     } catch(e) { return null; }
   }
 
