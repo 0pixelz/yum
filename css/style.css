@@ -781,6 +781,17 @@
     flex-shrink: 0;
     transform-origin: 50% 50%;
   }
+  /* When a lobby field is focused the on-screen keyboard covers the lower half.
+     Anchor the menu to the top (and scale from the top) so the focused field —
+     the Username input near the top — stays visible above the keyboard instead
+     of the centered menu having its top clipped off-screen. Toggled by
+     js/lobby-fit.js on focus/blur. */
+  #lobbyOverlay.kb-focus {
+    justify-content: flex-start; /* column flex: top-anchor vertically, keep horizontal centered */
+  }
+  #lobbyOverlay.kb-focus .lobby-fit-wrap {
+    transform-origin: 50% 0%;
+  }
   /* Landing menu is fully static — no scroll at all. The menu is a fixed,
      auto-scaled overlay (js/lobby-fit.js sizes it to the viewport), so it never
      needs to scroll; locking the page removes the rubber-band/scroll that made
