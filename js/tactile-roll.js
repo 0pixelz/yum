@@ -87,6 +87,9 @@
     var rc = document.getElementById('rollCount');
     var txt = rc ? rc.textContent.trim() : '';
     var m = txt.match(/Rolls:\s*(\d)\s*\/\s*3/);
+    // Opponent's turn shows "<Name> — Roll N / 3" (N = the roll they're on).
+    // Checked only if the "Rolls: x/3" (my-turn) form didn't match.
+    var opp = m ? null : txt.match(/Roll\s*(\d)\s*\/\s*3/);
 
     if (m) {
       var used = Math.max(0, Math.min(3, parseInt(m[1], 10)));
@@ -100,6 +103,18 @@
       if (left === 0) btn.setAttribute('disabled', '');
       else btn.removeAttribute('disabled');
       if (rc) rc.classList.add('tr-hide'); // pips replace the redundant count
+    } else if (opp) {
+      // Opponent's turn — deplete the pips to mirror each roll they take so the
+      // three dots don't just sit static. The button isn't ours: keep it
+      // disabled, unflashing, and let the "<Name> — Roll N / 3" status show.
+      var oUsed = Math.max(0, Math.min(3, parseInt(opp[1], 10)));
+      var oLeft = 3 - oUsed;
+      pips.forEach(function (p, idx) { p.classList.toggle('spent', idx >= oLeft); });
+      label.textContent = 'ROLL';
+      btn.classList.remove('tr-empty');
+      btn.classList.remove('tr-attention');
+      btn.setAttribute('disabled', '');
+      if (rc) rc.classList.remove('tr-hide');
     } else {
       // Non-standard status ("Waiting for X to roll…", etc.) — leave the
       // button neutral and let the status text show through.
