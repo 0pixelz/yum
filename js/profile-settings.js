@@ -39,6 +39,7 @@
       #profileSettingsOverlay {
         position: fixed;
         inset: 0;
+        height: 100dvh; /* dynamic viewport so a tall sheet + its close stays on-screen */
         background: rgba(0,0,0,0.72);
         z-index: 9998;
         display: none;
@@ -54,7 +55,7 @@
         padding: 20px;
         max-width: 460px;
         width: 100%;
-        max-height: 88vh;
+        max-height: 88dvh;
         overflow-y: auto;
         color: var(--white, #fff);
         font-family: Nunito, sans-serif;

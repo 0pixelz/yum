@@ -275,6 +275,7 @@
       #skinStoreOverlay {
         position: fixed;
         inset: 0;
+        height: 100dvh; /* dynamic viewport so the sheet + its X fit the visible area */
         z-index: 960;
         display: none;
         align-items: flex-end;
@@ -285,7 +286,7 @@
       .store-sheet {
         width: 100%;
         max-width: 520px;
-        max-height: 82vh;
+        max-height: 82dvh;
         overflow-y: auto;
         background: var(--panel);
         border-radius: 24px 24px 0 0;
