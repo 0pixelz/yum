@@ -295,6 +295,9 @@ function activatePowerup(id) {
       consumePowerup('doublePoints');
       doublePointsActive = true;
       renderPowerupBar();
+      // Refresh the scorecard now so the doubled previews show immediately
+      // (renderScores also triggers the possibilities panel to re-render).
+      if (typeof renderScores === 'function') renderScores();
       showToast('Double Points active! Score any category to double it.');
       syncPowerupsToDb();
       break;

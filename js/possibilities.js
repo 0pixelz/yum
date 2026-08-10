@@ -96,18 +96,28 @@
       return;
     }
 
+    // Double Points armed → preview the doubled points here too (positive
+    // scores only, matching how the power-up applies).
+    const dbl = (typeof doublePointsActive !== 'undefined' && doublePointsActive) &&
+                (typeof powerupMode !== 'undefined' && powerupMode);
+
     const chips = options.slice(0, 8).map(({ cat, points }) => {
-      const pct = cat.max ? Math.round((points / cat.max) * 100) : 0;
+      const doubled = dbl && points > 0;
+      const shown = doubled ? points * 2 : points;
+      const pct = cat.max ? Math.min(100, Math.round((shown / cat.max) * 100)) : 0;
+      const ptsHtml = doubled
+        ? `<span class="dp-points" style="color:var(--gold)">${shown} pts <span style="font-size:.7rem;font-weight:900">×2</span></span>`
+        : `<span class="dp-points">${shown} pts</span>`;
       return `<div class="dp-chip" onclick="openModal('${cat.id}')">
         <span class="dp-icon">${categoryIcon(cat)}</span>
         <span class="dp-name">${cat.name}</span>
-        <span class="dp-points">${points} pts</span>
+        ${ptsHtml}
         <span class="dp-pct">${pct}%</span>
       </div>`;
     }).join('');
 
     panel.innerHTML = `
-      <div class="dp-title">Possible scores left</div>
+      <div class="dp-title">Possible scores left${dbl ? ' · <span style="color:var(--gold)">Double Points!</span>' : ''}</div>
       <div class="dp-list">${chips}</div>
     `;
   }
