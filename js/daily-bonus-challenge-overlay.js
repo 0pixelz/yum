@@ -175,13 +175,14 @@
     s.textContent = `
       #dboBonusOverlay, #dboChallengeOverlay {
         position: fixed; inset: 0; z-index: 990;
+        height: 100dvh; /* dynamic viewport so the sheet + its X fit the visible area */
         background: rgba(0,0,0,0.85);
         display: none; align-items: flex-end; justify-content: center;
       }
       #dboBonusOverlay.open, #dboChallengeOverlay.open { display: flex; }
       .dbo-sheet {
         background: var(--bg); width: 100%; max-width: 480px;
-        max-height: 90vh; border-radius: 24px 24px 0 0;
+        max-height: 90dvh; border-radius: 24px 24px 0 0;
         overflow-y: auto;
         transform: translateY(100%);
         transition: transform 0.35s cubic-bezier(0.34,1.2,0.64,1);

@@ -206,6 +206,7 @@
     style.textContent = `
       #leaderboardOverlay {
         position: fixed; inset: 0;
+        height: 100dvh; /* dynamic viewport so a tall sheet + its close stays on-screen */
         background: rgba(0,0,0,0.72);
         z-index: 9998;
         display: none; align-items: center; justify-content: center;
@@ -218,7 +219,7 @@
         border-radius: 18px;
         padding: 20px;
         max-width: 460px; width: 100%;
-        max-height: 88vh; overflow-y: auto;
+        max-height: 88dvh; overflow-y: auto;
         color: var(--white, #fff);
         font-family: Nunito, sans-serif;
         box-shadow: 0 22px 70px rgba(0,0,0,0.55);

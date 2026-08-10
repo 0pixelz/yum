@@ -238,11 +238,12 @@
     s.textContent = `
       #yamWorldOverlay, #yamWorldShopOverlay {
         position: fixed; inset: 0; z-index: 962; display: none;
+        height: 100dvh; /* dynamic viewport so the sheet + its X fit the visible area */
         align-items: flex-end; justify-content: center; background: rgba(0,0,0,0.78);
       }
       #yamWorldOverlay.open, #yamWorldShopOverlay.open { display: flex; }
       .yw-sheet {
-        width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
+        width: 100%; max-width: 520px; max-height: 88dvh; overflow-y: auto;
         background: var(--panel); border-radius: 24px 24px 0 0; padding: 18px 16px 28px;
         border: 1px solid rgba(245,166,35,0.22); box-shadow: 0 -12px 40px rgba(0,0,0,0.45);
       }
