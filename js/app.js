@@ -1022,7 +1022,20 @@ let previousPlayerCount = null;
 let previousPlayers = {};
 let prevOpponentScores = {}; // track opponent score counts for change detection
 let prevOpponentPowerups = {}; // track opponent powerup state for change detection
-const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i class="icn icn-gem"></i>', doublePoints:'<i class="icn icn-sparkle"></i>', luckyDice:'<i class="icn icn-star"></i>', undoMove:'<i class="icn icn-refresh"></i>', wildcard:'<i class="icn icn-target"></i>' };
+const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i class="icn icn-gem"></i>', doublePoints:'<i class="icn icn-sparkle"></i>', luckyDice:'<i class="icn icn-star"></i>', undoMove:'<i class="icn icn-refresh"></i>', chanceRoll:'<i class="icn icn-volcano"></i>', yamOrStrike:'<i class="icn icn-skull"></i>', wildcard:'<i class="icn icn-target"></i>' };
+// Resolve a power-up's icon: the map above first, then its own icon from the
+// POWERUPS catalog (so a new power-up shows its real logo, not a generic bolt),
+// falling back to a bolt only if truly unknown.
+function powerupIconFor(pid) {
+  if (POWERUP_ICONS[pid]) return POWERUP_ICONS[pid];
+  try {
+    if (typeof POWERUPS !== 'undefined') {
+      const def = POWERUPS.find(x => x.id === pid);
+      if (def && def.icon) return def.icon;
+    }
+  } catch (e) {}
+  return '<i class="icn icn-bolt"></i>';
+}
 let mpGameOverShown = false;
 
 function genCode() {
@@ -1767,7 +1780,7 @@ function listenRoom() {
         Object.keys(prevCount).forEach(pid => {
           const removed = (prevCount[pid] || 0) - (curCount[pid] || 0);
           for (let i = 0; i < removed; i++) {
-            const icon = POWERUP_ICONS[pid] || '<i class="icn icn-bolt"></i>';
+            const icon = powerupIconFor(pid);
             const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === pid) || {}).name : null) || pid;
             showToast(`${icon} ${escapeHtml(p.name)} used ${escapeHtml(pName)}!`);
           }
@@ -1775,7 +1788,7 @@ function listenRoom() {
 
         // Opponent just entered pending (die-selection) state
         if (!prev.pending && cur.pending) {
-          const icon = POWERUP_ICONS[cur.pending] || '<i class="icn icn-bolt"></i>';
+          const icon = powerupIconFor(cur.pending);
           const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === cur.pending) || {}).name : null) || cur.pending;
           showToast(`${icon} ${escapeHtml(p.name)} is activating ${escapeHtml(pName)}…`);
         }
@@ -1890,7 +1903,7 @@ function renderLeaderboard() {
         const countMap = {};
         inv.forEach(x => countMap[x] = (countMap[x] || 0) + 1);
         const icons = Object.entries(countMap).map(([pid, cnt]) => {
-          const icon = POWERUP_ICONS[pid] || '<i class="icn icn-bolt"></i>';
+          const icon = powerupIconFor(pid);
           const isActive = lp?.pending === pid;
           const puDef = typeof POWERUPS !== 'undefined' ? POWERUPS.find(p => p.id === pid) : null;
           const name = puDef ? puDef.name : pid;
@@ -2398,7 +2411,7 @@ function _renderBotLbPupHtml(inv, pendingId) {
   const countMap = {};
   inv.forEach(x => countMap[x] = (countMap[x] || 0) + 1);
   const icons = Object.entries(countMap).map(([pid, cnt]) => {
-    const icon = POWERUP_ICONS[pid] || '<i class="icn icn-bolt"></i>';
+    const icon = powerupIconFor(pid);
     const isActive = pendingId === pid;
     const puDef = typeof POWERUPS !== 'undefined' ? POWERUPS.find(p => p.id === pid) : null;
     const name = puDef ? puDef.name : pid;
