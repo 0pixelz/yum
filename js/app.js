@@ -1498,6 +1498,16 @@ function listenRoom() {
     allPlayers = data.players || {};
     currentTurnId = data.currentTurn;
 
+    // Remember real online opponents once the game has started, so the Friends
+    // menu can offer to add them. Only genuine multiplayer humans (they have a
+    // uid); the local player and bots are skipped.
+    if (data.started && window.YumFriends && typeof window.YumFriends.recordRecentOpponent === 'function') {
+      Object.entries(allPlayers).forEach(([id, p]) => {
+        if (id === playerId || !p || !p.uid) return;
+        try { window.YumFriends.recordRecentOpponent(p.uid, p.name || '', p.avatar || null); } catch(e) {}
+      });
+    }
+
     // Update waiting room player list
     const wp = document.getElementById('waitingPlayers');
     if(wp) {

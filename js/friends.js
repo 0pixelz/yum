@@ -24,6 +24,8 @@
   'use strict';
 
   const FRIENDS_KEY     = 'yum_friends_v1';
+  const RECENT_KEY      = 'yum_recent_opponents_v1';
+  const RECENT_MAX      = 8;              // how many recent opponents we keep
   const PRESENCE_PATH   = 'presence';
   const INVITES_PATH    = 'friendInvites';
   const ONLINE_FRESH_MS = 90 * 1000;     // presence ts within this is "online"
@@ -64,6 +66,87 @@
 
   function saveFriends(list) {
     try { localStorage.setItem(FRIENDS_KEY, JSON.stringify(list || [])); } catch(e) {}
+  }
+
+  // ─── Recent online opponents ───────────────────────────────────────
+  // A small most-recent-first list of real players we've faced online, so the
+  // Friends menu can offer to add them. Populated from app.js (listenRoom).
+  function loadRecent() {
+    try {
+      const arr = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+      return Array.isArray(arr) ? arr.filter(r => r && typeof r.uid === 'string') : [];
+    } catch(e) { return []; }
+  }
+  function saveRecent(list) {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify((list || []).slice(0, RECENT_MAX))); } catch(e) {}
+  }
+
+  // Record (or refresh) a real online opponent. Skips ourselves and anything
+  // without a proper uid. Most recent ends up first; re-facing someone just
+  // bumps them up and updates their name/avatar.
+  function recordRecentOpponent(uid, name, avatar) {
+    if (!uid || typeof uid !== 'string') return;
+    const mine = getMyUid();
+    if (mine && uid === mine) return;
+    const list = loadRecent().filter(r => r.uid !== uid);
+    list.unshift({ uid, name: name || '', avatar: avatar || null, ts: Date.now() });
+    saveRecent(list);
+    // Live-update the menu if it's open.
+    if (el('friendsDrawer') && el('friendsDrawer').classList.contains('open')) {
+      renderRecentOpponents();
+    }
+  }
+
+  function renderRecentOpponents() {
+    const box = el('frRecent');
+    const label = el('frRecentLabel');
+    if (!box) return;
+    const friendUids = new Set(loadFriends().map(f => f.uid));
+    // Top 3 recent opponents who aren't already friends.
+    const recent = loadRecent().filter(r => !friendUids.has(r.uid)).slice(0, 3);
+    if (recent.length === 0) {
+      if (label) label.style.display = 'none';
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+    if (label) label.style.display = '';
+    box.style.display = '';
+    box.innerHTML = recent.map(r => {
+      const name = r.name || 'Player';
+      const safeUid = encodeURIComponent(r.uid);
+      return `
+        <div class="fr-row fr-recent-row">
+          <div class="fr-avatar">${avatarMarkup(r.avatar, name)}</div>
+          <div class="fr-info">
+            <div class="fr-name">${escapeHtml(name)}</div>
+            <div class="fr-status">Recently played online</div>
+          </div>
+          <div class="fr-actions">
+            <button class="fr-add-recent-btn" onclick="window.YumFriends.addRecent('${safeUid}')"><i class="icn icn-players"></i> ADD</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function addRecentAsFriend(uidEnc) {
+    const uid = decodeURIComponent(uidEnc);
+    const mine = getMyUid();
+    if (mine && uid === mine) { showToast("That's your own code!"); return; }
+    const rec = loadRecent().find(r => r.uid === uid);
+    const friends = loadFriends();
+    if (friends.some(f => f.uid === uid)) {
+      showToast('Already in your friend list.');
+    } else {
+      friends.push({ uid, name: (rec && rec.name) || '', avatar: (rec && rec.avatar) || null, addedAt: Date.now() });
+      saveFriends(friends);
+      attachFriendPresence(uid);
+      showToast('<i class="icn icn-check"></i> Friend added!');
+    }
+    // Drop them from the recent list now that they're a friend.
+    saveRecent(loadRecent().filter(r => r.uid !== uid));
+    renderRecentOpponents();
+    renderFriendList();
   }
 
   function injectStyles() {
@@ -301,6 +384,16 @@
         font-size: 1rem; padding: 4px 6px;
       }
       .fr-remove-btn:hover { color: var(--accent); }
+      .fr-add-recent-btn {
+        background: rgba(245,166,35,0.14);
+        color: var(--gold);
+        border: 1px solid rgba(245,166,35,0.45);
+        border-radius: 8px; padding: 7px 11px;
+        font-family: 'Nunito', sans-serif;
+        font-weight: 900; cursor: pointer;
+        font-size: 0.74rem; letter-spacing: 0.5px;
+        white-space: nowrap;
+      }
 
       /* Incoming invite modal */
       #friendInviteModal {
@@ -496,6 +589,9 @@
             <input class="fr-add-input" id="frAddInput" placeholder="Paste friend code" autocomplete="off" spellcheck="false">
             <button class="fr-add-btn" onclick="window.YumFriends.addFromInput()">ADD</button>
           </div>
+
+          <div class="fr-section-label" id="frRecentLabel" style="display:none">RECENT OPPONENTS</div>
+          <div class="fr-list" id="frRecent" style="display:none"></div>
 
           <div class="fr-section-label" id="frListLabel">FRIENDS</div>
           <div class="fr-list" id="frList"></div>
@@ -1108,6 +1204,7 @@
   }
 
   function openFriendsMenu() {
+    renderRecentOpponents();
     renderFriendList();
     if (myUid) setMyCodeText(myUid);
     el('friendsScrim').classList.add('open');
@@ -1209,6 +1306,8 @@
     declineInvite,
     cancelOutgoingInvite,
     copyMyCode,
-    shareMyCode
+    shareMyCode,
+    recordRecentOpponent,
+    addRecent: addRecentAsFriend
   };
 })();
