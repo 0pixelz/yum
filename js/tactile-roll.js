@@ -78,6 +78,10 @@
       '<span class="tr-roll-pips" aria-hidden="true"><i></i><i></i><i></i></span>';
   }
 
+  // Remembers how many rolls the opponent has used this turn, so transient
+  // between-roll statuses ("Holding N dice…", "Scoring…") don't reset the pips.
+  var lastOppUsed = 0;
+
   function syncRollUI() {
     var btn = document.querySelector('.btn-roll');
     if (!btn) return;
@@ -91,8 +95,12 @@
     // "<Name> — Roll N / 3"; a bot / Quick Match opponent shows "Roll N of 3…".
     // Match both ("/" or "of"). Checked only if the my-turn form didn't match.
     var opp = m ? null : txt.match(/Roll\s*(\d)\s*(?:\/|of)\s*3/i);
+    // Between-roll statuses during the opponent's turn — the pips must stay put
+    // through these instead of resetting to full (they flash back otherwise).
+    var oppHold = (!m && !opp) && /Holding|Scoring|Bonus roll/i.test(txt);
 
     if (m) {
+      lastOppUsed = 0; // my turn — clear opponent tracking
       var used = Math.max(0, Math.min(3, parseInt(m[1], 10)));
       var left = 3 - used;
       pips.forEach(function (p, idx) { p.classList.toggle('spent', idx >= left); });
@@ -104,21 +112,22 @@
       if (left === 0) btn.setAttribute('disabled', '');
       else btn.removeAttribute('disabled');
       if (rc) rc.classList.add('tr-hide'); // pips replace the redundant count
-    } else if (opp) {
+    } else if (opp || (oppHold && lastOppUsed > 0)) {
       // Opponent's turn — deplete the pips to mirror each roll they take so the
-      // three dots don't just sit static. The button isn't ours: keep it
-      // disabled, unflashing, and let the "<Name> — Roll N / 3" status show.
-      var oUsed = Math.max(0, Math.min(3, parseInt(opp[1], 10)));
+      // three dots don't just sit static. Keep them steady through the between-
+      // roll "Holding…/Scoring…" statuses (oppHold) using the last roll count.
+      var oUsed = opp ? Math.max(0, Math.min(3, parseInt(opp[1], 10))) : lastOppUsed;
+      lastOppUsed = oUsed;
       var oLeft = 3 - oUsed;
       pips.forEach(function (p, idx) { p.classList.toggle('spent', idx >= oLeft); });
       label.textContent = 'ROLL';
       btn.classList.remove('tr-empty');
       btn.classList.remove('tr-attention');
-      btn.setAttribute('disabled', '');
+      btn.setAttribute('disabled', ''); // not our turn
       if (rc) rc.classList.remove('tr-hide');
     } else {
-      // Non-standard status ("Waiting for X to roll…", etc.) — leave the
-      // button neutral and let the status text show through.
+      // Genuine neutral ("Waiting for X to roll…", turn hand-off) — reset to full.
+      lastOppUsed = 0;
       label.textContent = 'ROLL';
       pips.forEach(function (p) { p.classList.remove('spent'); });
       btn.classList.remove('tr-empty');
