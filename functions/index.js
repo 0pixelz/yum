@@ -506,24 +506,45 @@ exports.purchaseSkin = onCall(async (req) => {
   const cost = SKIN_COSTS[skinId];
 
   const userRef = db().ref('users/' + uid);
+
+  // Authoritative pre-read for clean, correct user-facing errors. Admin reads
+  // are strongly consistent, so this reflects the true wallet — unlike the
+  // transaction's optimistic first pass, which Firebase may run against a
+  // not-yet-loaded `null` snapshot.
+  const before = (await userRef.once('value')).val() || {};
+  if ((before.skins || {})[skinId]) {
+    throw new HttpsError('already-exists', 'skin already owned');
+  }
+  const haveCredits = Math.max(0, Number((before.creditWallet || {}).credits) || 0);
+  if (cost > 0 && haveCredits < cost) {
+    throw new HttpsError('failed-precondition', 'insufficient credits');
+  }
+
   const result = await userRef.transaction((curr) => {
-    const u = curr || {};
+    // Firebase invokes this update function optimistically and can pass `null`
+    // before the real node is loaded, then re-runs it against the true value.
+    // Returning undefined (abort) on that null pass would kill the whole
+    // transaction and wrongly reject a player who actually has credits — the
+    // exact bug that made every purchase say "not enough credits". So on a null
+    // pass, return null to force the SDK to load real data and re-run instead
+    // of aborting. (A genuinely wallet-less/short player was already rejected by
+    // the pre-read above, so we never reach here for them.)
+    if (curr === null) return null;
+
+    const u = curr;
     const wallet = u.creditWallet || { credits: 0, earned: 0, spent: 0 };
     const skins = u.skins || {};
 
-    if (skins[skinId]) {
-      // Already owned — abort so the caller sees a clean error.
-      return;
-    }
+    if (skins[skinId]) return; // owned in a race — abort, reported below.
     const credits = Math.max(0, Number(wallet.credits) || 0);
-    if (cost > 0 && credits < cost) {
-      // Insufficient — abort.
-      return;
-    }
+    if (cost > 0 && credits < cost) return; // raced below cost — abort.
 
+    // Deduct from the authoritative `credits` field (what the affordability
+    // check reads) rather than recomputing earned - spent, so a legacy wallet
+    // whose earned/spent don't reconcile can't silently wipe the balance.
     const earned = Math.min(MAX_CREDITS, Number(wallet.earned) || 0);
     const spent = Math.min(MAX_CREDITS, (Number(wallet.spent) || 0) + cost);
-    const newCredits = Math.max(0, Math.min(MAX_CREDITS, earned - spent));
+    const newCredits = Math.max(0, Math.min(MAX_CREDITS, credits - cost));
 
     u.skins = Object.assign({}, skins, { [skinId]: true });
     u.creditWallet = {
@@ -537,22 +558,24 @@ exports.purchaseSkin = onCall(async (req) => {
   });
 
   if (!result.committed) {
-    // Disambiguate the two abort reasons. Collapsing them into one message
-    // lets the client mistake "insufficient credits" for "already owned" and
-    // hand the skin over without charging, so report them distinctly.
+    // Re-read to disambiguate: a race may have granted the skin or spent the
+    // credits between the pre-read and the transaction. Report distinctly so
+    // the client never mistakes "insufficient" for "already owned" (which would
+    // hand over the skin without charging).
     const current = (await userRef.once('value')).val() || {};
     if ((current.skins || {})[skinId]) {
       throw new HttpsError('already-exists', 'skin already owned');
     }
     throw new HttpsError('failed-precondition', 'insufficient credits');
   }
-  const after = result.snapshot.val();
+  const after = result.snapshot.val() || {};
+  const w = after.creditWallet || { credits: 0, earned: 0, spent: 0 };
   return {
     skinId,
     cost,
-    credits: after.creditWallet.credits,
-    earned: after.creditWallet.earned,
-    spent: after.creditWallet.spent
+    credits: Math.max(0, Number(w.credits) || 0),
+    earned: Math.max(0, Number(w.earned) || 0),
+    spent: Math.max(0, Number(w.spent) || 0)
   };
 });
 
