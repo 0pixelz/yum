@@ -777,13 +777,19 @@
     flex-shrink: 0;
     transform-origin: 50% 50%;
   }
-  /* Stop the rubber-band bounce under the fixed menu, but DON'T hard-lock
-     vertical scroll: on iOS Safari a fully non-scrolling page keeps the top
-     address bar expanded, which then covers the fixed top-corner buttons
-     (store / friends / settings). Allowing the page to scroll lets that bar
-     collapse. The menu itself is a fixed, scaled overlay so it never visibly
-     moves. overflow-x stays hidden to avoid any sideways jitter. */
-  body.lobby-lock { overflow-x: hidden; overscroll-behavior: none; }
+  /* Landing menu is fully static — no scroll at all. The menu is a fixed,
+     auto-scaled overlay (js/lobby-fit.js sizes it to the viewport), so it never
+     needs to scroll; locking the page removes the rubber-band/scroll that made
+     the "main page" drift on mobile. position:fixed pins the body so neither
+     axis can scroll while the menu is up; the lock is removed the moment the
+     lobby is hidden (in-game screens scroll normally). */
+  body.lobby-lock {
+    overflow: hidden;
+    overscroll-behavior: none;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+  }
   .lobby-title {
     font-family: 'Bebas Neue', cursive;
     font-size: 2.4rem; letter-spacing: 4px;
