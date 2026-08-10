@@ -574,6 +574,10 @@
   /* PREDICTION OVERLAY (full page) */
   #predOverlay {
     position: fixed; inset: 0; z-index: 950;
+    /* Size to the DYNAMIC viewport so the sheet fits the visible area even when
+       the mobile address bar is showing (otherwise inset:0 uses the taller
+       layout viewport and the sticky header/close gets pushed off-screen). */
+    height: 100dvh;
     background: rgba(0,0,0,0.85);
     display: none; align-items: flex-end; justify-content: center;
   }
@@ -581,7 +585,7 @@
   .pred-sheet {
     background: var(--bg);
     width: 100%; max-width: 480px;
-    max-height: 90vh;
+    max-height: 90dvh;
     border-radius: 24px 24px 0 0;
     overflow-y: auto;
     transform: translateY(100%);

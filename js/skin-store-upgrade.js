@@ -63,6 +63,9 @@
       #skinStoreUpgradeOverlay {
         position: fixed;
         inset: 0;
+        /* Dynamic viewport so the sheet (and its sticky X) fits the visible
+           area when the mobile address bar is showing. */
+        height: 100dvh;
         z-index: 980;
         display: none;
         align-items: flex-end;
@@ -73,7 +76,7 @@
       .ssu-sheet {
         width: 100%;
         max-width: 520px;
-        max-height: 84vh;
+        max-height: 84dvh;
         overflow-y: auto;
         border-radius: 24px 24px 0 0;
         background: var(--panel);
