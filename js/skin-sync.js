@@ -7,27 +7,21 @@
   const ACTIVE_SKIN_KEY = 'yum_active_dice_skin';
   let _skinPublishedRoomRef = null;
 
+  // Every skin renders opponent dice with the standard dot-pip faces — the skin
+  // identity comes from the tile colour (the .remote-skin-* CSS below), NOT from
+  // the glyph. This mirrors how a player sees their OWN dice (store.js getDieFace
+  // returns pips regardless of skin), so an opponent's Fire/Ice/etc. dice show
+  // real dots instead of an emoji + number like "🔥1". The keys are still the
+  // authoritative set of valid skin ids used throughout this file.
+  const PIP_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
   const SKIN_FACES = {
-    classic:  ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    gold:     ['①','②','③','④','⑤','⑥'],
-    neon:     ['1','2','3','4','5','6'],
-    ice:      ['❄1','❄2','❄3','❄4','❄5','❄6'],
-    fire:     ['🔥1','🔥2','🔥3','🔥4','🔥5','🔥6'],
-    galaxy:   ['✦1','✦2','✦3','✦4','✦5','✦6'],
-    red:      ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    blue:     ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    green:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    purple:   ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    orange:   ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    pink:     ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    black:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    teal:     ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    candy:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    ocean:    ['⚀','⚁','⚂','⚃','⚄','⚅'],
-    midnight: ['★1','★2','★3','★4','★5','★6'],
-    lava:     ['🌋1','🌋2','🌋3','🌋4','🌋5','🌋6'],
-    rosegold: ['♥1','♥2','♥3','♥4','♥5','♥6'],
-    diamond:  ['💎1','💎2','💎3','💎4','💎5','💎6']
+    classic:  PIP_FACES, gold:     PIP_FACES, neon:     PIP_FACES,
+    ice:      PIP_FACES, fire:     PIP_FACES, galaxy:   PIP_FACES,
+    red:      PIP_FACES, blue:     PIP_FACES, green:    PIP_FACES,
+    purple:   PIP_FACES, orange:   PIP_FACES, pink:     PIP_FACES,
+    black:    PIP_FACES, teal:     PIP_FACES, candy:    PIP_FACES,
+    ocean:    PIP_FACES, midnight: PIP_FACES, lava:     PIP_FACES,
+    rosegold: PIP_FACES, diamond:  PIP_FACES
   };
 
   function activeSkinId() {
