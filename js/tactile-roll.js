@@ -87,9 +87,10 @@
     var rc = document.getElementById('rollCount');
     var txt = rc ? rc.textContent.trim() : '';
     var m = txt.match(/Rolls:\s*(\d)\s*\/\s*3/);
-    // Opponent's turn shows "<Name> — Roll N / 3" (N = the roll they're on).
-    // Checked only if the "Rolls: x/3" (my-turn) form didn't match.
-    var opp = m ? null : txt.match(/Roll\s*(\d)\s*\/\s*3/);
+    // Opponent's turn (N = the roll they're on). A real human opponent shows
+    // "<Name> — Roll N / 3"; a bot / Quick Match opponent shows "Roll N of 3…".
+    // Match both ("/" or "of"). Checked only if the my-turn form didn't match.
+    var opp = m ? null : txt.match(/Roll\s*(\d)\s*(?:\/|of)\s*3/i);
 
     if (m) {
       var used = Math.max(0, Math.min(3, parseInt(m[1], 10)));
