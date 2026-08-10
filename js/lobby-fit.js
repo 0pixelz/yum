@@ -101,6 +101,38 @@
       if (changed) queueFit();
     }).observe(overlay, { childList: true, attributes: true, attributeFilter: ['style'] });
 
+    // ── Keyboard handling ────────────────────────────────────────────
+    // With the page locked (body is position:fixed while the menu is up) the
+    // browser can't scroll a focused field above the on-screen keyboard, so the
+    // centered menu's top — where the Username input lives — gets clipped. When
+    // a lobby field is focused, top-anchor the menu (via .kb-focus) so that
+    // field stays visible, and nudge it into view. Restored on blur.
+    function isLobbyInput(el) {
+      return el && wrap && wrap.contains(el) &&
+        (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+    }
+    document.addEventListener('focusin', e => {
+      if (!isLobbyInput(e.target)) return;
+      overlay.classList.add('kb-focus');
+      // Let layout settle (keyboard animating in) then bring the field into view.
+      setTimeout(() => {
+        try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {}
+      }, 250);
+    });
+    document.addEventListener('focusout', () => {
+      // Defer: focus may be hopping from one lobby input to another.
+      setTimeout(() => {
+        if (!isLobbyInput(document.activeElement)) {
+          overlay.classList.remove('kb-focus');
+          queueFit();
+        }
+      }, 60);
+    });
+    // The visual viewport shrinks when the keyboard opens — refit/re-anchor.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', queueFit);
+    }
+
     window.addEventListener('resize', queueFit);
     window.addEventListener('orientationchange', queueFit);
     // Bebas Neue/Nunito land after first layout and change text heights.
