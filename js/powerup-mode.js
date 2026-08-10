@@ -38,7 +38,8 @@ let frozenDieValue = 0;
 let yamOrStrikeActive   = false;
 let yamOrStrikeAttempts = 0;     // number of attempts used (max 2)
 let suppressNextYumEarn = false; // forced YAM via yamOrStrike shouldn't earn another power-up
-let upperBonusPowerupAwarded = false; // upper-bonus reward fires once per game
+let allButYumPowerupAwarded = false; // reward for filling everything but Yam, once per game
+let upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false; // upper-bonus reward fires once per game
 let wildcardMaxCat   = null;   // Wildcard step 1: category chosen to fill with max
 let wildcardMaxScore = 0;      // its max value, applied once the strike is picked
 
@@ -65,7 +66,7 @@ function startPowerupMode() {
   yamOrStrikeActive  = false;
   yamOrStrikeAttempts = 0;
   suppressNextYumEarn = false;
-  upperBonusPowerupAwarded = false;
+  upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
   // Clear the solo game-over latch — if a previous power-up game ended and the
   // player returned to the lobby (rather than rematch/quit), this stayed true
   // and permanently suppressed the next game's game-over screen.
@@ -91,6 +92,9 @@ function openPowerupPickerModal(context) {
   } else if (context === 'bonus') {
     titleHtml = '<i class="icn icn-gift"></i> UPPER BONUS! EARN A POWER-UP!';
     subText   = 'You reached 63 in the upper section — pick a power-up reward';
+  } else if (context === 'allbutyum') {
+    titleHtml = '<i class="icn icn-gift"></i> ALL BUT YAM! EARN A POWER-UP!';
+    subText   = 'Every category but Yam is filled — pick a power-up for your Yam turn';
   } else {
     titleHtml = '<i class="icn icn-dice"></i> YAM! EARN A POWER-UP!';
     subText   = 'You rolled 5-of-a-kind! Pick a power-up to add to your arsenal';
@@ -567,6 +571,29 @@ function checkPowerupUpperBonusEarn(justScoredId, justScoredValue) {
   }
 }
 
+// Reward for completing the whole scorecard EXCEPT Yam: once every category
+// other than Yam is filled (and Yam is still open), earn a power-up. Fires once
+// per game — handy for setting up the final Yam turn.
+function checkPowerupAllButYumEarn(justScoredId) {
+  if (!powerupMode) return;
+  if (allButYumPowerupAwarded) return;
+  if (typeof categories === 'undefined' || !Array.isArray(categories)) return;
+
+  const isFilled = (id) =>
+    (scores[id] !== undefined && scores[id] !== null) || id === justScoredId;
+
+  // Yam must still be open — if Yam itself was just filled the board is done,
+  // and this bonus is specifically about finishing everything else first.
+  if (isFilled('yum')) return;
+  // Every non-Yam category filled? (folds in the just-scored id for MP's async
+  // scores write, same as the upper-bonus check).
+  const allOthersFilled = categories.every(c => c.id === 'yum' || isFilled(c.id));
+  if (allOthersFilled) {
+    allButYumPowerupAwarded = true;
+    setTimeout(() => openPowerupPickerModal('allbutyum'), 900);
+  }
+}
+
 // ─── MONKEY-PATCHES ──────────────────────────────────────────────────────────
 
 // Patch cycleDie — intercept die clicks for pending powerups
@@ -740,6 +767,8 @@ confirmScore = function() {
   // Pass the just-scored category + value so MP's async scores write doesn't
   // delay the reward by a full round.
   checkPowerupUpperBonusEarn(catId, finalScore);
+  // Check for the "everything but Yam filled" reward.
+  checkPowerupAllButYumEarn(catId);
 };
 
 // Pending freeze carry-over — survives across bot's / opponent's turn so the
@@ -824,7 +853,7 @@ confirmNewGame = function() {
     yamOrStrikeActive   = false;
     yamOrStrikeAttempts = 0;
     suppressNextYumEarn = false;
-    upperBonusPowerupAwarded = false;
+    upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
     scores             = {};
     clearDice();
     renderScores();
@@ -882,7 +911,7 @@ rematch = function() {
     yamOrStrikeActive   = false;
     yamOrStrikeAttempts = 0;
     suppressNextYumEarn = false;
-    upperBonusPowerupAwarded = false;
+    upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
     _pupGameOverPending = false;
     renderPowerupBar();
     _pupOrigRematch();
@@ -899,7 +928,7 @@ rematch = function() {
   frozenDieValue     = 0;
   pendingFreezeIdx   = -1;
   pendingFreezeVal   = 0;
-  upperBonusPowerupAwarded = false;
+  upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
   _pupGameOverPending = false;
   scores             = {};
   clearDice();
@@ -926,7 +955,7 @@ quitGame = function() {
     yamOrStrikeActive   = false;
     yamOrStrikeAttempts = 0;
     suppressNextYumEarn = false;
-    upperBonusPowerupAwarded = false;
+    upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
     document.getElementById('powerupBar').style.display = 'none';
     _pupOrigQuitGame();
     return;
@@ -942,7 +971,7 @@ quitGame = function() {
   frozenDieValue      = 0;
   pendingFreezeIdx    = -1;
   pendingFreezeVal    = 0;
-  upperBonusPowerupAwarded = false;
+  upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
   scores              = {};
   clearDice();
   renderScores();
@@ -973,7 +1002,7 @@ doMpRematch = function() {
     frozenDieValue     = 0;
     pendingFreezeIdx   = -1;
     pendingFreezeVal   = 0;
-    upperBonusPowerupAwarded = false;
+    upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
     _pupGameOverPending = false;
     renderPowerupBar();
     if (roomRef) roomRef.child('players/' + playerId + '/livePowerups').remove();
@@ -998,7 +1027,7 @@ leaveGame = function() {
     yamOrStrikeActive   = false;
     yamOrStrikeAttempts = 0;
     suppressNextYumEarn = false;
-    upperBonusPowerupAwarded = false;
+    upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
     document.getElementById('powerupBar').style.display = 'none';
   }
   _pupOrigLeaveGame();
