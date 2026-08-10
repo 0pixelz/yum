@@ -329,7 +329,9 @@ function closeFirstRoll() {
     // Fire synchronously, before the bot's turn is scheduled by the callback
     // above, so a bot win can arm its bonus roll in time.
     if (typeof window.onFirstRollWinner === 'function') {
-      try { window.onFirstRollWinner(firstRollWinnerId, winnerIsMe); } catch(e) {}
+      const wp = firstRollPlayers.find(p => p.id === firstRollWinnerId);
+      const winnerName = wp ? wp.name : '';
+      try { window.onFirstRollWinner(firstRollWinnerId, winnerIsMe, winnerName); } catch(e) {}
     }
 
     // If the player won the opening roll, make the transition feel like a real turn start.

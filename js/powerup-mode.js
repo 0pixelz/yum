@@ -138,19 +138,67 @@ function selectPowerup(id, context) {
 // multiplayer both sides are handled fairly (the winner's own client grants it
 // and syncs the inventory to the room). In vs-bot, a bot win instead arms a
 // one-time bonus roll on the bot's first turn (see botTakeTurn in app.js).
-window.onFirstRollWinner = function onFirstRollWinner(winnerId, winnerIsMe) {
+window.onFirstRollWinner = function onFirstRollWinner(winnerId, winnerIsMe, winnerName) {
   if (!powerupMode) return;
   if (winnerIsMe) {
     playerPowerups.push('extraRoll');
     renderPowerupBar();
     syncPowerupsToDb();
-    const p = POWERUPS.find(x => x.id === 'extraRoll');
-    showToast(`${p ? p.icon : ''} Won the roll-off — free Extra Roll added!`);
   } else if (typeof botMode !== 'undefined' && botMode && winnerId === 'bot') {
     // Bot won who-goes-first — give it a matching bonus roll on its first turn.
     window.__botFirstTurnExtraRoll = true;
   }
+  // Announce to everyone (winner and loser) who got the free Extra Roll, using
+  // the same prominent card as the "YOUR TURN" popup so it can't be missed.
+  showFreeRollPopup(winnerIsMe, winnerName);
 };
+
+function ensureFreeRollPopupStyles() {
+  if (document.getElementById('freeRollPopStyles')) return;
+  const s = document.createElement('style');
+  s.id = 'freeRollPopStyles';
+  // Reuse the .your-turn-box look (defined in css/style.css) but as a distinct
+  // centered overlay, so the score-labels bottom override for #yourTurnPop does
+  // not apply and this stays the big centered card. Higher z-index than the
+  // turn popup so it sits on top.
+  s.textContent = `
+    #freeRollPop{position:fixed;inset:0;z-index:1400;display:none;
+      align-items:center;justify-content:center;pointer-events:none;padding:16px;}
+    #freeRollPop.show{display:flex;}
+    #freeRollPop .frp-box{max-width:min(88vw,360px);}
+    #freeRollPop .frp-title{font-size:2.1rem!important;letter-spacing:4px!important;}
+    #freeRollPop .your-turn-sub{font-size:.95rem!important;color:var(--white)!important;}
+    #freeRollPop .your-turn-sub b{color:var(--gold);}
+  `;
+  document.head.appendChild(s);
+}
+
+function showFreeRollPopup(isMe, name) {
+  try {
+    ensureFreeRollPopupStyles();
+    let pop = document.getElementById('freeRollPop');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'freeRollPop';
+      document.body.appendChild(pop);
+    }
+    const esc = window.escapeHtml || (x => x);
+    const who = isMe ? 'You' : (name || 'Opponent');
+    const extra = POWERUPS.find(x => x.id === 'extraRoll');
+    pop.innerHTML =
+      '<div class="your-turn-box frp-box">' +
+        '<span class="your-turn-emoji">' + (extra ? extra.icon : '<i class="icn icn-dice icn-gold"></i>') + '</span>' +
+        '<div class="your-turn-text frp-title">FREE EXTRA ROLL!</div>' +
+        '<div class="your-turn-sub"><b>' + esc(who) + '</b> won the roll-off</div>' +
+      '</div>';
+    // Restart the entrance/exit animation on repeat (e.g. rematch).
+    pop.classList.remove('show');
+    void pop.offsetWidth;
+    pop.classList.add('show');
+    clearTimeout(pop._frpTimer);
+    pop._frpTimer = setTimeout(() => pop.classList.remove('show'), 2600);
+  } catch (e) {}
+}
 
 // ─── POWER-UP BAR ────────────────────────────────────────────────────────────
 
