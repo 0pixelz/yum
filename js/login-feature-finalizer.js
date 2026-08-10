@@ -126,7 +126,18 @@
     if (!skin) return toast('Open the Skin Store to browse available skins');
     const list = owned();
     if (list.includes(id)) return window.equipSkin(id);
-    if (credits() < skin.cost) return toast(`Need ${skin.cost} credits`);
+    // Reconcile with the server wallet before judging affordability. The local
+    // mirror can read high (spent elsewhere, or a legacy balance the server
+    // never had), which would fire a purchase the server rejects and surface a
+    // confusing "not enough credits" after the tap. Hydrating first means the
+    // check matches what the server will actually allow.
+    if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+      try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
+    }
+    if (credits() < skin.cost) {
+      renderFinalSkinStore();
+      return toast(`Need ${skin.cost} credits`);
+    }
 
     if (!window.YumCloud || typeof window.YumCloud.purchaseSkin !== 'function') {
       return toast('Store unavailable — reload and try again');
@@ -207,7 +218,20 @@
     overlay.innerHTML = `<div class="ssu-sheet"><div class="ssu-head"><div class="ssu-title"><i class="icn icn-palette"></i> SKIN STORE</div><button class="ssu-close" onclick="closeSkinStore()"><i class="icn icn-close"></i></button></div>${walletBlock}<div id="ssuContent">${premiumSection}</div></div>`;
   }
 
-  window.openSkinStore = function() { renderFinalSkinStore(); ensureStoreOverlay().classList.add('open'); };
+  window.openSkinStore = function() {
+    renderFinalSkinStore();
+    ensureStoreOverlay().classList.add('open');
+    // Pull the authoritative wallet before the player can act. The local mirror
+    // can sit stale-high — credits spent on another device, or a legacy balance
+    // the server never recorded — which would otherwise show an UNLOCK button
+    // the server then rejects with "not enough credits". Re-render once the true
+    // balance lands so the store only ever offers buys the server will honor.
+    if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+      Promise.resolve(window.hydrateYumCreditsFromFirebase())
+        .then(() => renderFinalSkinStore())
+        .catch(() => {});
+    }
+  };
   window.closeSkinStore = function() { const overlay = document.getElementById('skinStoreUpgradeOverlay'); if (overlay) overlay.classList.remove('open'); };
 
   // The daily bonus claim is owned by daily-bonus-challenge-overlay.js, which
