@@ -109,6 +109,12 @@
       body.yum-in-game .main-rewards-hub-btn { display: none !important; }
       #rewardsHubOverlay {
         position: fixed; inset: 0; z-index: 990;
+        /* Height must track the dynamic viewport too, not just the sheet: with a
+           plain inset:0 the flex container is the taller layout viewport, so the
+           bottom-anchored sheet sits under the address bar and its sticky header
+           (X) is pushed above the visible top. 100dvh anchors it to the visible
+           area. */
+        height: 100dvh;
         background: rgba(0,0,0,.85);
         display: none; align-items: flex-end; justify-content: center;
       }
