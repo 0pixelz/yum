@@ -31,7 +31,13 @@
       '.tr-roll-pips i{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7);transition:transform .2s,background .2s,box-shadow .2s;}',
       '.tr-roll-pips i.spent{background:rgba(255,255,255,.22);box-shadow:none;transform:scale(.8);}',
       '.btn-roll.tr-empty{filter:grayscale(.5) brightness(.82);opacity:.85;}',
-      '.roll-count.tr-hide{display:none;}'
+      '.roll-count.tr-hide{display:none;}',
+      /* Pulsing red glow to draw the eye to the ROLL button while it is the
+         local player\'s turn and a roll is available. Removed the moment rolls
+         run out or it becomes the opponent\'s turn (handled in syncRollUI). */
+      '@keyframes trAttnPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0);transform:scale(1);}50%{box-shadow:0 0 20px 5px rgba(239,68,68,.8),0 0 34px 10px rgba(239,68,68,.35);transform:scale(1.04);}}',
+      '.btn-roll.tr-attention:not([disabled]){animation:trAttnPulse 1.15s ease-in-out infinite;}',
+      '@media (prefers-reduced-motion: reduce){.btn-roll.tr-attention:not([disabled]){animation:none;box-shadow:0 0 16px 3px rgba(239,68,68,.7);}}'
       /* The dice stay in their natural single row at all times — held dice
          keep their position (they're just highlighted), so nothing re-flows
          into a separate "kept" lane and nothing collapses after the last
@@ -88,6 +94,9 @@
       pips.forEach(function (p, idx) { p.classList.toggle('spent', idx >= left); });
       label.textContent = left === 3 ? 'ROLL' : (left > 0 ? 'ROLL AGAIN' : 'NO ROLLS');
       btn.classList.toggle('tr-empty', left === 0);
+      // It's my turn (the "Rolls: x/3" status only shows on my own turn) — flash
+      // the button while a roll is still available; stop once rolls run out.
+      btn.classList.toggle('tr-attention', left > 0);
       if (left === 0) btn.setAttribute('disabled', '');
       else btn.removeAttribute('disabled');
       if (rc) rc.classList.add('tr-hide'); // pips replace the redundant count
@@ -97,6 +106,7 @@
       label.textContent = 'ROLL';
       pips.forEach(function (p) { p.classList.remove('spent'); });
       btn.classList.remove('tr-empty');
+      btn.classList.remove('tr-attention'); // not my turn / waiting — no flashing
       btn.removeAttribute('disabled');
       if (rc) rc.classList.remove('tr-hide');
     }
