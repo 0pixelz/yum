@@ -132,6 +132,26 @@ function selectPowerup(id, context) {
   }
 }
 
+// ─── ROLL-OFF REWARD ─────────────────────────────────────────────────────────
+// Whoever wins the "who goes first" roll-off gets a free Extra Roll power-up.
+// Power-Up mode only. Each client runs this for its own player, so in real
+// multiplayer both sides are handled fairly (the winner's own client grants it
+// and syncs the inventory to the room). In vs-bot, a bot win instead arms a
+// one-time bonus roll on the bot's first turn (see botTakeTurn in app.js).
+window.onFirstRollWinner = function onFirstRollWinner(winnerId, winnerIsMe) {
+  if (!powerupMode) return;
+  if (winnerIsMe) {
+    playerPowerups.push('extraRoll');
+    renderPowerupBar();
+    syncPowerupsToDb();
+    const p = POWERUPS.find(x => x.id === 'extraRoll');
+    showToast(`${p ? p.icon : ''} Won the roll-off — free Extra Roll added!`);
+  } else if (typeof botMode !== 'undefined' && botMode && winnerId === 'bot') {
+    // Bot won who-goes-first — give it a matching bonus roll on its first turn.
+    window.__botFirstTurnExtraRoll = true;
+  }
+};
+
 // ─── POWER-UP BAR ────────────────────────────────────────────────────────────
 
 function renderPowerupBar() {

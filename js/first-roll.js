@@ -325,6 +325,13 @@ function closeFirstRoll() {
 
     if(firstRollCallback) firstRollCallback(firstRollWinnerId);
 
+    // Roll-off reward hook (Power-Up mode grants the winner a free Extra Roll).
+    // Fire synchronously, before the bot's turn is scheduled by the callback
+    // above, so a bot win can arm its bonus roll in time.
+    if (typeof window.onFirstRollWinner === 'function') {
+      try { window.onFirstRollWinner(firstRollWinnerId, winnerIsMe); } catch(e) {}
+    }
+
     // If the player won the opening roll, make the transition feel like a real turn start.
     if(winnerIsMe && typeof showYourTurnPop === 'function') {
       setTimeout(() => showYourTurnPop('ROLL THE DICE'), 350);

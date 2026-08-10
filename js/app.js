@@ -2285,6 +2285,8 @@ function startVsBot(mode) {
   if (typeof powerupMode !== 'undefined') {
     powerupMode = (mode === 'powerup');
   }
+  // Clear any leftover roll-off bonus-roll flag from a previous game.
+  window.__botFirstTurnExtraRoll = false;
 
   document.getElementById('lobbyOverlay').style.display = 'none';
   document.getElementById('leaderboard').style.display = 'block';
@@ -2451,6 +2453,14 @@ function botTakeTurn() {
                 showBotDiceInRoller(botDice, botHeld, true);
 
                 setTimeout(() => {
+                  // Roll-off reward: if the bot won who-goes-first (Power-Up
+                  // mode), give it one bonus reroll before scoring on this,
+                  // its first turn — mirroring the human's free Extra Roll.
+                  if (window.__botFirstTurnExtraRoll) {
+                    window.__botFirstTurnExtraRoll = false;
+                    botBonusRollThenScore(botHeld.slice());
+                    return;
+                  }
                   const finalMove = botChooseBestMove();
                   document.getElementById('botThinkMsg').textContent = 'Scoring…';
                   finishBotTurn(finalMove);
@@ -2462,6 +2472,29 @@ function botTakeTurn() {
       });
     }, 900);
   }, 500);
+}
+
+// One extra reroll for the bot before it scores — the roll-off reward when the
+// bot won who-goes-first in Power-Up mode. Mirrors the Roll 2→3 pattern: pick
+// which dice to keep, animate the holds, reroll the rest, then score.
+function botBonusRollThenScore(prevHeld) {
+  const move = botChooseBestMove();
+  const held = move ? move.held.map(v => v !== 0)
+                    : (prevHeld ? prevHeld.slice() : [true, true, true, true, true]);
+  document.getElementById('botThinkMsg').textContent = 'Bonus roll…';
+  botHoldOneAtATime(held, () => {
+    setTimeout(() => {
+      const base = move ? move.held : botDice;
+      botDice = base.map((v, i) => (held[i] ? (v || botDice[i]) : randDie()));
+      botHeld = held.slice();
+      showBotDiceInRoller(botDice, botHeld, true);
+      setTimeout(() => {
+        const finalMove = botChooseBestMove();
+        document.getElementById('botThinkMsg').textContent = 'Scoring…';
+        finishBotTurn(finalMove);
+      }, 900);
+    }, 600);
+  });
 }
 
 // Animate the bot holding its chosen dice one at a time rather than all at
