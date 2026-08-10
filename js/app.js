@@ -422,8 +422,8 @@ function renderScores() {
   // When the Double Points power-up is armed, preview the DOUBLED value in the
   // scorecard so the boost is visible before you lock a category. Only a
   // positive score doubles (a strike/0 stays 0), matching how it's applied.
-  const _dblActive = (typeof doublePointsActive !== 'undefined' && doublePointsActive) &&
-                     (typeof powerupMode !== 'undefined' && powerupMode);
+  const _pupOn = (typeof powerupMode !== 'undefined' && powerupMode);
+  const _dblActive = (typeof doublePointsActive !== 'undefined' && doublePointsActive) && _pupOn;
   const _sugView = (cat, filled) => {
     const raw = !filled && dice.every(v => v > 0) ? cat.calc(dice) : null;
     const doubled = _dblActive && raw !== null && raw > 0;
@@ -466,7 +466,7 @@ function renderScores() {
   html += `<div class="bonus-row">
     <div>
       <div class="bonus-label">${iconHtml('icn-gift',{size:'1.2em'})} UPPER BONUS</div>
-      <div class="bonus-sub">${upperTotal}/${BONUS_TARGET} pts → +35 bonus${bonusEarned?' <i class="icn icn-check icn-green"></i>':''}</div>
+      <div class="bonus-sub">${upperTotal}/${BONUS_TARGET} pts → +35 bonus${_pupOn?' · +1 <i class="icn icn-bolt"></i> power-up':''}${bonusEarned?' <i class="icn icn-check icn-green"></i>':''}</div>
       <div class="pct-bar-wrap" style="width:180px;margin-top:5px">
         <div class="pct-bar" style="width:${(bonusProgress/BONUS_TARGET)*100}%"></div>
       </div>
@@ -498,6 +498,24 @@ function renderScores() {
     </div>`;
   });
   html += `</div>`;
+
+  // Lower bonus (Power-Up mode): fill every category except Yam → +1 power-up.
+  if (_pupOn) {
+    const nonYum = categories.filter(c => c.id !== 'yum');
+    const nonYumFilled = nonYum.filter(c => scores[c.id] !== undefined).length;
+    const nonYumTotal = nonYum.length; // 12
+    const lbEarned = (typeof allButYumPowerupAwarded !== 'undefined' && allButYumPowerupAwarded);
+    html += `<div class="bonus-row">
+      <div>
+        <div class="bonus-label">${iconHtml('icn-bolt',{size:'1.2em'})} LOWER BONUS</div>
+        <div class="bonus-sub">Fill all but Yam → +1 power-up${lbEarned?' <i class="icn icn-check icn-green"></i>':''}</div>
+        <div class="pct-bar-wrap" style="width:180px;margin-top:5px">
+          <div class="pct-bar" style="width:${(nonYumFilled/nonYumTotal)*100}%"></div>
+        </div>
+      </div>
+      <div class="bonus-val" style="${lbEarned?'color:var(--gold)':'color:var(--muted)'}">${lbEarned?'+1 <i class="icn icn-bolt"></i>':'–'}</div>
+    </div>`;
+  }
 
   sec.innerHTML = html;
   updateTotals(upperTotal, bonusEarned);
