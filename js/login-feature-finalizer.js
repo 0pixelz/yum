@@ -43,8 +43,16 @@
   }
   function saveJSON(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
   function isLoggedIn() {
+    // Any real account profile (Apple/email/Google all store type 'google') OR a
+    // live Firebase session (device/guest users still have a uid). The purchase
+    // server only requires a Firebase auth session — credits are deducted there —
+    // so don't gate the store on Google specifically.
     const p = loadJSON(PROFILE_KEY, null);
-    return !!(p && p.type === 'google' && (p.uid || p.email));
+    if (p && (p.uid || p.email)) return true;
+    try {
+      if (window.firebase && firebase.auth && firebase.auth().currentUser) return true;
+    } catch (e) {}
+    return false;
   }
   function credits() {
     return isLoggedIn() && typeof window.getYumCredits === 'function' ? window.getYumCredits() : 0;
@@ -113,7 +121,7 @@
   };
 
   window.buySkin = async function(id) {
-    if (!isLoggedIn()) return toast('Sign in with Google to use the Skin Store');
+    if (!isLoggedIn()) return toast('Sign in to use the Skin Store');
     const skin = SKINS.find(s => s.id === id);
     if (!skin) return toast('Open the Skin Store to browse available skins');
     const list = owned();
