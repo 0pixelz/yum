@@ -254,7 +254,7 @@ function renderPowerupBar() {
   // which of the two steps you're on (pick the MAX category, then the STRIKE),
   // so it never relies on a toast that's already faded.
   let wcBanner = '';
-  if (pendingPowerup === 'wildcard') {
+  if (pendingPowerup === 'wildcard' || wildcardMaxCat) {
     ensureWildcardStyles();
     if (!wildcardMaxCat) {
       wcBanner = `<div class="pup-wc-banner pup-wc-step1">
@@ -730,39 +730,36 @@ async function _wildcardMpStrike(maxCat, maxVal, strikeId) {
   }
 }
 
-const _pupOrigOpenModal = openModal;
-openModal = function(id) {
-  // ── Wildcard power-up (two-step) ──────────────────────────────────────────
-  // The step is tracked by `wildcardMaxCat` (null = still choosing the max fill;
-  // set = now choosing the strike), NOT by a special pendingPowerup value. This
-  // is deliberate: pendingPowerup is reset by several room-snapshot / teardown
-  // paths and can only legally hold a value the RTDB rules allow, whereas
-  // wildcardMaxCat is owned solely by this flow and survives re-renders — so the
-  // strike step can never be silently lost between the two taps.
-  if (powerupMode && pendingPowerup === 'wildcard' && wildcardMaxCat) {
-    // Step 2 — pick an empty category to strike (0); this finalizes the turn.
-    if (!_wcTurnOk()) return;
-    if (id === wildcardMaxCat) {   // tapping the picked category again cancels
+// Handle a scorecard tap while the Wildcard power-up is armed. Returns true if
+// the tap was consumed by the Wildcard flow, false to let normal scoring happen.
+//
+// The step is decided by `wildcardMaxCat` (null = still choosing the max fill;
+// set = now choosing the strike), NOT by a special pendingPowerup value —
+// wildcardMaxCat is owned solely by this flow and is never reset by a room
+// snapshot or teardown, so the strike step can't be silently lost between taps.
+function _wildcardOnRowTap(id) {
+  if (typeof powerupMode === 'undefined' || !powerupMode) return false;
+
+  // ── Step 2 — a max category is already chosen; this tap picks the strike. ──
+  if (wildcardMaxCat) {
+    if (!_wcTurnOk()) return true;
+    if (id === wildcardMaxCat) {   // tapping the chosen category again cancels
       pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
-      renderPowerupBar();
-      refreshWildcardHighlight();
-      syncPowerupsToDb();
+      renderPowerupBar(); refreshWildcardHighlight(); syncPowerupsToDb();
       showToast('Wildcard cancelled.');
-      return;
+      return true;
     }
-    if (typeof scores !== 'undefined' && scores[id] !== undefined) { showToast('Pick an EMPTY category to strike!'); return; }
+    if (typeof scores !== 'undefined' && scores[id] !== undefined) {
+      showToast('Pick an EMPTY category to strike!'); return true;
+    }
     const strikeId = id;
     const maxCat   = wildcardMaxCat;
     const maxVal   = wildcardMaxScore;
     if (typeof mpMode !== 'undefined' && mpMode) {
-      // Multiplayer: run a dedicated, fully-guarded submit instead of routing
-      // through the shared confirmScore wrapper chain + modal machinery. That
-      // chain has many side effects (dice clear, game-over checks, modal open/
-      // close, several monkey-patches); a throw anywhere in it left the screen
-      // blank and forced a page refresh. Here every failure surfaces as a toast
-      // and the flow re-arms so the player can retry.
+      // Multiplayer: dedicated, fully-guarded submit (never the confirmScore
+      // wrapper chain — a throw in that chain used to blank the page).
       _wildcardMpStrike(maxCat, maxVal, strikeId);
-      return;
+      return true;
     }
     // Solo / bot: keep the confirmScore-based flow (it drives the bot's turn).
     consumePowerup('wildcard');
@@ -775,22 +772,55 @@ openModal = function(id) {
     if (typeof scores !== 'undefined') scores[strikeId] = 0;
     if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
     if (typeof confirmScore === 'function') confirmScore();
-    return;
+    return true;
   }
-  // Step 1 — pick the category to fill with its max score.
-  if (powerupMode && pendingPowerup === 'wildcard' && !wildcardMaxCat) {
-    if (!_wcTurnOk()) return;
-    if (id === 'yum') { showToast("Wildcard can't be used on Yam!"); return; }
-    if (typeof scores !== 'undefined' && scores[id] !== undefined) { showToast('Already scored!'); return; }
+
+  // ── Step 1 — pick the category to fill with its max score. ──
+  if (pendingPowerup === 'wildcard') {
+    if (!_wcTurnOk()) return true;
+    if (id === 'yum') { showToast("Wildcard can't be used on Yam!"); return true; }
+    if (typeof scores !== 'undefined' && scores[id] !== undefined) { showToast('Already scored!'); return true; }
     const cat = _wcCat(id);
-    if (!cat) return;
+    if (!cat) return true;
     wildcardMaxCat   = id;
     wildcardMaxScore = Number(cat.max) || 0;
     renderPowerupBar();
     refreshWildcardHighlight();
     syncPowerupsToDb();
     showToast(`Wildcard: ${cat.name} → ${wildcardMaxScore} pts. Now tap an empty category to STRIKE.`);
-    return;
+    return true;
+  }
+
+  return false;
+}
+
+// Capture-phase interceptor: catch the scorecard tap BEFORE the row's inline
+// onclick="openModal(...)" runs. This is the reliable path — it does not depend
+// on the openModal monkey-patch being the one the inline handler resolves to,
+// and it can't be swallowed by any other bubble-phase handler. Armed only while
+// a Wildcard pick is in progress.
+document.addEventListener('click', function (e) {
+  if (typeof powerupMode === 'undefined' || !powerupMode) return;
+  if (pendingPowerup !== 'wildcard' && !wildcardMaxCat) return;
+  const t = e.target;
+  const row = (t && t.closest) ? t.closest('#scoreSection .score-row') : null;
+  if (!row) return;
+  const id = row.getAttribute('data-cat');
+  if (!id) return;
+  // We own this tap — stop it from also opening the normal scoring modal.
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+  try { _wildcardOnRowTap(id); }
+  catch (err) { console.warn('wildcard tap failed:', err); showToast("Wildcard error — try again."); }
+}, true);
+
+// Keep the openModal patch too, as a fallback for any programmatic openModal(id)
+// call made while a Wildcard pick is armed.
+const _pupOrigOpenModal = openModal;
+openModal = function(id) {
+  if (powerupMode && (pendingPowerup === 'wildcard' || wildcardMaxCat)) {
+    if (_wildcardOnRowTap(id)) return;
   }
   _pupOrigOpenModal(id);
 };
@@ -844,7 +874,10 @@ function refreshWildcardHighlight() {
   const rows = document.querySelectorAll('#scoreSection .score-row');
   rows.forEach(r => r.classList.remove('wc-pick', 'wc-strike', 'wc-chosen'));
   if (!powerupMode) return;
-  if (pendingPowerup !== 'wildcard') return;
+  // Show highlights whenever a Wildcard pick is in progress — either armed
+  // (pending) or already mid-strike (wildcardMaxCat set), so the strike targets
+  // stay lit even if pendingPowerup changed underneath us.
+  if (pendingPowerup !== 'wildcard' && !wildcardMaxCat) return;
   ensureWildcardStyles();
   rows.forEach(r => {
     const id = r.getAttribute('data-cat');
