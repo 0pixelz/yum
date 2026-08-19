@@ -250,9 +250,32 @@ function renderPowerupBar() {
     ? `<div class="pup-hint">${hintMap[pendingPowerup]}</div>`
     : '';
 
+  // Wildcard two-step guide — a big, persistent banner that spells out exactly
+  // which of the two steps you're on (pick the MAX category, then the STRIKE),
+  // so it never relies on a toast that's already faded.
+  let wcBanner = '';
+  if (pendingPowerup === 'wildcard') {
+    ensureWildcardStyles();
+    if (!wildcardMaxCat) {
+      wcBanner = `<div class="pup-wc-banner pup-wc-step1">
+        <span class="pup-wc-step">STEP 1 / 2</span>
+        <span class="pup-wc-text"><i class="icn icn-star"></i> Tap a category to <b>FILL it with MAX points</b></span>
+      </div>`;
+    } else {
+      const _wc = _wcCat(wildcardMaxCat) || {};
+      const _wcName = _wc.name || wildcardMaxCat;
+      wcBanner = `<div class="pup-wc-banner pup-wc-step2">
+        <span class="pup-wc-step">STEP 2 / 2</span>
+        <span class="pup-wc-text"><b>${_wcName} → ${wildcardMaxScore} pts.</b> Now tap an <b>EMPTY category to STRIKE (0)</b></span>
+        <button class="pup-wc-cancel" type="button" onclick="activatePowerup('wildcard')">Cancel</button>
+      </div>`;
+    }
+  }
+
   bar.innerHTML = `
     <div class="pup-bar-head"><i class="icn icn-bolt"></i> POWER-UPS</div>
     ${dblBanner}
+    ${wcBanner}
     ${hint}
     <div class="pup-items">${btns}</div>`;
 }
@@ -694,23 +717,46 @@ openModal = function(id) {
 };
 
 // ── Wildcard scorecard highlight ──────────────────────────────────────────────
-// While Wildcard is picking, glow the categories you can tap: green (with a 👉)
-// for the max fill / strike targets, gold for the one already chosen.
+// While Wildcard is picking, glow the categories you can tap and label each with
+// a pill: green "TAP TO FILL" (step 1), then gold "MAX ✓" on the chosen row and
+// red "STRIKE" on the remaining empty rows (step 2).
 function ensureWildcardStyles() {
   if (document.getElementById('wildcardPickStyles')) return;
   const s = document.createElement('style');
   s.id = 'wildcardPickStyles';
   s.textContent = `
-    #scoreSection .score-row.wc-pick, #scoreSection .score-row.wc-strike { cursor:pointer; position:relative; }
+    #scoreSection .score-row.wc-pick, #scoreSection .score-row.wc-strike, #scoreSection .score-row.wc-chosen { cursor:pointer; position:relative; }
     #scoreSection .score-row.wc-pick   { animation: wcPulseGreen 1.1s ease-in-out infinite; }
     #scoreSection .score-row.wc-strike { animation: wcPulseRed 1.1s ease-in-out infinite; }
     #scoreSection .score-row.wc-chosen { box-shadow: inset 0 0 0 2px rgba(245,166,35,0.9), 0 0 16px rgba(245,166,35,0.4); }
-    #scoreSection .score-row.wc-pick::after, #scoreSection .score-row.wc-strike::after {
-      content:'\\1F449'; position:absolute; right:10px; top:50%; transform:translateY(-50%);
-      font-size:1rem; opacity:.9; pointer-events:none;
+    /* A clear pill on each row saying what a tap will do. */
+    #scoreSection .score-row.wc-pick::after,
+    #scoreSection .score-row.wc-strike::after,
+    #scoreSection .score-row.wc-chosen::after {
+      position:absolute; right:10px; top:50%; transform:translateY(-50%);
+      font-family:"Bebas Neue","Arial Narrow",sans-serif; font-size:.72rem; letter-spacing:1px;
+      font-weight:700; padding:2px 8px; border-radius:999px; pointer-events:none; white-space:nowrap;
     }
+    #scoreSection .score-row.wc-pick::after   { content:'TAP TO FILL'; color:#8ff5ee; background:rgba(78,205,196,.20); box-shadow:inset 0 0 0 1px rgba(78,205,196,.7); }
+    #scoreSection .score-row.wc-strike::after { content:'STRIKE'; color:#ff9aab; background:rgba(233,69,96,.20); box-shadow:inset 0 0 0 1px rgba(233,69,96,.75); }
+    #scoreSection .score-row.wc-chosen::after { content:'MAX \\2713'; color:#ffd67a; background:rgba(245,166,35,.22); box-shadow:inset 0 0 0 1px rgba(245,166,35,.8); }
     @keyframes wcPulseGreen { 0%,100%{box-shadow:inset 0 0 0 2px rgba(78,205,196,0.5),0 0 8px rgba(78,205,196,0.2)} 50%{box-shadow:inset 0 0 0 2px rgba(78,205,196,0.95),0 0 18px rgba(78,205,196,0.5)} }
     @keyframes wcPulseRed { 0%,100%{box-shadow:inset 0 0 0 2px rgba(233,69,96,0.45),0 0 8px rgba(233,69,96,0.2)} 50%{box-shadow:inset 0 0 0 2px rgba(233,69,96,0.95),0 0 18px rgba(233,69,96,0.45)} }
+
+    /* Two-step guide banner in the power-up bar. */
+    .pup-wc-banner { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      margin:6px 0; padding:9px 12px; border-radius:12px; font-size:.9rem; line-height:1.35; }
+    .pup-wc-banner .pup-wc-step { flex:none; font-family:"Bebas Neue","Arial Narrow",sans-serif;
+      letter-spacing:1.5px; font-size:.78rem; padding:3px 9px; border-radius:999px; font-weight:700; }
+    .pup-wc-banner .pup-wc-text { flex:1 1 auto; min-width:0; }
+    .pup-wc-step1 { background:rgba(78,205,196,.12); box-shadow:inset 0 0 0 1px rgba(78,205,196,.45); }
+    .pup-wc-step1 .pup-wc-step { background:rgba(78,205,196,.28); color:#8ff5ee; }
+    .pup-wc-step2 { background:rgba(233,69,96,.12); box-shadow:inset 0 0 0 1px rgba(233,69,96,.5); }
+    .pup-wc-step2 .pup-wc-step { background:rgba(233,69,96,.28); color:#ff9aab; }
+    .pup-wc-cancel { flex:none; margin-left:auto; background:rgba(255,255,255,.10); color:#fff;
+      border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:4px 12px;
+      font-size:.8rem; font-weight:600; cursor:pointer; }
+    .pup-wc-cancel:hover { background:rgba(255,255,255,.18); }
   `;
   document.head.appendChild(s);
 }
