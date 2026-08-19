@@ -987,6 +987,17 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .mm-card-stats {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    margin-top: 2px;
+    min-height: 0.9rem;
+    white-space: nowrap;
+  }
+  .mm-card-stats .mm-stats-rate { color: var(--gold); }
+  .mm-card-stats .mm-stats-wl-w { color: #4ecdc4; }
+  .mm-card-stats .mm-stats-wl-l { color: #e94560; }
   .mm-card-tag {
     font-family: 'Bebas Neue', cursive;
     font-size: 0.7rem;

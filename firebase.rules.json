@@ -392,6 +392,12 @@
         "bestClassic":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
         "bestPowerup":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
         "bestMegayam":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "classicWins":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "classicLosses": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "powerupWins":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "powerupLosses": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "megayamWins":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "megayamLosses": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
         "updatedAt":    { ".validate": "newData.isNumber() && newData.val() <= now + 3600000" },
         "$other":       { ".validate": false }
       }

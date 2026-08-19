@@ -99,6 +99,13 @@
       if (iWon) stats.onlineWins = num(stats.onlineWins) + 1;
       else      stats.onlineLosses = num(stats.onlineLosses) + 1;
     }
+    // Per-game-mode win/loss (combined bot + online) so the matchmaking screen
+    // can show a record for the mode you're about to play. gameMode is one of
+    // 'classic' | 'powerup' | 'megayam'.
+    const gm = (gameMode === 'powerup' || gameMode === 'megayam') ? gameMode : 'classic';
+    const wKey = gm + 'Wins', lKey = gm + 'Losses';
+    if (iWon) stats[wKey] = num(stats[wKey]) + 1;
+    else      stats[lKey] = num(stats[lKey]) + 1;
     // Track the best final score per game mode (across bot + online).
     const s = num(score);
     if (s > 0) {
@@ -147,6 +154,10 @@
         bestClassic: num(stats.bestClassic),
         bestPowerup: num(stats.bestPowerup),
         bestMegayam: num(stats.bestMegayam),
+        // Per-mode win/loss (combined bot + online) for the matchmaking record.
+        classicWins:  num(stats.classicWins),  classicLosses:  num(stats.classicLosses),
+        powerupWins:  num(stats.powerupWins),  powerupLosses:  num(stats.powerupLosses),
+        megayamWins:  num(stats.megayamWins),  megayamLosses:  num(stats.megayamLosses),
         updatedAt: Date.now()
       };
       return ref.child(uid).set(payload).catch(e => {
@@ -620,4 +631,33 @@
   } else {
     setTimeout(syncOnce, 2500);
   }
+
+  // ── public API (used by matchmaking to show an opponent's record) ────────
+  function fetchPlayerRow(uid) {
+    const ref = leaderboardRef();
+    if (!ref || !uid) return Promise.resolve(null);
+    return ref.child(uid).once('value')
+      .then(snap => snap.val() || null)
+      .catch(() => null);
+  }
+  // Map a room/matchmaking mode ('normal'|'powerup'|'megayam') to the
+  // leaderboard's per-mode key prefix ('classic'|'powerup'|'megayam').
+  function modeKey(roomMode) {
+    return roomMode === 'powerup' ? 'powerup'
+         : roomMode === 'megayam' ? 'megayam'
+         : 'classic';
+  }
+  // Returns {wins, losses, rate} for a leaderboard row in the given room mode.
+  function modeRecord(row, roomMode) {
+    const k = modeKey(roomMode);
+    const wins   = num(row && row[k + 'Wins']);
+    const losses = num(row && row[k + 'Losses']);
+    return { wins, losses, rate: winRate(wins, losses) };
+  }
+  window.YumLeaderboard = Object.assign(window.YumLeaderboard || {}, {
+    getPlayerStats: fetchPlayerRow,
+    winRate: winRate,
+    modeKey: modeKey,
+    modeRecord: modeRecord
+  });
 })();
