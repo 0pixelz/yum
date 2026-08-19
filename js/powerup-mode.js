@@ -518,6 +518,7 @@ function tryPowerupDieClick(i) {
     renderPowerupBar();
     showToast(`Dice frozen (${dice[i]}) — carries to next turn!`);
     syncPowerupsToDb();
+    _pushLiveDice();   // let the opponent see the held/frozen dice live
     return true;
   }
 
@@ -552,6 +553,7 @@ function tryPowerupDieClick(i) {
     renderPowerupBar();
     showToast(`Lucky reroll → ${dice[i]}`);
     syncPowerupsToDb();
+    _pushLiveDice();   // let the opponent see the rerolled dice live
     return true;
   }
 
@@ -569,6 +571,23 @@ function refreshDieFreezeVisual() {
     el.classList.toggle('die-frozen',     powerupMode && i === freezeDieIndex);
     el.classList.toggle('die-selectable', powerupMode && !!pendingPowerup && dice[i] > 0);
   }
+}
+
+// Push the current dice state to the room's liveDice stream so the opponent's
+// board updates immediately when a power-up changes a dice mid-turn (Golden Dice,
+// Lucky Dice). Mirrors the roll-count field the normal roll push uses so the
+// opponent's roll dots stay correct.
+function _pushLiveDice() {
+  if (typeof mpMode === 'undefined' || !mpMode) return;
+  if (typeof roomRef === 'undefined' || !roomRef || typeof playerId === 'undefined' || !playerId) return;
+  try {
+    const _skinId = (typeof window.getActiveDiceSkinId === 'function') ? window.getActiveDiceSkinId() : 'classic';
+    let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch (e) {}
+    const _roll = Math.max(0, Math.min(3, 3 - (typeof rollsLeft === 'number' ? rollsLeft : 0)));
+    roomRef.child('players/' + playerId + '/liveDice').set({
+      dice: dice, held: held, roll: _roll, skin: _skinId, perDieColors: _pdc, ts: Date.now()
+    });
+  } catch (e) { console.warn('liveDice push failed:', e); }
 }
 
 // ─── GOLDEN DICE VALUE PICKER ─────────────────────────────────────────────────
@@ -655,6 +674,7 @@ function applyGoldenDice(i, v) {
   renderPowerupBar();
   showToast(`Golden Dice → ${v}`);
   syncPowerupsToDb();
+  _pushLiveDice();   // let the opponent see the changed dice live
 }
 
 // ─── YUM EARN CHECK ──────────────────────────────────────────────────────────
