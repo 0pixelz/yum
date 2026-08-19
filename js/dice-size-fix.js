@@ -27,7 +27,9 @@
         width: 56px !important;
         height: 56px !important;
         border-radius: 12px !important;
-        font-size: 1.95rem !important;
+        /* Larger face so the pips nearly fill the tile and read clearly. */
+        font-size: 2.8rem !important;
+        line-height: 1 !important;
       }
 
       .dice-section .die-hold-btn {
@@ -45,7 +47,8 @@
           width: 52px !important;
           height: 52px !important;
           border-radius: 11px !important;
-          font-size: 1.75rem !important;
+          font-size: 2.55rem !important;
+          line-height: 1 !important;
         }
 
         .dice-section .die-hold-btn {
@@ -62,7 +65,8 @@
         .dice-section .die {
           width: 48px !important;
           height: 48px !important;
-          font-size: 1.6rem !important;
+          font-size: 2.35rem !important;
+          line-height: 1 !important;
         }
       }
     `;
