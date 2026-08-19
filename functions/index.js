@@ -180,8 +180,16 @@ exports.submitScore = onCall(async (req) => {
   const player = (room.players && room.players[uid]) || {};
   const isPowerup = room.gameMode === 'powerup';
 
-  if (player.scores && player.scores[categoryId] !== undefined) {
+  // Wildcard "double": the client asks to re-score an ALREADY-filled category to
+  // twice its current value, paying by striking a still-empty category to 0.
+  // Only valid in power-up rooms.
+  const isWildcardDouble = isPowerup && data.wildcardDouble === true;
+
+  if (player.scores && player.scores[categoryId] !== undefined && !isWildcardDouble) {
     throw new HttpsError('failed-precondition', 'category already scored');
+  }
+  if (isWildcardDouble && !(player.scores && player.scores[categoryId] !== undefined)) {
+    throw new HttpsError('failed-precondition', 'wildcard double needs a scored category');
   }
 
   const sd = player.serverDice || {};
@@ -191,7 +199,20 @@ exports.submitScore = onCall(async (req) => {
 
   let score = 0;
   let finalScore;
-  if (isPowerup) {
+  if (isWildcardDouble) {
+    // Wildcard double is server-authoritative: the new value is exactly twice
+    // the category's current recorded score, capped, so a tampered client can't
+    // inflate it. The client's data.score is ignored here.
+    const existing = Number((player.scores || {})[categoryId]) || 0;
+    finalScore = Math.min(POWERUP_MAX_SCORE, existing * 2);
+    // The double must be paid for with a still-empty category to strike.
+    const sc = data.strikeCategory;
+    const strikeOk = typeof sc === 'string' && VALID_CATEGORIES.has(sc) &&
+      sc !== categoryId && !(player.scores && player.scores[sc] !== undefined);
+    if (!strikeOk) {
+      throw new HttpsError('failed-precondition', 'wildcard double needs an empty category to strike');
+    }
+  } else if (isPowerup) {
     // Power-up mode is client-authoritative (see rollDice): the client applies
     // dice-manipulating power-ups (Chance Roll, Yam or Strike, Freeze, Lucky
     // Dice) and the Double Points modifier locally, so /serverDice can't be
