@@ -104,18 +104,9 @@
       const earnedHist = (lp.history && lp.history.earned) || [];
       const earnedTotal = earnedHist.length;
       const prev = _earnPrev[id];
-      if (typeof prev === 'number' && earnedTotal > prev) {
-        for (let i = prev; i < earnedTotal; i++) {
-          const e = earnedHist[i];
-          const pid = e && e.id;
-          if (!pid) continue;
-          const icon = POWERUP_ICONS[pid] || '<i class="icn icn-bolt"></i>';
-          const def  = POWERUPS.find(x => x.id === pid);
-          const pName = def ? def.name : pid;
-          const label = (e.source === 'start') ? 'picked' : 'earned';
-          showToast(`<i class="icn icn-bolt icn-gold"></i> ${p.name} ${label} ${icon} ${pName}!`);
-        }
-      }
+      // The "opponent acquired a power-up" toast is handled in app.js off the
+      // synced inventory (grows by one), so it isn't duplicated here. This
+      // function still tracks earned totals for the opponent viewer's history.
       _earnPrev[id] = earnedTotal;
     });
   }

@@ -1795,6 +1795,15 @@ function listenRoom() {
             showToast(`${icon} ${escapeHtml(p.name)} used ${escapeHtml(pName)}!`);
           }
         });
+        // Opponent gained a power-up (inventory grew) — announce it.
+        Object.keys(curCount).forEach(pid => {
+          const added = (curCount[pid] || 0) - (prevCount[pid] || 0);
+          for (let i = 0; i < added; i++) {
+            const icon = powerupIconFor(pid);
+            const pName = (typeof POWERUPS !== 'undefined' ? (POWERUPS.find(x => x.id === pid) || {}).name : null) || pid;
+            showToast(`${icon} ${escapeHtml(p.name)} got ${escapeHtml(pName)}!`);
+          }
+        });
 
         // Opponent just entered pending (die-selection) state
         if (!prev.pending && cur.pending) {
