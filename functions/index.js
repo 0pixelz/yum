@@ -200,17 +200,23 @@ exports.submitScore = onCall(async (req) => {
   let score = 0;
   let finalScore;
   if (isWildcardDouble) {
-    // Wildcard double is server-authoritative: the new value is exactly twice
-    // the category's current recorded score, capped, so a tampered client can't
-    // inflate it. The client's data.score is ignored here.
+    // Wildcard: ADD the rolled score (data.score) on top of the category's
+    // current recorded value — the player rolled the combo again to add it.
+    // Client-authoritative like other power-up scoring (dice can be manipulated
+    // locally), but bounded to the cap so a tampered client can't post an absurd
+    // total onto the shared board.
     const existing = Number((player.scores || {})[categoryId]) || 0;
-    finalScore = Math.min(POWERUP_MAX_SCORE, existing * 2);
-    // The double must be paid for with a still-empty category to strike.
+    const add = Number(data.score);
+    if (!Number.isInteger(add) || add < 0 || add > POWERUP_MAX_SCORE) {
+      throw new HttpsError('invalid-argument', 'bad score');
+    }
+    finalScore = Math.min(POWERUP_MAX_SCORE, existing + add);
+    // The add must be paid for with a still-empty category to strike.
     const sc = data.strikeCategory;
     const strikeOk = typeof sc === 'string' && VALID_CATEGORIES.has(sc) &&
       sc !== categoryId && !(player.scores && player.scores[sc] !== undefined);
     if (!strikeOk) {
-      throw new HttpsError('failed-precondition', 'wildcard double needs an empty category to strike');
+      throw new HttpsError('failed-precondition', 'wildcard needs an empty category to strike');
     }
   } else if (isPowerup) {
     // Power-up mode is client-authoritative (see rollDice): the client applies
