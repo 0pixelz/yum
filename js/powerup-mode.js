@@ -24,7 +24,7 @@ const POWERUPS = [
     desc:'First roll only: 4×1 + 2 rerolls on last dice — YAM or strike Yum!',
     color:'#e74c3c', gradient:'linear-gradient(135deg,#e74c3c,#c0392b)' },
   { id:'wildcard',    name:'Wildcard',      icon:'<i class="icn icn-target"></i>',
-    desc:'Fill any category with its MAX score — Yam not allowed',
+    desc:'Double a category you already scored — then strike an empty one as the cost',
     color:'#f39c12', gradient:'linear-gradient(135deg,#f6c343,#e67e22)' },
 ];
 
@@ -259,14 +259,14 @@ function renderPowerupBar() {
     if (!wildcardMaxCat) {
       wcBanner = `<div class="pup-wc-banner pup-wc-step1">
         <span class="pup-wc-step">STEP 1 / 2</span>
-        <span class="pup-wc-text"><i class="icn icn-star"></i> Tap a category to <b>FILL it with MAX points</b></span>
+        <span class="pup-wc-text"><i class="icn icn-star"></i> Tap a category you <b>already scored to DOUBLE it</b></span>
       </div>`;
     } else {
       const _wc = _wcCat(wildcardMaxCat) || {};
       const _wcName = _wc.name || wildcardMaxCat;
       wcBanner = `<div class="pup-wc-banner pup-wc-step2">
         <span class="pup-wc-step">STEP 2 / 2</span>
-        <span class="pup-wc-text"><b>${_wcName} → ${wildcardMaxScore} pts.</b> Now tap an <b>EMPTY category to STRIKE (0)</b></span>
+        <span class="pup-wc-text"><b>${_wcName} → ${wildcardMaxScore} pts.</b> Now tap an <b>EMPTY category to STRIKE (0)</b> as the cost</span>
         <button class="pup-wc-cancel" type="button" onclick="activatePowerup('wildcard')">Cancel</button>
       </div>`;
     }
@@ -342,9 +342,9 @@ function activatePowerup(id) {
     }
 
     case 'wildcard': {
-      // Arms a two-step pick — the openModal patch below first fills the tapped
-      // category with its max score (step 1), then strikes a second empty
-      // category (step 2). Ignores the dice, so no roll required. `wildcardMaxCat`
+      // Arms a two-step pick (see _wildcardOnRowTap): step 1 taps a category you
+      // ALREADY completed to DOUBLE it, step 2 taps an EMPTY category to strike
+      // as the cost. Ignores the dice, so no roll required. `wildcardMaxCat`
       // (not a special pendingPowerup value) is the step flag, so the flow
       // survives snapshot re-renders that could reset pendingPowerup.
       pendingPowerup   = 'wildcard';
@@ -352,7 +352,7 @@ function activatePowerup(id) {
       wildcardMaxScore = 0;
       renderPowerupBar();
       refreshWildcardHighlight();
-      showToast('Wildcard — tap any category (not Yam) to fill it with max points!');
+      showToast('Wildcard — tap a category you already scored to DOUBLE it!');
       syncPowerupsToDb();
       break;
     }
@@ -652,12 +652,13 @@ function _wcCat(id) {
   return (typeof categories !== 'undefined') ? categories.find(c => c.id === id) : null;
 }
 
-// Self-contained multiplayer Wildcard submit. Fills `maxCat` with `maxVal` and
-// strikes `strikeId` to 0 in a single server call, then mirrors the result
-// locally. Everything is wrapped so a failure can only ever produce a toast +
-// a re-armed pick — never a blank page. Deliberately does NOT call confirmScore
-// (whose deep wrapper chain was the crash surface).
-async function _wildcardMpStrike(maxCat, maxVal, strikeId) {
+// Self-contained multiplayer Wildcard submit. DOUBLES the already-scored
+// `doubleCat` to `doubledVal` and strikes the empty `strikeId` to 0 in a single
+// server call, then mirrors the result locally. Everything is wrapped so a
+// failure can only ever produce a toast + a re-armed pick — never a blank page.
+// Deliberately does NOT call confirmScore (whose deep wrapper chain was the
+// crash surface).
+async function _wildcardMpStrike(doubleCat, doubledVal, strikeId) {
   const cloud = (typeof window !== 'undefined') ? window.YumCloud : null;
   if (!cloud || typeof cloud.submitScore !== 'function' ||
       typeof roomCode === 'undefined' || !roomCode) {
@@ -675,23 +676,19 @@ async function _wildcardMpStrike(maxCat, maxVal, strikeId) {
   refreshWildcardHighlight();
 
   try {
-    const _dice = (typeof dice !== 'undefined' && Array.isArray(dice))
-      ? dice.slice(0, 5).map(v => (v | 0) || 1)
-      : [1, 1, 1, 1, 1];
     const payload = {
       roomId:         roomCode,
-      categoryId:     maxCat,
-      score:          Math.max(0, maxVal | 0),
-      dice:           _dice,
+      categoryId:     doubleCat,
+      score:          Math.max(0, doubledVal | 0),
+      wildcardDouble: true,           // tells the server to allow re-scoring a filled category
       strikeCategory: strikeId,
     };
     const resp = await cloud.submitScore(payload);
-    const serverScore = (resp && typeof resp.score === 'number') ? resp.score : (maxVal | 0);
+    const serverScore = (resp && typeof resp.score === 'number') ? resp.score : (doubledVal | 0);
 
     consumePowerup('wildcard');
-    if (typeof scores !== 'undefined') { scores[maxCat] = serverScore; scores[strikeId] = 0; }
+    if (typeof scores !== 'undefined') { scores[doubleCat] = serverScore; scores[strikeId] = 0; }
     if (typeof playerScoreDice !== 'undefined') {
-      playerScoreDice[maxCat]   = _dice.slice();
       playerScoreDice[strikeId] = [];
     }
     try { if (window.SFX && typeof SFX.score === 'function') SFX.score(); } catch (e) {}
@@ -700,11 +697,11 @@ async function _wildcardMpStrike(maxCat, maxVal, strikeId) {
     if (typeof renderScores === 'function') renderScores();
     renderPowerupBar();
     syncPowerupsToDb();
-    showToast(`Wildcard — max on ${(_wcCat(maxCat) || {}).name || maxCat}, struck ${(_wcCat(strikeId) || {}).name || strikeId}.`);
+    showToast(`Wildcard — ${(_wcCat(doubleCat) || {}).name || doubleCat} doubled to ${serverScore}, struck ${(_wcCat(strikeId) || {}).name || strikeId}.`);
 
     // Bonus power-up rewards — fold in the just-scored value for MP's async write.
-    try { checkPowerupUpperBonusEarn(maxCat, serverScore); } catch (e) { console.warn(e); }
-    try { checkPowerupAllButYumEarn(maxCat); } catch (e) { console.warn(e); }
+    try { checkPowerupUpperBonusEarn(doubleCat, serverScore); } catch (e) { console.warn(e); }
+    try { checkPowerupAllButYumEarn(strikeId); } catch (e) { console.warn(e); }
 
     // Game-over check, mirroring the MP confirmScore path.
     try {
@@ -721,7 +718,7 @@ async function _wildcardMpStrike(maxCat, maxVal, strikeId) {
     console.warn('wildcard MP strike failed:', err);
     const msg = String((err && err.message) || '');
     if (/not your turn/i.test(msg))          showToast("It's not your turn!");
-    else if (/already scored/i.test(msg))    showToast('That category was already scored — pick another.');
+    else if (/empty category to strike/i.test(msg)) showToast('Pick an EMPTY category to strike as the cost.');
     else                                     showToast("Couldn't apply Wildcard — try again.");
     // Roll back to the strike-pending state so the player can retry cleanly.
     pendingPowerup = _prevPending; wildcardMaxCat = _prevMaxCat; wildcardMaxScore = _prevMaxScore;
@@ -733,14 +730,21 @@ async function _wildcardMpStrike(maxCat, maxVal, strikeId) {
 // Handle a scorecard tap while the Wildcard power-up is armed. Returns true if
 // the tap was consumed by the Wildcard flow, false to let normal scoring happen.
 //
-// The step is decided by `wildcardMaxCat` (null = still choosing the max fill;
+// New mechanic: DOUBLE a category you already completed, paying for it by
+// striking an empty one.
+//   Step 1 — tap an ALREADY-SCORED category → its value is set to double
+//            (e.g. Full House 25 → 50). Stored in wildcardMaxCat / wildcardMaxScore.
+//   Step 2 — tap an EMPTY category → struck to 0 as the cost; both land in one submit.
+//
+// The step is decided by `wildcardMaxCat` (null = still choosing what to double;
 // set = now choosing the strike), NOT by a special pendingPowerup value —
 // wildcardMaxCat is owned solely by this flow and is never reset by a room
 // snapshot or teardown, so the strike step can't be silently lost between taps.
 function _wildcardOnRowTap(id) {
   if (typeof powerupMode === 'undefined' || !powerupMode) return false;
+  const WILDCARD_CAP = 1000; // must match POWERUP_MAX_SCORE in functions/index.js
 
-  // ── Step 2 — a max category is already chosen; this tap picks the strike. ──
+  // ── Step 2 — a double target is chosen; this tap picks the empty strike. ──
   if (wildcardMaxCat) {
     if (!_wcTurnOk()) return true;
     if (id === wildcardMaxCat) {   // tapping the chosen category again cancels
@@ -749,45 +753,48 @@ function _wildcardOnRowTap(id) {
       showToast('Wildcard cancelled.');
       return true;
     }
-    if (typeof scores !== 'undefined' && scores[id] !== undefined) {
-      showToast('Pick an EMPTY category to strike!'); return true;
+    if (typeof scores === 'undefined' || scores[id] !== undefined) {
+      showToast('Strike an EMPTY category as the cost.'); return true;
     }
-    const strikeId = id;
-    const maxCat   = wildcardMaxCat;
-    const maxVal   = wildcardMaxScore;
+    const strikeId   = id;
+    const doubleCat  = wildcardMaxCat;
+    const doubledVal = wildcardMaxScore;
     if (typeof mpMode !== 'undefined' && mpMode) {
       // Multiplayer: dedicated, fully-guarded submit (never the confirmScore
       // wrapper chain — a throw in that chain used to blank the page).
-      _wildcardMpStrike(maxCat, maxVal, strikeId);
+      _wildcardMpStrike(doubleCat, doubledVal, strikeId);
       return true;
     }
-    // Solo / bot: keep the confirmScore-based flow (it drives the bot's turn).
+    // Solo / bot: double the achieved category + strike the empty one, then let
+    // confirmScore advance the turn (it drives the bot's turn).
     consumePowerup('wildcard');
     pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
-    activeModal    = maxCat;
-    selectedScore  = maxVal;
-    renderPowerupBar();
-    syncPowerupsToDb();
-    showToast(`Wildcard — max on ${(_wcCat(maxCat)||{}).name || maxCat}, struck ${(_wcCat(strikeId)||{}).name || strikeId}.`);
     if (typeof scores !== 'undefined') scores[strikeId] = 0;
     if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
+    activeModal   = doubleCat;
+    selectedScore = doubledVal;
+    renderPowerupBar();
+    syncPowerupsToDb();
+    showToast(`Wildcard — ${(_wcCat(doubleCat)||{}).name || doubleCat} doubled to ${doubledVal}, struck ${(_wcCat(strikeId)||{}).name || strikeId}.`);
     if (typeof confirmScore === 'function') confirmScore();
     return true;
   }
 
-  // ── Step 1 — pick the category to fill with its max score. ──
+  // ── Step 1 — pick an already-completed category to double. ──
   if (pendingPowerup === 'wildcard') {
     if (!_wcTurnOk()) return true;
-    if (id === 'yum') { showToast("Wildcard can't be used on Yam!"); return true; }
-    if (typeof scores !== 'undefined' && scores[id] !== undefined) { showToast('Already scored!'); return true; }
+    if (typeof scores === 'undefined' || scores[id] === undefined) {
+      showToast('Tap a category you already SCORED to double it!'); return true;
+    }
+    const curVal = Number(scores[id]) || 0;
+    if (curVal <= 0) { showToast('That category is 0 — nothing to double. Pick a scored one.'); return true; }
     const cat = _wcCat(id);
-    if (!cat) return true;
     wildcardMaxCat   = id;
-    wildcardMaxScore = Number(cat.max) || 0;
+    wildcardMaxScore = Math.min(WILDCARD_CAP, curVal * 2);
     renderPowerupBar();
     refreshWildcardHighlight();
     syncPowerupsToDb();
-    showToast(`Wildcard: ${cat.name} → ${wildcardMaxScore} pts. Now tap an empty category to STRIKE.`);
+    showToast(`Wildcard: ${(cat||{}).name || id} ${curVal} → ${wildcardMaxScore}. Now strike an EMPTY category as the cost.`);
     return true;
   }
 
@@ -827,8 +834,8 @@ openModal = function(id) {
 
 // ── Wildcard scorecard highlight ──────────────────────────────────────────────
 // While Wildcard is picking, glow the categories you can tap and label each with
-// a pill: green "TAP TO FILL" (step 1), then gold "MAX ✓" on the chosen row and
-// red "STRIKE" on the remaining empty rows (step 2).
+// a pill: green "DOUBLE" on completed categories (step 1), then gold "×2" on the
+// chosen row and red "STRIKE" on the remaining empty rows (step 2).
 function ensureWildcardStyles() {
   if (document.getElementById('wildcardPickStyles')) return;
   const s = document.createElement('style');
@@ -846,9 +853,9 @@ function ensureWildcardStyles() {
       font-family:"Bebas Neue","Arial Narrow",sans-serif; font-size:.72rem; letter-spacing:1px;
       font-weight:700; padding:2px 8px; border-radius:999px; pointer-events:none; white-space:nowrap;
     }
-    #scoreSection .score-row.wc-pick::after   { content:'TAP TO FILL'; color:#8ff5ee; background:rgba(78,205,196,.20); box-shadow:inset 0 0 0 1px rgba(78,205,196,.7); }
+    #scoreSection .score-row.wc-pick::after   { content:'DOUBLE'; color:#8ff5ee; background:rgba(78,205,196,.20); box-shadow:inset 0 0 0 1px rgba(78,205,196,.7); }
     #scoreSection .score-row.wc-strike::after { content:'STRIKE'; color:#ff9aab; background:rgba(233,69,96,.20); box-shadow:inset 0 0 0 1px rgba(233,69,96,.75); }
-    #scoreSection .score-row.wc-chosen::after { content:'MAX \\2713'; color:#ffd67a; background:rgba(245,166,35,.22); box-shadow:inset 0 0 0 1px rgba(245,166,35,.8); }
+    #scoreSection .score-row.wc-chosen::after { content:'\\00D7 2'; color:#ffd67a; background:rgba(245,166,35,.22); box-shadow:inset 0 0 0 1px rgba(245,166,35,.8); }
     @keyframes wcPulseGreen { 0%,100%{box-shadow:inset 0 0 0 2px rgba(78,205,196,0.5),0 0 8px rgba(78,205,196,0.2)} 50%{box-shadow:inset 0 0 0 2px rgba(78,205,196,0.95),0 0 18px rgba(78,205,196,0.5)} }
     @keyframes wcPulseRed { 0%,100%{box-shadow:inset 0 0 0 2px rgba(233,69,96,0.45),0 0 8px rgba(233,69,96,0.2)} 50%{box-shadow:inset 0 0 0 2px rgba(233,69,96,0.95),0 0 18px rgba(233,69,96,0.45)} }
 
@@ -882,12 +889,13 @@ function refreshWildcardHighlight() {
   rows.forEach(r => {
     const id = r.getAttribute('data-cat');
     if (!id) return;
-    const filled = r.classList.contains('filled');
+    const filled    = r.classList.contains('filled');
+    const scratched = r.classList.contains('scratched'); // filled with 0
     if (!wildcardMaxCat) {
-      // Step 1 — highlight every empty, non-Yam category as a max-fill target.
-      if (id !== 'yum' && !filled) r.classList.add('wc-pick');
+      // Step 1 — highlight every completed category worth points as a DOUBLE target.
+      if (filled && !scratched) r.classList.add('wc-pick');
     } else {
-      // Step 2 — the chosen row glows gold; the remaining empty rows are strikes.
+      // Step 2 — the chosen row glows gold; the remaining EMPTY rows are strikes.
       if (id === wildcardMaxCat) r.classList.add('wc-chosen');
       else if (!filled) r.classList.add('wc-strike');
     }
