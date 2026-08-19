@@ -652,6 +652,84 @@ function _wcCat(id) {
   return (typeof categories !== 'undefined') ? categories.find(c => c.id === id) : null;
 }
 
+// Self-contained multiplayer Wildcard submit. Fills `maxCat` with `maxVal` and
+// strikes `strikeId` to 0 in a single server call, then mirrors the result
+// locally. Everything is wrapped so a failure can only ever produce a toast +
+// a re-armed pick — never a blank page. Deliberately does NOT call confirmScore
+// (whose deep wrapper chain was the crash surface).
+async function _wildcardMpStrike(maxCat, maxVal, strikeId) {
+  const cloud = (typeof window !== 'undefined') ? window.YumCloud : null;
+  if (!cloud || typeof cloud.submitScore !== 'function' ||
+      typeof roomCode === 'undefined' || !roomCode) {
+    showToast("Can't reach the server — try again in a moment.");
+    return;
+  }
+
+  // Clear the pending Wildcard UI immediately so the banner/pills disappear on
+  // tap (feedback that the strike registered). Remember it for rollback.
+  const _prevPending  = pendingPowerup;
+  const _prevMaxCat   = wildcardMaxCat;
+  const _prevMaxScore = wildcardMaxScore;
+  pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
+  renderPowerupBar();
+  refreshWildcardHighlight();
+
+  try {
+    const _dice = (typeof dice !== 'undefined' && Array.isArray(dice))
+      ? dice.slice(0, 5).map(v => (v | 0) || 1)
+      : [1, 1, 1, 1, 1];
+    const payload = {
+      roomId:         roomCode,
+      categoryId:     maxCat,
+      score:          Math.max(0, maxVal | 0),
+      dice:           _dice,
+      strikeCategory: strikeId,
+    };
+    const resp = await cloud.submitScore(payload);
+    const serverScore = (resp && typeof resp.score === 'number') ? resp.score : (maxVal | 0);
+
+    consumePowerup('wildcard');
+    if (typeof scores !== 'undefined') { scores[maxCat] = serverScore; scores[strikeId] = 0; }
+    if (typeof playerScoreDice !== 'undefined') {
+      playerScoreDice[maxCat]   = _dice.slice();
+      playerScoreDice[strikeId] = [];
+    }
+    try { if (window.SFX && typeof SFX.score === 'function') SFX.score(); } catch (e) {}
+    if (typeof clearDice === 'function')   { try { clearDice(); } catch (e) { console.warn(e); } }
+    if (typeof closeModalEl === 'function') { try { closeModalEl(); } catch (e) {} }
+    if (typeof renderScores === 'function') renderScores();
+    renderPowerupBar();
+    syncPowerupsToDb();
+    showToast(`Wildcard — max on ${(_wcCat(maxCat) || {}).name || maxCat}, struck ${(_wcCat(strikeId) || {}).name || strikeId}.`);
+
+    // Bonus power-up rewards — fold in the just-scored value for MP's async write.
+    try { checkPowerupUpperBonusEarn(maxCat, serverScore); } catch (e) { console.warn(e); }
+    try { checkPowerupAllButYumEarn(maxCat); } catch (e) { console.warn(e); }
+
+    // Game-over check, mirroring the MP confirmScore path.
+    try {
+      if (typeof allPlayers === 'object' && allPlayers && typeof categories !== 'undefined' &&
+          Object.keys(scores).length >= categories.length) {
+        const localDone = Object.entries(allPlayers).every(([pid, p]) => {
+          const sc = pid === playerId ? scores : (p.scores || {});
+          return Object.keys(sc).length >= categories.length;
+        });
+        if (localDone && typeof showMpGameOver === 'function') setTimeout(showMpGameOver, 800);
+      }
+    } catch (e) { console.warn(e); }
+  } catch (err) {
+    console.warn('wildcard MP strike failed:', err);
+    const msg = String((err && err.message) || '');
+    if (/not your turn/i.test(msg))          showToast("It's not your turn!");
+    else if (/already scored/i.test(msg))    showToast('That category was already scored — pick another.');
+    else                                     showToast("Couldn't apply Wildcard — try again.");
+    // Roll back to the strike-pending state so the player can retry cleanly.
+    pendingPowerup = _prevPending; wildcardMaxCat = _prevMaxCat; wildcardMaxScore = _prevMaxScore;
+    renderPowerupBar();
+    refreshWildcardHighlight();
+  }
+}
+
 const _pupOrigOpenModal = openModal;
 openModal = function(id) {
   // ── Wildcard power-up (two-step) ──────────────────────────────────────────
@@ -676,6 +754,17 @@ openModal = function(id) {
     const strikeId = id;
     const maxCat   = wildcardMaxCat;
     const maxVal   = wildcardMaxScore;
+    if (typeof mpMode !== 'undefined' && mpMode) {
+      // Multiplayer: run a dedicated, fully-guarded submit instead of routing
+      // through the shared confirmScore wrapper chain + modal machinery. That
+      // chain has many side effects (dice clear, game-over checks, modal open/
+      // close, several monkey-patches); a throw anywhere in it left the screen
+      // blank and forced a page refresh. Here every failure surfaces as a toast
+      // and the flow re-arms so the player can retry.
+      _wildcardMpStrike(maxCat, maxVal, strikeId);
+      return;
+    }
+    // Solo / bot: keep the confirmScore-based flow (it drives the bot's turn).
     consumePowerup('wildcard');
     pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
     activeModal    = maxCat;
@@ -683,18 +772,8 @@ openModal = function(id) {
     renderPowerupBar();
     syncPowerupsToDb();
     showToast(`Wildcard — max on ${(_wcCat(maxCat)||{}).name || maxCat}, struck ${(_wcCat(strikeId)||{}).name || strikeId}.`);
-    if (typeof mpMode !== 'undefined' && mpMode) {
-      // Multiplayer: the server writes BOTH categories in one submit (see the
-      // strikeCategory handling in functions submitScore). Mirror the strike
-      // locally so the card updates before the room snapshot echoes back.
-      window.__yumWildcardStrike = strikeId;
-      if (typeof scores !== 'undefined') scores[strikeId] = 0;
-    } else {
-      // Solo / bot: write the strike locally; confirmScore scores the max and
-      // ends the turn (triggering the bot).
-      if (typeof scores !== 'undefined') scores[strikeId] = 0;
-      if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
-    }
+    if (typeof scores !== 'undefined') scores[strikeId] = 0;
+    if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
     if (typeof confirmScore === 'function') confirmScore();
     return;
   }
