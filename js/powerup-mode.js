@@ -266,6 +266,8 @@ function activatePowerup(id) {
   // Cancel pending if tapping same powerup again
   if (pendingPowerup === id) {
     pendingPowerup = null;
+    // Fully clear the two-step Wildcard state so a re-arm starts clean.
+    wildcardMaxCat = null; wildcardMaxScore = 0;
     renderPowerupBar();
     refreshDieFreezeVisual();
     refreshWildcardHighlight();
@@ -317,9 +319,14 @@ function activatePowerup(id) {
     }
 
     case 'wildcard': {
-      // Arms a category pick — the openModal patch below fills the tapped
-      // category with its max score. Ignores the dice, so no roll required.
-      pendingPowerup = 'wildcard';
+      // Arms a two-step pick — the openModal patch below first fills the tapped
+      // category with its max score (step 1), then strikes a second empty
+      // category (step 2). Ignores the dice, so no roll required. `wildcardMaxCat`
+      // (not a special pendingPowerup value) is the step flag, so the flow
+      // survives snapshot re-renders that could reset pendingPowerup.
+      pendingPowerup   = 'wildcard';
+      wildcardMaxCat   = null;
+      wildcardMaxScore = 0;
       renderPowerupBar();
       refreshWildcardHighlight();
       showToast('Wildcard — tap any category (not Yam) to fill it with max points!');
@@ -624,28 +631,21 @@ function _wcCat(id) {
 
 const _pupOrigOpenModal = openModal;
 openModal = function(id) {
-  // Step 1 — pick the category to fill with its max score.
-  if (powerupMode && pendingPowerup === 'wildcard') {
-    if (!_wcTurnOk()) return;
-    if (id === 'yum') { showToast("Wildcard can't be used on Yam!"); return; }
-    if (typeof scores !== 'undefined' && scores[id] !== undefined) { showToast('Already scored!'); return; }
-    const cat = _wcCat(id);
-    if (!cat) return;
-    wildcardMaxCat   = id;
-    wildcardMaxScore = Number(cat.max) || 0;
-    pendingPowerup   = 'wildcardStrike';
-    renderPowerupBar();
-    refreshWildcardHighlight();
-    showToast(`Wildcard: ${cat.name} → ${wildcardMaxScore} pts. Now tap an empty category to STRIKE.`);
-    return;
-  }
-  // Step 2 — pick an empty category to strike (0); this finalizes the turn.
-  if (powerupMode && pendingPowerup === 'wildcardStrike') {
+  // ── Wildcard power-up (two-step) ──────────────────────────────────────────
+  // The step is tracked by `wildcardMaxCat` (null = still choosing the max fill;
+  // set = now choosing the strike), NOT by a special pendingPowerup value. This
+  // is deliberate: pendingPowerup is reset by several room-snapshot / teardown
+  // paths and can only legally hold a value the RTDB rules allow, whereas
+  // wildcardMaxCat is owned solely by this flow and survives re-renders — so the
+  // strike step can never be silently lost between the two taps.
+  if (powerupMode && pendingPowerup === 'wildcard' && wildcardMaxCat) {
+    // Step 2 — pick an empty category to strike (0); this finalizes the turn.
     if (!_wcTurnOk()) return;
     if (id === wildcardMaxCat) {   // tapping the picked category again cancels
       pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
       renderPowerupBar();
       refreshWildcardHighlight();
+      syncPowerupsToDb();
       showToast('Wildcard cancelled.');
       return;
     }
@@ -673,6 +673,21 @@ openModal = function(id) {
       if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
     }
     if (typeof confirmScore === 'function') confirmScore();
+    return;
+  }
+  // Step 1 — pick the category to fill with its max score.
+  if (powerupMode && pendingPowerup === 'wildcard' && !wildcardMaxCat) {
+    if (!_wcTurnOk()) return;
+    if (id === 'yum') { showToast("Wildcard can't be used on Yam!"); return; }
+    if (typeof scores !== 'undefined' && scores[id] !== undefined) { showToast('Already scored!'); return; }
+    const cat = _wcCat(id);
+    if (!cat) return;
+    wildcardMaxCat   = id;
+    wildcardMaxScore = Number(cat.max) || 0;
+    renderPowerupBar();
+    refreshWildcardHighlight();
+    syncPowerupsToDb();
+    showToast(`Wildcard: ${cat.name} → ${wildcardMaxScore} pts. Now tap an empty category to STRIKE.`);
     return;
   }
   _pupOrigOpenModal(id);
@@ -704,15 +719,17 @@ function refreshWildcardHighlight() {
   const rows = document.querySelectorAll('#scoreSection .score-row');
   rows.forEach(r => r.classList.remove('wc-pick', 'wc-strike', 'wc-chosen'));
   if (!powerupMode) return;
-  if (pendingPowerup !== 'wildcard' && pendingPowerup !== 'wildcardStrike') return;
+  if (pendingPowerup !== 'wildcard') return;
   ensureWildcardStyles();
   rows.forEach(r => {
     const id = r.getAttribute('data-cat');
     if (!id) return;
     const filled = r.classList.contains('filled');
-    if (pendingPowerup === 'wildcard') {
+    if (!wildcardMaxCat) {
+      // Step 1 — highlight every empty, non-Yam category as a max-fill target.
       if (id !== 'yum' && !filled) r.classList.add('wc-pick');
-    } else { // wildcardStrike
+    } else {
+      // Step 2 — the chosen row glows gold; the remaining empty rows are strikes.
       if (id === wildcardMaxCat) r.classList.add('wc-chosen');
       else if (!filled) r.classList.add('wc-strike');
     }
