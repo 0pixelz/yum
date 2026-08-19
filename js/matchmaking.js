@@ -132,6 +132,54 @@
   }
   function randomAvatarId() { return QM_AVATARS[randInt(QM_AVATARS.length)]; }
 
+  // ── opponent record line (win-rate % + W–L in the current mode) ──────────
+  let _mmStatsToken   = 0;      // guards against a stale async fetch overwriting a newer reveal
+  let _mmReadyStatsFor = null;  // opponent id the ready-card stats currently show
+
+  function _fmtOppStats(wins, losses) {
+    const total = wins + losses;
+    if (total <= 0) return '<span class="mm-stats-new">New player</span>';
+    const rate = Math.round((wins / total) * 100);
+    return '<span class="mm-stats-rate">' + rate + '%</span> · ' +
+           '<span class="mm-stats-wl-w">' + wins + 'W</span>–' +
+           '<span class="mm-stats-wl-l">' + losses + 'L</span>';
+  }
+
+  // Deterministic, believable stats for a Quick-Match opponent (no real row),
+  // seeded from its handle so the same opponent always shows the same numbers.
+  function _synthOppStats(seed) {
+    const str = String(seed || 'opponent');
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (h * 16777619) >>> 0; }
+    const total = 8 + (h % 55);            // 8..62 games
+    const rate  = 41 + ((h >>> 7) % 27);   // 41..67 % win rate
+    const wins  = Math.round(total * rate / 100);
+    return { wins: wins, losses: total - wins };
+  }
+
+  // Fill a stats element with the opponent's record for the current mode.
+  // Real opponents (oppUid) are looked up from the public leaderboard node;
+  // Quick-Match opponents (no uid) get believable synthesized numbers.
+  function setOppStats(elId, oppUid, botHandle) {
+    const node = el(elId);
+    if (!node) return;
+    const lb = window.YumLeaderboard;
+    if (oppUid && lb && typeof lb.getPlayerStats === 'function') {
+      const token = ++_mmStatsToken;
+      node.innerHTML = '<span class="mm-stats-new">…</span>';
+      lb.getPlayerStats(oppUid).then(function (row) {
+        if (token !== _mmStatsToken) return; // superseded by a newer reveal
+        const rec = lb.modeRecord(row, mmMode);
+        node.innerHTML = _fmtOppStats(rec.wins, rec.losses);
+      }).catch(function () { node.innerHTML = ''; });
+    } else if (botHandle) {
+      const s = _synthOppStats(botHandle);
+      node.innerHTML = _fmtOppStats(s.wins, s.losses);
+    } else {
+      node.innerHTML = '';
+    }
+  }
+
   function startQuickMatchTimer() {
     clearQuickMatchTimer();
     const delay = QM_MIN_MS + Math.floor(Math.random() * (QM_MAX_MS - QM_MIN_MS + 1));
@@ -182,6 +230,8 @@
     const oppNameEl = el('mmReadyOppName');
     if (meNameEl)  meNameEl.textContent  = mmName || 'You';
     if (oppNameEl) oppNameEl.textContent = handle;
+    _mmReadyStatsFor = handle;
+    setOppStats('mmReadyOppStats', null, handle);
     setOppMatchmakingAvatar(avatarId, handle);
     setReadyMode(qmPending.mode);
     setReadyTag('me', 'pending');
@@ -422,7 +472,7 @@
     if (name) name.textContent = 'Searching…';
   }
 
-  function revealOpponent(oppName, oppAvatar) {
+  function revealOpponent(oppName, oppAvatar, oppUid) {
     const card = el('mmOppCard');
     const name = el('mmOppName');
     if (card) {
@@ -443,6 +493,7 @@
       }
     }
     if (name) name.textContent = oppName || 'Opponent';
+    setOppStats('mmOppStats', oppUid || null, oppUid ? null : oppName);
     if (oppAvatar) setOppMatchmakingAvatar(oppAvatar, oppName);
   }
 
@@ -899,7 +950,7 @@
 
     setSearchText('MATCH FOUND',
       'Connecting to <b>' + escapeHtml(oppInfo.name || 'Opponent') + '</b>…');
-    revealOpponent(oppInfo.name, oppInfo.avatar || null);
+    revealOpponent(oppInfo.name, oppInfo.avatar || null, oppUid);
 
     mmRole = 'seeker';
 
@@ -1020,6 +1071,9 @@
     const oppNameEl = el('mmReadyOppName');
     if (meNameEl)  meNameEl.textContent  = mmName || 'You';
     if (oppNameEl) oppNameEl.textContent = oppName || 'Opponent';
+    // Clear any stale record; watchRoomForReady fills it once the opp id is known.
+    _mmReadyStatsFor = null;
+    const stEl = el('mmReadyOppStats'); if (stEl) stEl.innerHTML = '';
     if (oppAvatar) setOppMatchmakingAvatar(oppAvatar, oppName);
     setReadyMode(mmMode);
     setReadyTag('me', 'pending');
@@ -1105,6 +1159,10 @@
       const oppName = (oppId && players[oppId] && players[oppId].name) || 'Opponent';
       const oppAvatar = (oppId && players[oppId] && players[oppId].avatar) || null;
       if (oppAvatar) setOppMatchmakingAvatar(oppAvatar, oppName);
+      if (oppId && _mmReadyStatsFor !== oppId) {
+        _mmReadyStatsFor = oppId;
+        setOppStats('mmReadyOppStats', oppId, null);
+      }
       const meReady    = !!(players[mmUid] && players[mmUid].ready);
       const oppReady   = !!(oppId && players[oppId] && players[oppId].ready);
       const meDeclined  = !!(players[mmUid] && players[mmUid].declined);
@@ -1345,7 +1403,7 @@
     mmRole = 'waiter';
     setSearchText('MATCH FOUND',
       'Joining <b>' + escapeHtml(offer.fromName || 'opponent') + '</b>…');
-    revealOpponent(offer.fromName, offer.fromAvatar || null);
+    revealOpponent(offer.fromName, offer.fromAvatar || null, offer.from || null);
     detachOfferListener();
 
     if (mmDb && mmUid) {
@@ -1495,6 +1553,7 @@
   function cleanupMatchmakingState() {
     clearQuickMatchTimer();
     qmClear();
+    _mmReadyStatsFor = null;
     mmRole   = null;
     mmDb     = null;
     mmUid    = null;
