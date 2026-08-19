@@ -648,18 +648,29 @@
          : 'classic';
   }
   // Returns {wins, losses, rate} for a leaderboard row in the given room mode.
+  // Falls back to the overall online record when there's no per-mode history
+  // yet (per-mode fields were added later, so long-time players start at 0 for
+  // them — showing "New player" for a veteran would be wrong).
   function modeRecord(row, roomMode) {
     const k = modeKey(roomMode);
-    const wins   = num(row && row[k + 'Wins']);
-    const losses = num(row && row[k + 'Losses']);
+    let wins   = num(row && row[k + 'Wins']);
+    let losses = num(row && row[k + 'Losses']);
+    if (wins + losses === 0) {
+      wins   = num(row && row.onlineWins);
+      losses = num(row && row.onlineLosses);
+    }
     return { wins, losses, rate: winRate(wins, losses) };
   }
   // My own record for a room mode, straight from local stats (no fetch).
   function myRecord(roomMode) {
     const stats = loadStats();
     const k = modeKey(roomMode);
-    const wins   = num(stats[k + 'Wins']);
-    const losses = num(stats[k + 'Losses']);
+    let wins   = num(stats[k + 'Wins']);
+    let losses = num(stats[k + 'Losses']);
+    if (wins + losses === 0) {
+      wins   = num(stats.onlineWins);
+      losses = num(stats.onlineLosses);
+    }
     return { wins, losses, rate: winRate(wins, losses) };
   }
   window.YumLeaderboard = Object.assign(window.YumLeaderboard || {}, {
