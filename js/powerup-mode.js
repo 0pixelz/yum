@@ -17,9 +17,6 @@ const POWERUPS = [
   { id:'goldenDice',  name:'Golden Dice',   icon:'<i class="icn icn-dice-stack"></i>',
     desc:'Set one dice to any value you choose',
     color:'#ffcf5c', gradient:'linear-gradient(135deg,#ffd76a,#f5a623)' },
-  { id:'undoMove',    name:'Undo Move',     icon:'<i class="icn icn-refresh"></i>',
-    desc:'Take back your last score choice',
-    color:'#e94560', gradient:'linear-gradient(135deg,#e94560,#c0392b)' },
   { id:'chanceRoll',  name:'Chance Roll',   icon:'<i class="icn icn-volcano"></i>',
     desc:'Reroll ALL dice — next positive score doubles, no more rolls this turn',
     color:'#9b59b6', gradient:'linear-gradient(135deg,#9b59b6,#8e44ad)' },
@@ -371,22 +368,6 @@ function activatePowerup(id) {
       renderPowerupBar();
       refreshWildcardHighlight();
       showToast('Wildcard — tap a category you already scored that your roll makes, to add it again!');
-      syncPowerupsToDb();
-      break;
-    }
-
-    case 'undoMove': {
-      if (!undoPowerupState) { showToast('No recent score to undo!'); return; }
-      consumePowerup('undoMove');
-      const { catId } = undoPowerupState;
-      const cat = (typeof categories !== 'undefined')
-        ? categories.find(c => c.id === catId)
-        : null;
-      delete scores[catId];
-      undoPowerupState = null;
-      renderScores();
-      renderPowerupBar();
-      showToast(`↩️ ${cat ? cat.name : catId} score undone — slot is open again!`);
       syncPowerupsToDb();
       break;
     }
