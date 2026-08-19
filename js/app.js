@@ -2857,6 +2857,11 @@ function closeOppViewerBtn() {
 
 // ─── OPPONENT LIVE DICE (MULTIPLAYER) ───────────────────────────────
 let myDiceUI = true; // true = showing my dice, false = showing opponent
+// One-shot per page load: on the first time it's our turn after a (re)join,
+// restore this turn's in-progress dice + remaining rolls from the server so a
+// refresh can't reset the roll count to 3 (an exploit in power-up mode, where
+// rolls are client-authoritative). Resets naturally on a real page reload.
+let _turnStateRestored = false;
 
 function showOpponentDiceInRoller(liveDice, oppName) {
   if(myDiceUI) {
@@ -2898,7 +2903,35 @@ function showOpponentWaiting(oppName) {
 }
 
 function restoreMyDiceUI() {
-  if(myDiceUI) return; // already mine
+  // One-time restore after a refresh + rejoin: pull this turn's dice + used
+  // rolls from our own server liveDice so we don't get a fresh set of 3 rolls.
+  // Runs even when myDiceUI is still true (its default on a fresh page load).
+  let didRestore = false;
+  if (!_turnStateRestored) {
+    _turnStateRestored = true;
+    const myLive = (typeof allPlayers === 'object' && allPlayers && allPlayers[playerId])
+      ? allPlayers[playerId].liveDice : null;
+    if (myLive && Array.isArray(myLive.dice) && myLive.dice.some(v => (v | 0) > 0)) {
+      dice = myLive.dice.slice(0, 5).map(v => Math.max(0, Math.min(6, v | 0)));
+      held = Array.isArray(myLive.held)
+        ? myLive.held.slice(0, 5).map(Boolean)
+        : [false, false, false, false, false];
+      const used = Math.max(0, Math.min(3, Number(myLive.roll) || 0));
+      rollsLeft = 3 - used;
+      rolled = used > 0;
+      didRestore = true;
+    }
+  }
+
+  if (myDiceUI) {
+    // Already showing my dice — but if we just restored, repaint so the
+    // recovered dice and roll count actually appear.
+    if (didRestore) {
+      renderDice(false);
+      document.getElementById('rollCount').textContent = `Rolls: ${3 - rollsLeft} / 3`;
+    }
+    return;
+  }
   myDiceUI = true;
   showBotDiceOverlay(false);
   renderDice(false);
