@@ -1022,7 +1022,7 @@ let previousPlayerCount = null;
 let previousPlayers = {};
 let prevOpponentScores = {}; // track opponent score counts for change detection
 let prevOpponentPowerups = {}; // track opponent powerup state for change detection
-const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i class="icn icn-gem"></i>', doublePoints:'<i class="icn icn-sparkle"></i>', luckyDice:'<i class="icn icn-star"></i>', undoMove:'<i class="icn icn-refresh"></i>', chanceRoll:'<i class="icn icn-volcano"></i>', yamOrStrike:'<i class="icn icn-skull"></i>', wildcard:'<i class="icn icn-target"></i>' };
+const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i class="icn icn-gem"></i>', doublePoints:'<i class="icn icn-sparkle"></i>', luckyDice:'<i class="icn icn-star"></i>', undoMove:'<i class="icn icn-refresh"></i>', chanceRoll:'<i class="icn icn-volcano"></i>', yamOrStrike:'<i class="icn icn-skull"></i>', wildcard:'<i class="icn icn-target"></i>', goldenDice:'<i class="icn icn-dice-stack"></i>' };
 // Resolve a power-up's icon: the map above first, then its own icon from the
 // POWERUPS catalog (so a new power-up shows its real logo, not a generic bolt),
 // falling back to a bolt only if truly unknown.

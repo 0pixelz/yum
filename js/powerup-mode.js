@@ -14,6 +14,9 @@ const POWERUPS = [
   { id:'luckyDice',   name:'Lucky Dice',    icon:'<i class="icn icn-star"></i>',
     desc:'Reroll one dice — higher chance of 5 or 6',
     color:'#66bb6a', gradient:'linear-gradient(135deg,#66bb6a,#43a047)' },
+  { id:'goldenDice',  name:'Golden Dice',   icon:'<i class="icn icn-dice-stack"></i>',
+    desc:'Set one dice to any value you choose',
+    color:'#ffcf5c', gradient:'linear-gradient(135deg,#ffd76a,#f5a623)' },
   { id:'undoMove',    name:'Undo Move',     icon:'<i class="icn icn-refresh"></i>',
     desc:'Take back your last score choice',
     color:'#e94560', gradient:'linear-gradient(135deg,#e94560,#c0392b)' },
@@ -245,6 +248,7 @@ function renderPowerupBar() {
   const hintMap = {
     freezeDie: '<i class="icn icn-gem"></i> Click a dice to freeze it',
     luckyDice: '<i class="icn icn-star"></i> Click a dice to reroll with luck',
+    goldenDice: '<i class="icn icn-dice-stack"></i> Click a dice to set its value',
   };
   const hint = pendingPowerup && hintMap[pendingPowerup]
     ? `<div class="pup-hint">${hintMap[pendingPowerup]}</div>`
@@ -338,6 +342,17 @@ function activatePowerup(id) {
       pendingPowerup = 'luckyDice';
       renderPowerupBar();
       refreshDieFreezeVisual();
+      syncPowerupsToDb();
+      break;
+    }
+
+    case 'goldenDice': {
+      // Arms a dice pick — tapping a dice opens a popup to choose its new value.
+      if (!rolled) { showToast('Roll your dice first!'); return; }
+      pendingPowerup = 'goldenDice';
+      renderPowerupBar();
+      refreshDieFreezeVisual();
+      showToast('Golden Dice — tap a dice to set its value!');
       syncPowerupsToDb();
       break;
     }
@@ -525,6 +540,12 @@ function tryPowerupDieClick(i) {
     return true;
   }
 
+  if (pendingPowerup === 'goldenDice') {
+    // Don't consume yet — open the value picker; applyGoldenDice finalizes it.
+    openGoldenDicePicker(i);
+    return true;
+  }
+
   if (pendingPowerup === 'luckyDice') {
     consumePowerup('luckyDice');
     pendingPowerup = null;
@@ -567,6 +588,92 @@ function refreshDieFreezeVisual() {
     el.classList.toggle('die-frozen',     powerupMode && i === freezeDieIndex);
     el.classList.toggle('die-selectable', powerupMode && !!pendingPowerup && dice[i] > 0);
   }
+}
+
+// ─── GOLDEN DICE VALUE PICKER ─────────────────────────────────────────────────
+// After tapping a dice with Golden Dice armed, a small popup lets the player
+// choose the new face (1–6). applyGoldenDice() finalizes and consumes the power-up.
+function ensureGoldenDiceStyles() {
+  if (document.getElementById('goldenDiceStyles')) return;
+  const s = document.createElement('style');
+  s.id = 'goldenDiceStyles';
+  s.textContent = `
+    #goldenDiceOverlay{position:fixed;inset:0;z-index:1500;display:none;align-items:center;
+      justify-content:center;background:rgba(0,0,0,.72);padding:20px;}
+    #goldenDiceOverlay.open{display:flex;}
+    #goldenDiceOverlay .gd-sheet{background:var(--panel,#1b1b2f);border-radius:20px;padding:22px 18px 20px;
+      width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 0 1px rgba(245,166,35,.35);text-align:center;}
+    #goldenDiceOverlay .gd-title{font-family:"Bebas Neue","Arial Narrow",sans-serif;letter-spacing:2px;
+      font-size:1.5rem;color:#ffd76a;margin-bottom:2px;}
+    #goldenDiceOverlay .gd-sub{font-size:.85rem;color:var(--muted,#aab);margin-bottom:16px;}
+    #goldenDiceOverlay .gd-faces{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+    #goldenDiceOverlay .gd-face{aspect-ratio:1/1;border-radius:14px;border:1px solid rgba(245,166,35,.45);
+      background:rgba(245,166,35,.10);color:#fff;font-size:1.5rem;font-weight:800;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;transition:transform .1s,background .15s;}
+    #goldenDiceOverlay .gd-face:hover,#goldenDiceOverlay .gd-face:active{background:rgba(245,166,35,.28);transform:scale(1.06);}
+    #goldenDiceOverlay .gd-face svg,#goldenDiceOverlay .gd-face i{width:34px;height:34px;}
+    #goldenDiceOverlay .gd-cancel{background:rgba(255,255,255,.10);color:#fff;border:1px solid rgba(255,255,255,.22);
+      border-radius:999px;padding:7px 20px;font-size:.85rem;font-weight:600;cursor:pointer;}
+  `;
+  document.head.appendChild(s);
+}
+
+let _goldenDiceIdx = -1;
+
+function openGoldenDicePicker(i) {
+  if (!powerupMode || pendingPowerup !== 'goldenDice') return;
+  ensureGoldenDiceStyles();
+  _goldenDiceIdx = i;
+  let ov = document.getElementById('goldenDiceOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'goldenDiceOverlay';
+    document.body.appendChild(ov);
+  }
+  const face = (v) => (typeof dieIcon === 'function' ? dieIcon(v) : String(v));
+  ov.innerHTML =
+    '<div class="gd-sheet">' +
+      '<div class="gd-title"><i class="icn icn-dice-stack"></i> GOLDEN DICE</div>' +
+      '<div class="gd-sub">Choose this dice’s new value</div>' +
+      '<div class="gd-faces">' +
+        [1,2,3,4,5,6].map(v => `<button class="gd-face" type="button" data-v="${v}">${face(v)}</button>`).join('') +
+      '</div>' +
+      '<button class="gd-cancel" type="button">Cancel</button>' +
+    '</div>';
+  ov.querySelectorAll('.gd-face').forEach(btn => {
+    btn.onclick = () => applyGoldenDice(_goldenDiceIdx, Number(btn.getAttribute('data-v')));
+  });
+  const cancel = ov.querySelector('.gd-cancel');
+  if (cancel) cancel.onclick = () => closeGoldenDicePicker();
+  ov.classList.add('open');
+}
+
+function closeGoldenDicePicker() {
+  const ov = document.getElementById('goldenDiceOverlay');
+  if (ov) ov.classList.remove('open');
+  _goldenDiceIdx = -1;
+}
+
+function applyGoldenDice(i, v) {
+  closeGoldenDicePicker();
+  if (!powerupMode || pendingPowerup !== 'goldenDice') return;
+  if (i < 0 || i > 4 || !(v >= 1 && v <= 6)) return;
+  consumePowerup('goldenDice');
+  pendingPowerup = null;
+  dice[i] = v;
+  rolled = true;
+  renderScores();
+  renderDice(false);
+  const el = document.getElementById('diceRow') &&
+    document.getElementById('diceRow').querySelector(`[data-i="${i}"]`);
+  if (el) {
+    if (typeof window.spinDie === 'function') window.spinDie(el, false);
+    else { el.classList.remove('die-spin','die-rolled-same'); void el.offsetWidth; el.classList.add('die-spin'); }
+  }
+  refreshDieFreezeVisual();
+  renderPowerupBar();
+  showToast(`Golden Dice → ${v}`);
+  syncPowerupsToDb();
 }
 
 // ─── YUM EARN CHECK ──────────────────────────────────────────────────────────
