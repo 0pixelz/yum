@@ -180,6 +180,19 @@
     }
   }
 
+  // Fill a stats element with MY own record for the current mode (local, no fetch).
+  function setMyStats(elId) {
+    const node = el(elId);
+    if (!node) return;
+    const lb = window.YumLeaderboard;
+    if (lb && typeof lb.getMyRecord === 'function') {
+      const rec = lb.getMyRecord(mmMode);
+      node.innerHTML = _fmtOppStats(rec.wins, rec.losses);
+    } else {
+      node.innerHTML = '';
+    }
+  }
+
   function startQuickMatchTimer() {
     clearQuickMatchTimer();
     const delay = QM_MIN_MS + Math.floor(Math.random() * (QM_MAX_MS - QM_MIN_MS + 1));
@@ -295,6 +308,7 @@
   function showSearchOverlay() {
     const o = el('mmSearchOverlay');
     if (o) o.classList.add('mm-show');
+    setMyStats('mmMyStats');
   }
 
   function hideSearchOverlay() {
@@ -305,6 +319,7 @@
   function showReadyOverlay() {
     const o = el('mmReadyOverlay');
     if (o) o.classList.add('mm-show');
+    setMyStats('mmReadyMeStats');
   }
 
   function hideReadyOverlay() {

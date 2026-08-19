@@ -654,10 +654,19 @@
     const losses = num(row && row[k + 'Losses']);
     return { wins, losses, rate: winRate(wins, losses) };
   }
+  // My own record for a room mode, straight from local stats (no fetch).
+  function myRecord(roomMode) {
+    const stats = loadStats();
+    const k = modeKey(roomMode);
+    const wins   = num(stats[k + 'Wins']);
+    const losses = num(stats[k + 'Losses']);
+    return { wins, losses, rate: winRate(wins, losses) };
+  }
   window.YumLeaderboard = Object.assign(window.YumLeaderboard || {}, {
     getPlayerStats: fetchPlayerRow,
     winRate: winRate,
     modeKey: modeKey,
-    modeRecord: modeRecord
+    modeRecord: modeRecord,
+    getMyRecord: myRecord
   });
 })();
