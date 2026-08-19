@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yamio-pwa-v9';
+const CACHE_NAME = 'yamio-pwa-v10';
 const NAV_TIMEOUT_MS = 4000;
 
 // Files that must be available offline so the PWA splash always resolves to a
@@ -61,7 +61,11 @@ self.addEventListener('fetch', event => {
   const isCodeAsset = /\.(js|css|html)$/i.test(url.pathname);
 
   if (isNavigation || isCodeAsset) {
-    event.respondWith(networkFirstWithTimeout(request, isCodeAsset));
+    // Bypass the browser HTTP cache for code assets AND navigations. The page
+    // shell (e.g. "/", which has no .html in its path) is a navigation, not a
+    // code asset — without this it could be served stale after a deploy even
+    // though every .js/.css came back fresh.
+    event.respondWith(networkFirstWithTimeout(request, isCodeAsset || isNavigation));
     return;
   }
 
@@ -77,8 +81,11 @@ function networkFirstWithTimeout(request, bypassHttpCache) {
   // network leg bypasses the browser HTTP cache. Otherwise a just-deployed
   // build keeps losing to a stale copy held by the HTTP cache, and the player
   // never sees the update without clearing browser data.
+  // Build the cache-busting request from the URL string (not the Request
+  // object) — a navigation request has mode 'navigate', which some browsers
+  // refuse to reconstruct via `new Request(navReq, {...})`.
   const networkRequest = bypassHttpCache
-    ? new Request(request, { cache: 'reload' })
+    ? new Request(request.url, { cache: 'reload' })
     : request;
   return new Promise(resolve => {
     let settled = false;
