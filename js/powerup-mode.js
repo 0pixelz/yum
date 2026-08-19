@@ -24,7 +24,7 @@ const POWERUPS = [
     desc:'First roll only: 4×1 + 2 rerolls on last dice — YAM or strike Yum!',
     color:'#e74c3c', gradient:'linear-gradient(135deg,#e74c3c,#c0392b)' },
   { id:'wildcard',    name:'Wildcard',      icon:'<i class="icn icn-target"></i>',
-    desc:'Double a category you already scored — then strike an empty one as the cost',
+    desc:'Roll a combo you already scored to add it to that category again — then strike an empty one',
     color:'#f39c12', gradient:'linear-gradient(135deg,#f6c343,#e67e22)' },
 ];
 
@@ -259,14 +259,15 @@ function renderPowerupBar() {
     if (!wildcardMaxCat) {
       wcBanner = `<div class="pup-wc-banner pup-wc-step1">
         <span class="pup-wc-step">STEP 1 / 2</span>
-        <span class="pup-wc-text"><i class="icn icn-star"></i> Tap a category you <b>already scored to DOUBLE it</b></span>
+        <span class="pup-wc-text"><i class="icn icn-star"></i> Tap a category you <b>already scored that your roll makes</b> to add it again</span>
       </div>`;
     } else {
       const _wc = _wcCat(wildcardMaxCat) || {};
       const _wcName = _wc.name || wildcardMaxCat;
+      const _cur = Number((typeof scores !== 'undefined' ? scores[wildcardMaxCat] : 0)) || 0;
       wcBanner = `<div class="pup-wc-banner pup-wc-step2">
         <span class="pup-wc-step">STEP 2 / 2</span>
-        <span class="pup-wc-text"><b>${_wcName} → ${wildcardMaxScore} pts.</b> Now tap an <b>EMPTY category to STRIKE (0)</b> as the cost</span>
+        <span class="pup-wc-text"><b>${_wcName} ${_cur} +${wildcardMaxScore} = ${_cur + wildcardMaxScore}.</b> Now tap an <b>EMPTY category to STRIKE (0)</b> as the cost</span>
         <button class="pup-wc-cancel" type="button" onclick="activatePowerup('wildcard')">Cancel</button>
       </div>`;
     }
@@ -343,16 +344,18 @@ function activatePowerup(id) {
 
     case 'wildcard': {
       // Arms a two-step pick (see _wildcardOnRowTap): step 1 taps a category you
-      // ALREADY completed to DOUBLE it, step 2 taps an EMPTY category to strike
-      // as the cost. Ignores the dice, so no roll required. `wildcardMaxCat`
-      // (not a special pendingPowerup value) is the step flag, so the flow
-      // survives snapshot re-renders that could reset pendingPowerup.
+      // ALREADY completed whose combo your CURRENT roll makes (its rolled score
+      // is added on top), step 2 taps an EMPTY category to strike as the cost.
+      // Requires a roll — you must actually roll the combo to add it.
+      // `wildcardMaxCat` (not a special pendingPowerup value) is the step flag,
+      // so the flow survives snapshot re-renders that could reset pendingPowerup.
+      if (!rolled) { showToast('Roll your dice first — Wildcard adds the combo you roll!'); return; }
       pendingPowerup   = 'wildcard';
       wildcardMaxCat   = null;
       wildcardMaxScore = 0;
       renderPowerupBar();
       refreshWildcardHighlight();
-      showToast('Wildcard — tap a category you already scored to DOUBLE it!');
+      showToast('Wildcard — tap a category you already scored that your roll makes, to add it again!');
       syncPowerupsToDb();
       break;
     }
@@ -652,13 +655,13 @@ function _wcCat(id) {
   return (typeof categories !== 'undefined') ? categories.find(c => c.id === id) : null;
 }
 
-// Self-contained multiplayer Wildcard submit. DOUBLES the already-scored
-// `doubleCat` to `doubledVal` and strikes the empty `strikeId` to 0 in a single
-// server call, then mirrors the result locally. Everything is wrapped so a
-// failure can only ever produce a toast + a re-armed pick — never a blank page.
+// Self-contained multiplayer Wildcard submit. ADDS the rolled `addAmount` on top
+// of the already-scored `addCat` and strikes the empty `strikeId` to 0 in a
+// single server call, then mirrors the result locally. Everything is wrapped so
+// a failure can only ever produce a toast + a re-armed pick — never a blank page.
 // Deliberately does NOT call confirmScore (whose deep wrapper chain was the
 // crash surface).
-async function _wildcardMpStrike(doubleCat, doubledVal, strikeId) {
+async function _wildcardMpStrike(addCat, addAmount, strikeId) {
   const cloud = (typeof window !== 'undefined') ? window.YumCloud : null;
   if (!cloud || typeof cloud.submitScore !== 'function' ||
       typeof roomCode === 'undefined' || !roomCode) {
@@ -671,6 +674,7 @@ async function _wildcardMpStrike(doubleCat, doubledVal, strikeId) {
   const _prevPending  = pendingPowerup;
   const _prevMaxCat   = wildcardMaxCat;
   const _prevMaxScore = wildcardMaxScore;
+  const _before       = Number((typeof scores !== 'undefined' ? scores[addCat] : 0)) || 0;
   pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
   renderPowerupBar();
   refreshWildcardHighlight();
@@ -678,16 +682,16 @@ async function _wildcardMpStrike(doubleCat, doubledVal, strikeId) {
   try {
     const payload = {
       roomId:         roomCode,
-      categoryId:     doubleCat,
-      score:          Math.max(0, doubledVal | 0),
+      categoryId:     addCat,
+      score:          Math.max(0, addAmount | 0),  // the rolled amount to ADD; server adds it to the existing value
       wildcardDouble: true,           // tells the server to allow re-scoring a filled category
       strikeCategory: strikeId,
     };
     const resp = await cloud.submitScore(payload);
-    const serverScore = (resp && typeof resp.score === 'number') ? resp.score : (doubledVal | 0);
+    const serverScore = (resp && typeof resp.score === 'number') ? resp.score : (_before + (addAmount | 0));
 
     consumePowerup('wildcard');
-    if (typeof scores !== 'undefined') { scores[doubleCat] = serverScore; scores[strikeId] = 0; }
+    if (typeof scores !== 'undefined') { scores[addCat] = serverScore; scores[strikeId] = 0; }
     if (typeof playerScoreDice !== 'undefined') {
       playerScoreDice[strikeId] = [];
     }
@@ -697,10 +701,10 @@ async function _wildcardMpStrike(doubleCat, doubledVal, strikeId) {
     if (typeof renderScores === 'function') renderScores();
     renderPowerupBar();
     syncPowerupsToDb();
-    showToast(`Wildcard — ${(_wcCat(doubleCat) || {}).name || doubleCat} doubled to ${serverScore}, struck ${(_wcCat(strikeId) || {}).name || strikeId}.`);
+    showToast(`Wildcard — ${(_wcCat(addCat) || {}).name || addCat} ${_before} → ${serverScore}, struck ${(_wcCat(strikeId) || {}).name || strikeId}.`);
 
     // Bonus power-up rewards — fold in the just-scored value for MP's async write.
-    try { checkPowerupUpperBonusEarn(doubleCat, serverScore); } catch (e) { console.warn(e); }
+    try { checkPowerupUpperBonusEarn(addCat, serverScore); } catch (e) { console.warn(e); }
     try { checkPowerupAllButYumEarn(strikeId); } catch (e) { console.warn(e); }
 
     // Game-over check, mirroring the MP confirmScore path.
@@ -727,24 +731,35 @@ async function _wildcardMpStrike(doubleCat, doubledVal, strikeId) {
   }
 }
 
+// Score the current dice for a category (its "rolled" value this turn).
+function _wcRolled(cat) {
+  try {
+    if (cat && typeof cat.calc === 'function' && typeof dice !== 'undefined' && Array.isArray(dice)) {
+      return Number(cat.calc(dice)) || 0;
+    }
+  } catch (e) {}
+  return 0;
+}
+
 // Handle a scorecard tap while the Wildcard power-up is armed. Returns true if
 // the tap was consumed by the Wildcard flow, false to let normal scoring happen.
 //
-// New mechanic: DOUBLE a category you already completed, paying for it by
-// striking an empty one.
-//   Step 1 — tap an ALREADY-SCORED category → its value is set to double
-//            (e.g. Full House 25 → 50). Stored in wildcardMaxCat / wildcardMaxScore.
+// Mechanic: roll a combo you've already scored and ADD it to that category
+// again, paying for it by striking an empty one.
+//   Step 1 — tap an ALREADY-SCORED category whose combo your CURRENT roll makes
+//            → its rolled value is added on top (e.g. Full House 25 → 50).
+//            The ADD amount is stored in wildcardMaxScore, the category in
+//            wildcardMaxCat.
 //   Step 2 — tap an EMPTY category → struck to 0 as the cost; both land in one submit.
 //
-// The step is decided by `wildcardMaxCat` (null = still choosing what to double;
+// The step is decided by `wildcardMaxCat` (null = still choosing what to re-score;
 // set = now choosing the strike), NOT by a special pendingPowerup value —
 // wildcardMaxCat is owned solely by this flow and is never reset by a room
 // snapshot or teardown, so the strike step can't be silently lost between taps.
 function _wildcardOnRowTap(id) {
   if (typeof powerupMode === 'undefined' || !powerupMode) return false;
-  const WILDCARD_CAP = 1000; // must match POWERUP_MAX_SCORE in functions/index.js
 
-  // ── Step 2 — a double target is chosen; this tap picks the empty strike. ──
+  // ── Step 2 — a re-score target is chosen; this tap picks the empty strike. ──
   if (wildcardMaxCat) {
     if (!_wcTurnOk()) return true;
     if (id === wildcardMaxCat) {   // tapping the chosen category again cancels
@@ -756,45 +771,51 @@ function _wildcardOnRowTap(id) {
     if (typeof scores === 'undefined' || scores[id] !== undefined) {
       showToast('Strike an EMPTY category as the cost.'); return true;
     }
-    const strikeId   = id;
-    const doubleCat  = wildcardMaxCat;
-    const doubledVal = wildcardMaxScore;
+    const strikeId  = id;
+    const addCat    = wildcardMaxCat;
+    const addAmount = wildcardMaxScore;                        // the rolled add
+    const newTotal  = (Number((typeof scores !== 'undefined' ? scores[addCat] : 0)) || 0) + addAmount;
     if (typeof mpMode !== 'undefined' && mpMode) {
       // Multiplayer: dedicated, fully-guarded submit (never the confirmScore
       // wrapper chain — a throw in that chain used to blank the page).
-      _wildcardMpStrike(doubleCat, doubledVal, strikeId);
+      _wildcardMpStrike(addCat, addAmount, strikeId);
       return true;
     }
-    // Solo / bot: double the achieved category + strike the empty one, then let
-    // confirmScore advance the turn (it drives the bot's turn).
+    // Solo / bot: re-score the category (existing + rolled) + strike the empty
+    // one, then let confirmScore advance the turn (it drives the bot's turn).
     consumePowerup('wildcard');
     pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
     if (typeof scores !== 'undefined') scores[strikeId] = 0;
     if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
-    activeModal   = doubleCat;
-    selectedScore = doubledVal;
+    activeModal   = addCat;
+    selectedScore = newTotal;
     renderPowerupBar();
     syncPowerupsToDb();
-    showToast(`Wildcard — ${(_wcCat(doubleCat)||{}).name || doubleCat} doubled to ${doubledVal}, struck ${(_wcCat(strikeId)||{}).name || strikeId}.`);
+    showToast(`Wildcard — ${(_wcCat(addCat)||{}).name || addCat} +${addAmount} = ${newTotal}, struck ${(_wcCat(strikeId)||{}).name || strikeId}.`);
     if (typeof confirmScore === 'function') confirmScore();
     return true;
   }
 
-  // ── Step 1 — pick an already-completed category to double. ──
+  // ── Step 1 — pick an already-completed category your current roll makes. ──
   if (pendingPowerup === 'wildcard') {
     if (!_wcTurnOk()) return true;
+    if (typeof rolled !== 'undefined' && !rolled) { showToast('Roll your dice first!'); return true; }
     if (typeof scores === 'undefined' || scores[id] === undefined) {
-      showToast('Tap a category you already SCORED to double it!'); return true;
+      showToast('Tap a category you already SCORED (your roll must make it).'); return true;
+    }
+    const cat = _wcCat(id);
+    const rolledVal = _wcRolled(cat);
+    if (rolledVal <= 0) {
+      showToast(`Your roll doesn't make a ${(cat||{}).name || id} — roll that combo first!`);
+      return true;
     }
     const curVal = Number(scores[id]) || 0;
-    if (curVal <= 0) { showToast('That category is 0 — nothing to double. Pick a scored one.'); return true; }
-    const cat = _wcCat(id);
     wildcardMaxCat   = id;
-    wildcardMaxScore = Math.min(WILDCARD_CAP, curVal * 2);
+    wildcardMaxScore = rolledVal;                              // the ADD amount from this roll
     renderPowerupBar();
     refreshWildcardHighlight();
     syncPowerupsToDb();
-    showToast(`Wildcard: ${(cat||{}).name || id} ${curVal} → ${wildcardMaxScore}. Now strike an EMPTY category as the cost.`);
+    showToast(`Wildcard: ${(cat||{}).name || id} ${curVal} +${rolledVal} = ${curVal + rolledVal}. Now strike an EMPTY category as the cost.`);
     return true;
   }
 
@@ -853,9 +874,9 @@ function ensureWildcardStyles() {
       font-family:"Bebas Neue","Arial Narrow",sans-serif; font-size:.72rem; letter-spacing:1px;
       font-weight:700; padding:2px 8px; border-radius:999px; pointer-events:none; white-space:nowrap;
     }
-    #scoreSection .score-row.wc-pick::after   { content:'DOUBLE'; color:#8ff5ee; background:rgba(78,205,196,.20); box-shadow:inset 0 0 0 1px rgba(78,205,196,.7); }
+    #scoreSection .score-row.wc-pick::after   { content:'ADD ROLL'; color:#8ff5ee; background:rgba(78,205,196,.20); box-shadow:inset 0 0 0 1px rgba(78,205,196,.7); }
     #scoreSection .score-row.wc-strike::after { content:'STRIKE'; color:#ff9aab; background:rgba(233,69,96,.20); box-shadow:inset 0 0 0 1px rgba(233,69,96,.75); }
-    #scoreSection .score-row.wc-chosen::after { content:'\\00D7 2'; color:#ffd67a; background:rgba(245,166,35,.22); box-shadow:inset 0 0 0 1px rgba(245,166,35,.8); }
+    #scoreSection .score-row.wc-chosen::after { content:'ADD'; color:#ffd67a; background:rgba(245,166,35,.22); box-shadow:inset 0 0 0 1px rgba(245,166,35,.8); }
     @keyframes wcPulseGreen { 0%,100%{box-shadow:inset 0 0 0 2px rgba(78,205,196,0.5),0 0 8px rgba(78,205,196,0.2)} 50%{box-shadow:inset 0 0 0 2px rgba(78,205,196,0.95),0 0 18px rgba(78,205,196,0.5)} }
     @keyframes wcPulseRed { 0%,100%{box-shadow:inset 0 0 0 2px rgba(233,69,96,0.45),0 0 8px rgba(233,69,96,0.2)} 50%{box-shadow:inset 0 0 0 2px rgba(233,69,96,0.95),0 0 18px rgba(233,69,96,0.45)} }
 
@@ -892,8 +913,9 @@ function refreshWildcardHighlight() {
     const filled    = r.classList.contains('filled');
     const scratched = r.classList.contains('scratched'); // filled with 0
     if (!wildcardMaxCat) {
-      // Step 1 — highlight every completed category worth points as a DOUBLE target.
-      if (filled && !scratched) r.classList.add('wc-pick');
+      // Step 1 — highlight completed categories your CURRENT roll actually makes
+      // (rolled score > 0), i.e. the ones you can add to.
+      if (filled && !scratched && _wcRolled(_wcCat(id)) > 0) r.classList.add('wc-pick');
     } else {
       // Step 2 — the chosen row glows gold; the remaining EMPTY rows are strikes.
       if (id === wildcardMaxCat) r.classList.add('wc-chosen');
