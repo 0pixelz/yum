@@ -184,7 +184,9 @@
     const totalUsed   = data.history.used.length;
     const totalInv    = data.inventory.length;
 
-    if (totalEarned === 0 && totalInv === 0 && totalUsed === 0) return;
+    // Always show the POWER-UPS section in power-up mode — even when it's empty
+    // it renders "— none —", so the player sees the opponent's power-up state
+    // (or lack of one) instead of a missing section that looks like a bug.
 
     const html = `
       <div class="opp-section-title">
