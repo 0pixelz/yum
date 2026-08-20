@@ -191,6 +191,7 @@
                 ".validate": "(!newData.exists()) || (newData.isString() && (newData.val() === 'extraRoll' || newData.val() === 'freezeDie' || newData.val() === 'doublePoints' || newData.val() === 'luckyDice' || newData.val() === 'undoMove' || newData.val() === 'chanceRoll' || newData.val() === 'yamOrStrike' || newData.val() === 'wildcard' || newData.val() === 'goldenDice'))"
               },
               "doubleActive": { ".validate": "newData.isBoolean()" },
+              "history":      { ".validate": "(!newData.exists()) || newData.hasChildren()" },
               "ts":           { ".validate": "newData.isNumber()" },
               "$other":       { ".validate": false }
             }
