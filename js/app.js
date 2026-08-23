@@ -2725,9 +2725,9 @@ function finishBotTurn(move) {
 }
 
 function showBotGameOver() {
-  const pupBonus = (typeof powerupMode !== 'undefined' && powerupMode)
-    ? (Number(window.__yumScoreBonus) || 0) : 0;
-  const pTotal = calcTotal(scores) + pupBonus;
+  // The +25 (bonus25) is folded into the final total by the showGameOver gate
+  // in powerup-mode.js, so pass the base total here.
+  const pTotal = calcTotal(scores);
   const bTotal = calcTotal(botScores);
   const players = [
     { name: playerName, score: pTotal, isMe: true },

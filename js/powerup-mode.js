@@ -71,6 +71,7 @@ function startPowerupMode() {
   suppressNextYumEarn = false;
   upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
   window.__yumScoreBonus = 0; // reset the solo +25 (bonus25) running total
+  window._pupRewardPickerPending = false; _pupDeferredGameOver = null;
   // Clear the solo game-over latch — if a previous power-up game ended and the
   // player returned to the lobby (rather than rematch/quit), this stayed true
   // and permanently suppressed the next game's game-over screen.
@@ -141,6 +142,7 @@ function selectPowerup(id, context) {
     if (context === 'start') {
       setTimeout(() => showYourTurnPop('ROLL THE DICE'), 300);
     }
+    _pupAfterRewardPick();
     return;
   }
 
@@ -149,6 +151,19 @@ function selectPowerup(id, context) {
 
   if (context === 'start') {
     setTimeout(() => showYourTurnPop('USE YOUR POWER-UPS!'), 300);
+  }
+  _pupAfterRewardPick();
+}
+
+// After the player picks a reward power-up, release the game-over gate: if a
+// game-over was held back waiting for this pick, run it now (a short beat lets
+// an instant reward like +25 Bonus land in the total first).
+function _pupAfterRewardPick() {
+  window._pupRewardPickerPending = false;
+  if (typeof _pupDeferredGameOver === 'function') {
+    const run = _pupDeferredGameOver;
+    _pupDeferredGameOver = null;
+    setTimeout(run, 400);
   }
 }
 
@@ -750,6 +765,15 @@ function checkPowerupFirstRollStraightEarn(catId, scoreVal, rollsBefore) {
   showToast(`${ico} First-roll Large Straight! Bonus Extra Roll earned!`);
 }
 
+// Schedule an EARNED-reward picker (not the game-start pick). Flags that a pick
+// is pending so a game-over triggered on the same move (e.g. earning the reward
+// by filling the 13th box) waits for the player to pick and use it first — an
+// instant reward like +25 Bonus then still counts toward the final score.
+function _pupScheduleRewardPicker(context) {
+  window._pupRewardPickerPending = true;
+  setTimeout(() => openPowerupPickerModal(context), 900);
+}
+
 function checkPowerupYumEarn(savedDice, scoreVal) {
   if (!powerupMode) return;
   if (scoreVal <= 0) return;
@@ -758,7 +782,7 @@ function checkPowerupYumEarn(savedDice, scoreVal) {
   // 5-of-a-kind earns a power-up
   const isYum = savedDice.every(v => v > 0) && savedDice.every(v => v === savedDice[0]);
   if (isYum) {
-    setTimeout(() => openPowerupPickerModal('earn'), 900);
+    _pupScheduleRewardPicker('earn');
   }
 }
 
@@ -779,28 +803,38 @@ function checkPowerupUpperBonusEarn(justScoredId, justScoredValue) {
   }
   if (upperTotal >= target) {
     upperBonusPowerupAwarded = true;
-    setTimeout(() => openPowerupPickerModal('bonus'), 900);
+    _pupScheduleRewardPicker('bonus');
   }
 }
 
 // Reward for completing the LOWER section's non-Yam categories: once every
 // lower-section category other than Yam is filled, earn a power-up — regardless
 // of whether Yam itself is filled or not. Fires once per game.
-function checkPowerupAllButYumEarn(justScoredId) {
+function checkPowerupAllButYumEarn(justScoredId, justScoredVal) {
   if (!powerupMode) return;
   if (allButYumPowerupAwarded) return;
   if (typeof categories === 'undefined' || !Array.isArray(categories)) return;
 
-  const isFilled = (id) =>
-    (scores[id] !== undefined && scores[id] !== null) || id === justScoredId;
+  // A lower box counts toward the reward only when it holds POSITIVE points —
+  // striking one (score 0) does NOT count. You have to genuinely FILL every
+  // lower category (except Yam) with points to earn the power-up, so a single
+  // strike in the lower section locks you out of it for the game.
+  const scoredValue = (id) => {
+    if (id === justScoredId && typeof justScoredVal === 'number') return justScoredVal;
+    return (scores[id] !== undefined && scores[id] !== null) ? scores[id] : undefined;
+  };
+  const filledWithPoints = (id) => {
+    const v = scoredValue(id);
+    return typeof v === 'number' && v > 0;
+  };
 
-  // Every LOWER-section category except Yam filled? Yam's own state doesn't
-  // matter. (Folds in the just-scored id for MP's async scores write.)
+  // Every LOWER-section category except Yam scored with points? Yam's own state
+  // doesn't matter. (Folds in the just-scored value for MP's async scores write.)
   const lowerNonYum = categories.filter(c => c.section === 'lower' && c.id !== 'yum');
-  const allLowerFilled = lowerNonYum.length > 0 && lowerNonYum.every(c => isFilled(c.id));
-  if (allLowerFilled) {
+  const allLowerScored = lowerNonYum.length > 0 && lowerNonYum.every(c => filledWithPoints(c.id));
+  if (allLowerScored) {
     allButYumPowerupAwarded = true;
-    setTimeout(() => openPowerupPickerModal('allbutyum'), 900);
+    _pupScheduleRewardPicker('allbutyum');
   }
 }
 
@@ -882,7 +916,7 @@ async function _wildcardMpStrike(addCat, addAmount, strikeId) {
 
     // Bonus power-up rewards — fold in the just-scored value for MP's async write.
     try { checkPowerupUpperBonusEarn(addCat, serverScore); } catch (e) { console.warn(e); }
-    try { checkPowerupAllButYumEarn(strikeId); } catch (e) { console.warn(e); }
+    try { checkPowerupAllButYumEarn(strikeId, 0); } catch (e) { console.warn(e); }
 
     // Game-over check, mirroring the MP confirmScore path.
     try {
@@ -1153,7 +1187,7 @@ confirmScore = function() {
   // delay the reward by a full round.
   checkPowerupUpperBonusEarn(catId, finalScore);
   // Check for the "everything but Yam filled" reward.
-  checkPowerupAllButYumEarn(catId);
+  checkPowerupAllButYumEarn(catId, finalScore);
   // Reward a first-roll Large Straight with a bonus Extra Roll.
   checkPowerupFirstRollStraightEarn(catId, baseScore, rollsBefore);
 };
@@ -1262,6 +1296,38 @@ syncDiceUI = function() {
 // Detect when all 13 categories are filled in powerup mode (solo game only)
 
 let _pupGameOverPending = false;
+let _pupDeferredGameOver = null;
+
+// Gate the results screen so a reward power-up earned on the final fill (13/13)
+// can still be picked and used before results lock — and fold the solo/bot +25
+// (bonus25) into the local player's final score at display time. This wraps the
+// common chokepoint every mode funnels through (solo/bot/MP all call
+// showGameOver), and is defined here (after achievements/leaderboard/login
+// wrappers, and resolved by reference from mega-yam's later showBotGameOver).
+const _pupOrigShowGameOverGate = showGameOver;
+showGameOver = function(players) {
+  // Hold the screen while an earned-reward pick is still outstanding; re-enter
+  // once the player has picked (see _pupAfterRewardPick) so an instant reward
+  // like +25 Bonus is already in the total.
+  if (typeof powerupMode !== 'undefined' && powerupMode && window._pupRewardPickerPending) {
+    _pupDeferredGameOver = () => showGameOver(players);
+    return;
+  }
+  // Fold the solo/bot +25 into the local player's score. MP banks the +25 in
+  // megaYamBonus, which showMpGameOver already sums, so skip MP to avoid a
+  // double count.
+  let out = players;
+  const isMp = (typeof mpMode !== 'undefined' && mpMode);
+  if (typeof powerupMode !== 'undefined' && powerupMode && !isMp && Array.isArray(players)) {
+    const b = Number(window.__yumScoreBonus) || 0;
+    if (b) {
+      out = players
+        .map(p => (p && p.isMe) ? Object.assign({}, p, { score: (p.score || 0) + b }) : p)
+        .sort((a, c) => (c.score || 0) - (a.score || 0));
+    }
+  }
+  _pupOrigShowGameOverGate(out);
+};
 
 const _pupOrigRenderScores = renderScores;
 renderScores = function() {
@@ -1272,8 +1338,8 @@ renderScores = function() {
     _pupGameOverPending = true;
     setTimeout(() => {
       if (!powerupMode || mpMode || botMode) return;
-      const total   = calcTotal(scores) + (Number(window.__yumScoreBonus) || 0);
-      const players = [{ name: playerName, score: total, isMe: true }];
+      // The +25 is folded in by the showGameOver gate above, so pass the base total.
+      const players = [{ name: playerName, score: calcTotal(scores), isMe: true }];
       // Keep powerupMode=true so rematch works; showGameOver handles display
       showGameOver(players);
       document.getElementById('powerupBar').style.display = 'none';
@@ -1301,6 +1367,7 @@ rematch = function() {
     upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
     _pupGameOverPending = false;
     window.__yumScoreBonus = 0; // reset the +25 running total for the new game
+    window._pupRewardPickerPending = false; _pupDeferredGameOver = null;
     renderPowerupBar();
     _pupOrigRematch();
     return;
@@ -1319,6 +1386,7 @@ rematch = function() {
   upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
   _pupGameOverPending = false;
   window.__yumScoreBonus = 0; // reset the +25 running total for the new game
+  window._pupRewardPickerPending = false; _pupDeferredGameOver = null;
   scores             = {};
   clearDice();
   renderScores();
