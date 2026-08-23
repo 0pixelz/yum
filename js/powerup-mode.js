@@ -131,8 +131,20 @@ function selectPowerup(id, context) {
   playerPowerups.push(id);
   document.getElementById('powerupPickerModal').classList.remove('open');
   const p = POWERUPS.find(x => x.id === id);
-  showToast(`${p.icon} ${p.name} added!`);
   renderPowerupBar();
+
+  // Instant power-ups have no timing decision — apply them the moment they're
+  // picked instead of parking them in the bar for a second "use" tap. +25 Bonus
+  // just adds points, so activate it right away.
+  if (id === 'bonus25') {
+    activatePowerup('bonus25'); // adds +25 and consumes it from the inventory
+    if (context === 'start') {
+      setTimeout(() => showYourTurnPop('ROLL THE DICE'), 300);
+    }
+    return;
+  }
+
+  showToast(`${p.icon} ${p.name} added!`);
   syncPowerupsToDb();
 
   if (context === 'start') {
