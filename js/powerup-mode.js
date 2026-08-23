@@ -94,7 +94,7 @@ function openPowerupPickerModal(context) {
     subText   = 'You reached 63 in the upper section — pick a power-up reward';
   } else if (context === 'allbutyum') {
     titleHtml = '<i class="icn icn-gift"></i> LOWER SECTION DONE! EARN A POWER-UP!';
-    subText   = 'Lower section filled (except Yam) — pick a power-up for your Yam turn';
+    subText   = 'You filled the lower section — pick your reward power-up';
   } else {
     titleHtml = '<i class="icn icn-dice"></i> YAM! EARN A POWER-UP!';
     subText   = 'You rolled 5-of-a-kind! Pick a power-up to add to your arsenal';
@@ -712,9 +712,9 @@ function checkPowerupUpperBonusEarn(justScoredId, justScoredValue) {
   }
 }
 
-// Reward for completing the LOWER section EXCEPT Yam: once every lower-section
-// category other than Yam is filled (and Yam is still open), earn a power-up.
-// Fires once per game — handy for setting up the final Yam turn.
+// Reward for completing the LOWER section's non-Yam categories: once every
+// lower-section category other than Yam is filled, earn a power-up — regardless
+// of whether Yam itself is filled or not. Fires once per game.
 function checkPowerupAllButYumEarn(justScoredId) {
   if (!powerupMode) return;
   if (allButYumPowerupAwarded) return;
@@ -723,11 +723,8 @@ function checkPowerupAllButYumEarn(justScoredId) {
   const isFilled = (id) =>
     (scores[id] !== undefined && scores[id] !== null) || id === justScoredId;
 
-  // Yam must still be open — if Yam itself was just filled the board is done,
-  // and this bonus is specifically about finishing the rest first.
-  if (isFilled('yum')) return;
-  // Every LOWER-section category except Yam filled? (folds in the just-scored id
-  // for MP's async scores write, same as the upper-bonus check).
+  // Every LOWER-section category except Yam filled? Yam's own state doesn't
+  // matter. (Folds in the just-scored id for MP's async scores write.)
   const lowerNonYum = categories.filter(c => c.section === 'lower' && c.id !== 'yum');
   const allLowerFilled = lowerNonYum.length > 0 && lowerNonYum.every(c => isFilled(c.id));
   if (allLowerFilled) {
