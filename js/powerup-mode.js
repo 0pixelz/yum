@@ -786,19 +786,29 @@ function checkPowerupUpperBonusEarn(justScoredId, justScoredValue) {
 // Reward for completing the LOWER section's non-Yam categories: once every
 // lower-section category other than Yam is filled, earn a power-up — regardless
 // of whether Yam itself is filled or not. Fires once per game.
-function checkPowerupAllButYumEarn(justScoredId) {
+function checkPowerupAllButYumEarn(justScoredId, justScoredVal) {
   if (!powerupMode) return;
   if (allButYumPowerupAwarded) return;
   if (typeof categories === 'undefined' || !Array.isArray(categories)) return;
 
-  const isFilled = (id) =>
-    (scores[id] !== undefined && scores[id] !== null) || id === justScoredId;
+  // A lower box counts toward the reward only when it holds POSITIVE points —
+  // striking one (score 0) does NOT count. You have to genuinely FILL every
+  // lower category (except Yam) with points to earn the power-up, so a single
+  // strike in the lower section locks you out of it for the game.
+  const scoredValue = (id) => {
+    if (id === justScoredId && typeof justScoredVal === 'number') return justScoredVal;
+    return (scores[id] !== undefined && scores[id] !== null) ? scores[id] : undefined;
+  };
+  const filledWithPoints = (id) => {
+    const v = scoredValue(id);
+    return typeof v === 'number' && v > 0;
+  };
 
-  // Every LOWER-section category except Yam filled? Yam's own state doesn't
-  // matter. (Folds in the just-scored id for MP's async scores write.)
+  // Every LOWER-section category except Yam scored with points? Yam's own state
+  // doesn't matter. (Folds in the just-scored value for MP's async scores write.)
   const lowerNonYum = categories.filter(c => c.section === 'lower' && c.id !== 'yum');
-  const allLowerFilled = lowerNonYum.length > 0 && lowerNonYum.every(c => isFilled(c.id));
-  if (allLowerFilled) {
+  const allLowerScored = lowerNonYum.length > 0 && lowerNonYum.every(c => filledWithPoints(c.id));
+  if (allLowerScored) {
     allButYumPowerupAwarded = true;
     setTimeout(() => openPowerupPickerModal('allbutyum'), 900);
   }
@@ -882,7 +892,7 @@ async function _wildcardMpStrike(addCat, addAmount, strikeId) {
 
     // Bonus power-up rewards — fold in the just-scored value for MP's async write.
     try { checkPowerupUpperBonusEarn(addCat, serverScore); } catch (e) { console.warn(e); }
-    try { checkPowerupAllButYumEarn(strikeId); } catch (e) { console.warn(e); }
+    try { checkPowerupAllButYumEarn(strikeId, 0); } catch (e) { console.warn(e); }
 
     // Game-over check, mirroring the MP confirmScore path.
     try {
@@ -1153,7 +1163,7 @@ confirmScore = function() {
   // delay the reward by a full round.
   checkPowerupUpperBonusEarn(catId, finalScore);
   // Check for the "everything but Yam filled" reward.
-  checkPowerupAllButYumEarn(catId);
+  checkPowerupAllButYumEarn(catId, finalScore);
   // Reward a first-roll Large Straight with a bonus Extra Roll.
   checkPowerupFirstRollStraightEarn(catId, baseScore, rollsBefore);
 };
