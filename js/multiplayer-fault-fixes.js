@@ -271,12 +271,17 @@
       roomDisconnectHandle = null;
     }
 
+    // Capture the ref this listener is bound to. `hookedRef` (module-level) is
+    // reassigned when we attach to a new room, so comparing against it can't
+    // distinguish an old listener from the current one — the captured local can.
+    const _boundHookRef = hookedRef;
     hookedRef.on('value', function(snap) {
+      // Stale listener from a previous room — detach and ignore so it can't
+      // clobber the live match's player map / host-migration state.
+      if (_boundHookRef !== getRoomRef()) { try { _boundHookRef.off('value'); } catch (e) {} return; }
       if (!snap || !snap.exists()) {
-        if (hookedRef === getRoomRef()) {
-          stopTurnWatchdog();
-          stopHeartbeat();
-        }
+        stopTurnWatchdog();
+        stopHeartbeat();
         return;
       }
       const data = snap.val() || {};

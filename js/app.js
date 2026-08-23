@@ -1481,7 +1481,16 @@ function showWaiting() {
 }
 
 function listenRoom() {
+  // The room this listener belongs to. If we later rematchmake into a NEW room,
+  // `roomRef` is reassigned — this old listener must not touch the new match.
+  const boundRef = roomRef;
   roomRef.on('value', snap => {
+    // Stale listener from a previous match: we've since moved to a different
+    // room. Detach it and bail, so an old room's deletion (which fires
+    // !snap.exists()) can't call leaveGame() and blank the CURRENT match. This
+    // was the cause of "blank after 3–4 rematches with the same person" — the
+    // host client accumulated an old-room listener each match.
+    if (boundRef !== roomRef) { try { boundRef.off('value'); } catch (e) {} return; }
     if(!snap.exists()) {
       // Right after createGame the host's local cache may briefly report
       // the room as missing while the server confirms the write. Don't
