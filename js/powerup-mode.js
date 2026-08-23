@@ -679,6 +679,23 @@ function applyGoldenDice(i, v) {
 
 // ─── YUM EARN CHECK ──────────────────────────────────────────────────────────
 
+// Reward: roll a Large Straight on your FIRST roll and score it → free Extra Roll.
+// rollsBefore is rollsLeft at score time: 2 means exactly one roll was taken this
+// turn (no rerolls). Fires every time it happens (a first-roll straight is rare).
+function checkPowerupFirstRollStraightEarn(catId, scoreVal, rollsBefore) {
+  if (!powerupMode) return;
+  if (catId !== 'lgStraight') return;   // Large Straight only
+  if (!(scoreVal > 0)) return;          // must actually be a valid straight
+  if (rollsBefore !== 2) return;        // only on the first roll (no rerolls)
+  if (typeof playerPowerups === 'undefined') return;
+  playerPowerups.push('extraRoll');
+  renderPowerupBar();
+  syncPowerupsToDb();
+  const ico = (typeof POWERUP_ICONS !== 'undefined' && POWERUP_ICONS.extraRoll)
+    ? POWERUP_ICONS.extraRoll : '<i class="icn icn-dice"></i>';
+  showToast(`${ico} First-roll Large Straight! Bonus Extra Roll earned!`);
+}
+
 function checkPowerupYumEarn(savedDice, scoreVal) {
   if (!powerupMode) return;
   if (scoreVal <= 0) return;
@@ -1045,6 +1062,9 @@ confirmScore = function() {
   const catId      = activeModal;
   const baseScore  = selectedScore;
   const savedDice  = dice.slice();
+  // Rolls left BEFORE scoring (clearDice resets it). 2 = exactly one roll taken
+  // this turn — used for the first-roll Large Straight bonus below.
+  const rollsBefore = (typeof rollsLeft === 'number') ? rollsLeft : 0;
 
   // Apply double points modifier — only consume when it actually doubles
   // a positive score. Striking a category (baseScore === 0) keeps the
@@ -1080,6 +1100,8 @@ confirmScore = function() {
   checkPowerupUpperBonusEarn(catId, finalScore);
   // Check for the "everything but Yam filled" reward.
   checkPowerupAllButYumEarn(catId);
+  // Reward a first-roll Large Straight with a bonus Extra Roll.
+  checkPowerupFirstRollStraightEarn(catId, baseScore, rollsBefore);
 };
 
 // Pending freeze carry-over — survives across bot's / opponent's turn so the
