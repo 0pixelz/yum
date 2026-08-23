@@ -26,6 +26,9 @@ const POWERUPS = [
   { id:'wildcard',    name:'Wildcard',      icon:'<i class="icn icn-target"></i>',
     desc:'Roll a combo you already scored to add it to that category again — then strike an empty one',
     color:'#f39c12', gradient:'linear-gradient(135deg,#f6c343,#e67e22)' },
+  { id:'bonus25',     name:'+25 Bonus',     icon:'<i class="icn icn-coin"></i>',
+    desc:'Instantly add 25 points to your total score',
+    color:'#f5c542', gradient:'linear-gradient(135deg,#ffe08a,#f5a623)' },
 ];
 
 let powerupMode    = false;
@@ -67,6 +70,7 @@ function startPowerupMode() {
   yamOrStrikeAttempts = 0;
   suppressNextYumEarn = false;
   upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
+  window.__yumScoreBonus = 0; // reset the solo +25 (bonus25) running total
   // Clear the solo game-over latch — if a previous power-up game ended and the
   // player returned to the lobby (rather than rematch/quit), this stayed true
   // and permanently suppressed the next game's game-over screen.
@@ -450,6 +454,30 @@ function activatePowerup(id) {
       syncPowerupsToDb();
       break;
     }
+
+    case 'bonus25': {
+      // Instantly add 25 points to your running total — no roll required.
+      consumePowerup('bonus25');
+      if (typeof mpMode !== 'undefined' && mpMode &&
+          typeof roomRef !== 'undefined' && roomRef) {
+        // MP: bank it in megaYamBonus, which every total-summing path already
+        // adds unconditionally (renderLeaderboard / showMpGameOver). A
+        // transaction keeps it correct if it's used more than once.
+        roomRef.child('players/' + playerId + '/megaYamBonus')
+          .transaction(cur => (Number(cur) || 0) + 25);
+      } else {
+        // Solo / bot: a local running bonus folded into the grand total.
+        window.__yumScoreBonus = (Number(window.__yumScoreBonus) || 0) + 25;
+      }
+      if (typeof updateTotals === 'function') updateTotals();
+      if (typeof renderScores === 'function') renderScores();
+      if (typeof renderLeaderboard === 'function') renderLeaderboard();
+      if (typeof renderBotLeaderboard === 'function') renderBotLeaderboard();
+      renderPowerupBar();
+      showToast('+25 Bonus! 25 points added to your score.');
+      syncPowerupsToDb();
+      break;
+    }
   }
 }
 
@@ -489,6 +517,20 @@ function consumePowerup(id) {
   const idx = playerPowerups.indexOf(id);
   if (idx >= 0) playerPowerups.splice(idx, 1);
 }
+
+// The player's own +25 (bonus25) contribution to the grand total. Read by
+// scoring-rules.js's updateTotals so the header total reflects the bonus. In MP
+// it's banked in megaYamBonus (which the leaderboard already sums); solo/bot
+// keep a local running counter that game resets clear.
+window.powerupSelfBonus = function () {
+  if (typeof powerupMode === 'undefined' || !powerupMode) return 0;
+  if (typeof mpMode !== 'undefined' && mpMode) {
+    const p = (typeof allPlayers === 'object' && allPlayers && allPlayers[playerId])
+      ? allPlayers[playerId] : null;
+    return p ? (Number(p.megaYamBonus) || 0) : 0;
+  }
+  return Number(window.__yumScoreBonus) || 0;
+};
 
 function syncPowerupsToDb() {
   if (!mpMode || !powerupMode || !roomRef) return;
@@ -1218,7 +1260,7 @@ renderScores = function() {
     _pupGameOverPending = true;
     setTimeout(() => {
       if (!powerupMode || mpMode || botMode) return;
-      const total   = calcTotal(scores);
+      const total   = calcTotal(scores) + (Number(window.__yumScoreBonus) || 0);
       const players = [{ name: playerName, score: total, isMe: true }];
       // Keep powerupMode=true so rematch works; showGameOver handles display
       showGameOver(players);
@@ -1246,6 +1288,7 @@ rematch = function() {
     suppressNextYumEarn = false;
     upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
     _pupGameOverPending = false;
+    window.__yumScoreBonus = 0; // reset the +25 running total for the new game
     renderPowerupBar();
     _pupOrigRematch();
     return;
@@ -1263,6 +1306,7 @@ rematch = function() {
   pendingFreezeVal   = 0;
   upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
   _pupGameOverPending = false;
+  window.__yumScoreBonus = 0; // reset the +25 running total for the new game
   scores             = {};
   clearDice();
   renderScores();

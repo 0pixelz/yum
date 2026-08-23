@@ -81,7 +81,11 @@
       const megaBonus = (window.megaYamMode && typeof window.megaYamSelfBonus === 'function')
         ? (window.megaYamSelfBonus() || 0) : 0;
 
-      const grand = upperTotal + lowerTotal + (bonusEarned ? RULES.upperBonusPoints : 0) + megaBonus;
+      // Power-up +25 bonus (bonus25) folds in the same way.
+      const pupBonus = (typeof window.powerupSelfBonus === 'function')
+        ? (window.powerupSelfBonus() || 0) : 0;
+
+      const grand = upperTotal + lowerTotal + (bonusEarned ? RULES.upperBonusPoints : 0) + megaBonus + pupBonus;
       const filled = Object.keys(scores).length;
       const total = categories.length;
       const pct = Math.round((filled / total) * 100);
@@ -90,7 +94,9 @@
       document.getElementById('totalSub').textContent = `${filled} of ${total} filled`;
       document.getElementById('globalProgress').style.width = pct + '%';
       document.getElementById('progressLabel').textContent =
-        `${pct}% Complete · ${grand} pts` + (megaBonus > 0 ? ` · +${megaBonus} Mega Yam` : '');
+        `${pct}% Complete · ${grand} pts`
+          + (megaBonus > 0 ? ` · +${megaBonus} Mega Yam` : '')
+          + (pupBonus > 0 ? ` · +${pupBonus} Bonus` : '');
     };
   }
 
