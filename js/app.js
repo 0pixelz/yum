@@ -1022,7 +1022,7 @@ let previousPlayerCount = null;
 let previousPlayers = {};
 let prevOpponentScores = {}; // track opponent score counts for change detection
 let prevOpponentPowerups = {}; // track opponent powerup state for change detection
-const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i class="icn icn-gem"></i>', doublePoints:'<i class="icn icn-sparkle"></i>', luckyDice:'<i class="icn icn-star"></i>', undoMove:'<i class="icn icn-refresh"></i>', chanceRoll:'<i class="icn icn-volcano"></i>', yamOrStrike:'<i class="icn icn-skull"></i>', wildcard:'<i class="icn icn-target"></i>', goldenDice:'<i class="icn icn-dice-stack"></i>' };
+const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i class="icn icn-gem"></i>', doublePoints:'<i class="icn icn-sparkle"></i>', luckyDice:'<i class="icn icn-star"></i>', undoMove:'<i class="icn icn-refresh"></i>', chanceRoll:'<i class="icn icn-volcano"></i>', yamOrStrike:'<i class="icn icn-skull"></i>', wildcard:'<i class="icn icn-target"></i>', goldenDice:'<i class="icn icn-dice-stack"></i>', bonus25:'<i class="icn icn-coin"></i>' };
 // Resolve a power-up's icon: the map above first, then its own icon from the
 // POWERUPS catalog (so a new power-up shows its real logo, not a generic bolt),
 // falling back to a bolt only if truly unknown.
@@ -2354,6 +2354,7 @@ function startVsBot(mode) {
       pendingFreezeVal = 0;
     }
   }
+  window.__yumScoreBonus = 0; // reset the +25 (bonus25) running total
   if (typeof powerupMode !== 'undefined') {
     powerupMode = (mode === 'powerup');
   }
@@ -2387,7 +2388,10 @@ function startVsBot(mode) {
 
 function renderBotLeaderboard() {
   if(!botMode) return;
-  const pTotal = calcTotal(scores);
+  // Fold the human's +25 (bonus25) power-up bonus into their leaderboard total.
+  const pupBonus = (typeof powerupMode !== 'undefined' && powerupMode)
+    ? (Number(window.__yumScoreBonus) || 0) : 0;
+  const pTotal = calcTotal(scores) + pupBonus;
   const bTotal = calcTotal(botScores);
   const pFilled = Object.keys(scores).length;
   const bFilled = Object.keys(botScores).length;
@@ -2721,7 +2725,9 @@ function finishBotTurn(move) {
 }
 
 function showBotGameOver() {
-  const pTotal = calcTotal(scores);
+  const pupBonus = (typeof powerupMode !== 'undefined' && powerupMode)
+    ? (Number(window.__yumScoreBonus) || 0) : 0;
+  const pTotal = calcTotal(scores) + pupBonus;
   const bTotal = calcTotal(botScores);
   const players = [
     { name: playerName, score: pTotal, isMe: true },
