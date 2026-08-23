@@ -172,6 +172,46 @@
     }).join('');
   }
 
+  // ── GAME-OVER: power-ups each player USED this match ───────────────────────
+  // Resolve the used-history for a game-over player entry ({name, score, isMe}).
+  function _usedIdsForPlayer(p) {
+    if (!p) return [];
+    const own = p.isMe || (typeof playerId !== 'undefined' && p.id === playerId);
+    if (own) return playerPowerupHistory.used.map(u => u.id);
+    if (typeof botMode !== 'undefined' && botMode) {
+      return botPowerupHistory.used.map(u => u.id);
+    }
+    if (typeof allPlayers === 'object' && allPlayers) {
+      const entry = Object.entries(allPlayers).find(([id, pl]) => pl.name === p.name);
+      if (entry) {
+        const used = (entry[1].livePowerups && entry[1].livePowerups.history &&
+                      entry[1].livePowerups.history.used) || [];
+        return used.map(u => u.id);
+      }
+    }
+    return [];
+  }
+
+  // Compact chip row of the power-ups a player used, for the game-over screen.
+  window.renderGameOverUsedPups = function (p) {
+    if (typeof powerupMode === 'undefined' || !powerupMode) return '';
+    const ids = _usedIdsForPlayer(p);
+    if (!ids.length) return '';
+    const counts = {};
+    ids.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+    const chips = Object.entries(counts).map(([id, cnt]) => {
+      const icon  = (typeof POWERUP_ICONS !== 'undefined' && POWERUP_ICONS[id])
+        ? POWERUP_ICONS[id] : '<i class="icn icn-bolt"></i>';
+      const def   = POWERUPS.find(x => x.id === id);
+      const name  = def ? def.name : id;
+      const color = def ? def.color : '#999';
+      return `<span class="go-pup-chip" style="--opc:${color}" title="${name}">
+        ${icon}${cnt > 1 ? `<span class="go-pup-x">×${cnt}</span>` : ''}
+      </span>`;
+    }).join('');
+    return `<div class="go-pup-used"><span class="go-pup-lbl">Power-ups used</span>${chips}</div>`;
+  };
+
   const _origOpenOppViewer = window.openOppViewer;
   window.openOppViewer = function (targetId, targetName, targetScores, targetScoreDice) {
     // Forward every argument (incl. the 5th, megaBonus) so the viewer header

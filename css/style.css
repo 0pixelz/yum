@@ -1669,6 +1669,25 @@
   .gameover-score-val {
     font-family: 'Bebas Neue', cursive; font-size: 1.4rem; color: var(--gold);
   }
+  .gameover-player-block { border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .gameover-player-block:last-child { border-bottom: none; }
+  .gameover-player-block .gameover-score-row { border-bottom: none; }
+  .go-pup-used {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    padding: 0 0 8px 2px;
+  }
+  .go-pup-lbl {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.4px;
+    color: rgba(255,255,255,0.5); text-transform: uppercase; margin-right: 2px;
+  }
+  .go-pup-chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 8px; border-radius: 50px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--opc, rgba(255,255,255,0.18));
+    color: var(--opc, var(--white)); font-size: 0.8rem;
+  }
+  .go-pup-x { font-weight: 800; font-size: 0.72rem; color: var(--white); }
   .gameover-btns { display: flex; flex-direction: column; gap: 10px; }
   .gameover-btn {
     padding: 14px; border-radius: 50px; border: none;
