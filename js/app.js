@@ -2973,12 +2973,16 @@ function showGameOver(players) {
   document.getElementById('goWinner').textContent =
     tied ? 'Dead even!' : winner.name + ' wins!';
 
-  document.getElementById('goScores').innerHTML = players.map((p,i) =>
-    `<div class="gameover-score-row">
-      <div class="gameover-score-name">${i===0&&!tied?'<i class="icn icn-medal icn-gold"></i> ':''}${escapeHtml(p.name)}${p.isMe?' (you)':''}</div>
-      <div class="gameover-score-val">${p.score}</div>
-    </div>`
-  ).join('');
+  document.getElementById('goScores').innerHTML = players.map((p,i) => {
+    const pupUsed = (typeof window.renderGameOverUsedPups === 'function')
+      ? window.renderGameOverUsedPups(p) : '';
+    return `<div class="gameover-player-block">
+      <div class="gameover-score-row">
+        <div class="gameover-score-name">${i===0&&!tied?'<i class="icn icn-medal icn-gold"></i> ':''}${escapeHtml(p.name)}${p.isMe?' (you)':''}</div>
+        <div class="gameover-score-val">${p.score}</div>
+      </div>${pupUsed}
+    </div>`;
+  }).join('');
 
   // Save full scores to session
   const playersWithScores = players.map(p => {
