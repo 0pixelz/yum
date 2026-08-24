@@ -492,6 +492,13 @@ function activatePowerup(id) {
         // transaction keeps it correct if it's used more than once.
         roomRef.child('players/' + playerId + '/megaYamBonus')
           .transaction(cur => (Number(cur) || 0) + 25);
+        // Optimistically reflect it locally so the leaderboard and the (possibly
+        // immediate) game-over recap show the +25 without waiting for the
+        // transaction to round-trip. The room listener later confirms the same
+        // value, so this doesn't double-count.
+        if (typeof allPlayers === 'object' && allPlayers && allPlayers[playerId]) {
+          allPlayers[playerId].megaYamBonus = (Number(allPlayers[playerId].megaYamBonus) || 0) + 25;
+        }
       } else {
         // Solo / bot: a local running bonus folded into the grand total.
         window.__yumScoreBonus = (Number(window.__yumScoreBonus) || 0) + 25;
@@ -1310,7 +1317,23 @@ showGameOver = function(players) {
   // once the player has picked (see _pupAfterRewardPick) so an instant reward
   // like +25 Bonus is already in the total.
   if (typeof powerupMode !== 'undefined' && powerupMode && window._pupRewardPickerPending) {
-    _pupDeferredGameOver = () => showGameOver(players);
+    if (typeof mpMode !== 'undefined' && mpMode && typeof allPlayers === 'object' && allPlayers) {
+      // MP: the passed `players` were computed BEFORE the reward pick, so a +25
+      // picked from the reward wouldn't show. Recompute fresh from allPlayers at
+      // display time (bonus25 optimistically bumps allPlayers[me].megaYamBonus),
+      // so the recap reflects the pick for everyone.
+      _pupDeferredGameOver = () => {
+        const fresh = Object.entries(allPlayers).map(([id, p]) => {
+          const sc = (typeof playerId !== 'undefined' && id === playerId) ? scores : (p.scores || {});
+          return { name: p.name, score: calcTotal(sc) + (Number(p.megaYamBonus) || 0),
+                   isMe: (typeof playerId !== 'undefined' && id === playerId) };
+        }).sort((a, c) => (c.score || 0) - (a.score || 0));
+        showGameOver(fresh);
+      };
+    } else {
+      // Solo/bot: re-entering showGameOver re-folds the (now updated) local bonus.
+      _pupDeferredGameOver = () => showGameOver(players);
+    }
     return;
   }
   // Fold the solo/bot +25 into the local player's score. MP banks the +25 in
