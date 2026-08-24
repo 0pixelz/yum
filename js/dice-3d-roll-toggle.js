@@ -18,6 +18,11 @@
     if (typeof window.showToast === 'function') {
       window.showToast(next ? '3D dice roll enabled' : '3D dice roll disabled');
     }
+    // Turning 3D off mid-game: end any lingering live broadcast so an opponent
+    // isn't left watching my 3D stream.
+    if (!next && typeof window.__yum3dEndBroadcast === 'function') {
+      try { window.__yum3dEndBroadcast(); } catch (e) {}
+    }
     refreshInlineToggle();
     return next;
   };
@@ -201,13 +206,16 @@
             }
             return;
           }
-          // A score picked in the overlay resolves skipped:true and was already
-          // submitted to the server by confirmScore3D — nothing to do here.
           if (res.skipped) return;
-          // Player exited via "Done" without scoring — reflect the latest
-          // server roll into the 2D card so they can score/roll there.
+          // Reflect the latest server roll into the 2D card so the dice + roll
+          // count are correct there.
           if (Array.isArray(res.dice) && typeof window.__yumApplyMpRoll === 'function') {
             window.__yumApplyMpRoll({ dice: res.dice, roll: lastRoll }, false);
+          }
+          // A score picked in the overlay: open the 2D score modal for that
+          // category so it commits through the normal (reliable) MP submit.
+          if (res.pick && typeof openModal === 'function') {
+            setTimeout(() => { try { openModal(res.pick); } catch (e) {} }, 360);
           }
         }).catch(err => {
           window.__yum3dRollInFlight = false;

@@ -2118,12 +2118,12 @@
     // submit immediately; the overlay close follows.
     const isMp = (typeof mpMode !== 'undefined' && mpMode);
     if (isMp) {
-      try { if (typeof confirmScore === 'function') confirmScore(); }
-      catch (e) { console.warn('confirmScore (3D MP) failed', e); }
-      finalizeTurn(null, true);   // close the overlay without the toggle's writeback
-      setTimeout(() => {
-        try { if (typeof renderDice === 'function') renderDice(true); } catch (_) {}
-      }, 120);
+      // MP: resolve the turn with the picked category and let the roll-toggle
+      // apply the dice to the 2D card and open the normal score modal. The old
+      // in-overlay confirmScore() submit raced the overlay close and silently
+      // dropped the score; routing through the 2D modal uses the same reliable
+      // server-submit path as manual play.
+      finalizeTurn(catId);
       return;
     }
     finalizeTurn(null, true);   // close the overlay without the toggle's writeback
