@@ -2898,6 +2898,19 @@ function showOpponentDiceInRoller(liveDice, oppName) {
   dice = savedDice;
   held = savedHeld;
 
+  // Golden Dice halo — show which die the opponent set with Golden Dice, so both
+  // players see it. liveDice.golden is the die index (-1 / absent = none).
+  if (typeof powerupMode !== 'undefined' && powerupMode) {
+    const gIdx = (typeof liveDice.golden === 'number') ? liveDice.golden : -1;
+    const dr = document.getElementById('diceRow');
+    if (dr) {
+      for (let i = 0; i < 5; i++) {
+        const el = dr.querySelector(`[data-i="${i}"]`);
+        if (el) el.classList.toggle('die-golden', i === gIdx);
+      }
+    }
+  }
+
   let rollText = `${oppName} — Roll ${rollNum} / 3`;
   if (typeof powerupMode !== 'undefined' && powerupMode) {
     const oppPup = allPlayers[currentTurnId]?.livePowerups;

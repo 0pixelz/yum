@@ -38,6 +38,7 @@ let doublePointsActive = false;
 let undoPowerupState   = null; // {catId} for undo
 let freezeDieIndex = -1;
 let frozenDieValue = 0;
+let goldenDieIndex = -1; // die whose value was set by Golden Dice this roll (synced)
 let yamOrStrikeActive   = false;
 let yamOrStrikeAttempts = 0;     // number of attempts used (max 2)
 let suppressNextYumEarn = false; // forced YAM via yamOrStrike shouldn't earn another power-up
@@ -492,6 +493,13 @@ function activatePowerup(id) {
         // transaction keeps it correct if it's used more than once.
         roomRef.child('players/' + playerId + '/megaYamBonus')
           .transaction(cur => (Number(cur) || 0) + 25);
+        // Optimistically reflect it locally so the leaderboard and the (possibly
+        // immediate) game-over recap show the +25 without waiting for the
+        // transaction to round-trip. The room listener later confirms the same
+        // value, so this doesn't double-count.
+        if (typeof allPlayers === 'object' && allPlayers && allPlayers[playerId]) {
+          allPlayers[playerId].megaYamBonus = (Number(allPlayers[playerId].megaYamBonus) || 0) + 25;
+        }
       } else {
         // Solo / bot: a local running bonus folded into the grand total.
         window.__yumScoreBonus = (Number(window.__yumScoreBonus) || 0) + 25;
@@ -638,6 +646,7 @@ function refreshDieFreezeVisual() {
     const el = row.querySelector(`[data-i="${i}"]`);
     if (!el) continue;
     el.classList.toggle('die-frozen',     powerupMode && i === freezeDieIndex);
+    el.classList.toggle('die-golden',     powerupMode && i === goldenDieIndex);
     el.classList.toggle('die-selectable', powerupMode && !!pendingPowerup && dice[i] > 0);
   }
 }
@@ -654,7 +663,8 @@ function _pushLiveDice() {
     let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch (e) {}
     const _roll = Math.max(0, Math.min(3, 3 - (typeof rollsLeft === 'number' ? rollsLeft : 0)));
     roomRef.child('players/' + playerId + '/liveDice').set({
-      dice: dice, held: held, roll: _roll, skin: _skinId, perDieColors: _pdc, ts: Date.now()
+      dice: dice, held: held, roll: _roll, skin: _skinId, perDieColors: _pdc,
+      golden: (typeof goldenDieIndex === 'number' ? goldenDieIndex : -1), ts: Date.now()
     });
   } catch (e) { console.warn('liveDice push failed:', e); }
 }
@@ -730,6 +740,7 @@ function applyGoldenDice(i, v) {
   consumePowerup('goldenDice');
   pendingPowerup = null;
   dice[i] = v;
+  goldenDieIndex = i; // mark for the golden halo (shown to both players)
   rolled = true;
   renderScores();
   renderDice(false);
@@ -1238,6 +1249,8 @@ clearDice = function() {
     freezeDieIndex = -1;
     frozenDieValue = 0;
   }
+  // The golden halo lasts only for the roll it was set on — clear it at turn end.
+  goldenDieIndex = -1;
 
   _pupOrigClearDice();
 
@@ -1310,7 +1323,23 @@ showGameOver = function(players) {
   // once the player has picked (see _pupAfterRewardPick) so an instant reward
   // like +25 Bonus is already in the total.
   if (typeof powerupMode !== 'undefined' && powerupMode && window._pupRewardPickerPending) {
-    _pupDeferredGameOver = () => showGameOver(players);
+    if (typeof mpMode !== 'undefined' && mpMode && typeof allPlayers === 'object' && allPlayers) {
+      // MP: the passed `players` were computed BEFORE the reward pick, so a +25
+      // picked from the reward wouldn't show. Recompute fresh from allPlayers at
+      // display time (bonus25 optimistically bumps allPlayers[me].megaYamBonus),
+      // so the recap reflects the pick for everyone.
+      _pupDeferredGameOver = () => {
+        const fresh = Object.entries(allPlayers).map(([id, p]) => {
+          const sc = (typeof playerId !== 'undefined' && id === playerId) ? scores : (p.scores || {});
+          return { name: p.name, score: calcTotal(sc) + (Number(p.megaYamBonus) || 0),
+                   isMe: (typeof playerId !== 'undefined' && id === playerId) };
+        }).sort((a, c) => (c.score || 0) - (a.score || 0));
+        showGameOver(fresh);
+      };
+    } else {
+      // Solo/bot: re-entering showGameOver re-folds the (now updated) local bonus.
+      _pupDeferredGameOver = () => showGameOver(players);
+    }
     return;
   }
   // Fold the solo/bot +25 into the local player's score. MP banks the +25 in
@@ -1529,6 +1558,9 @@ rollDice = function() {
   if (powerupMode && pendingFreezeIdx >= 0 && _isMyTurnNow()) {
     _applyPendingFreeze();
   }
+  // A fresh roll supersedes any Golden Dice pick from the previous roll, so clear
+  // its halo (the roll's own liveDice push doesn't carry the golden marker).
+  if (powerupMode) goldenDieIndex = -1;
   _pupOrigRollDicePending();
 };
 
