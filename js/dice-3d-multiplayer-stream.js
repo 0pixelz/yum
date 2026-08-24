@@ -91,14 +91,23 @@
       spectatorOpening = false;
       return;
     }
-    if (!inMP()) { broadcastActive = false; return; }
-    if (!broadcastActive) return;
-    broadcastActive = false;
-    // Mark inactive — the opponent's spectator will fade out. Use update so we
-    // keep the final `ts` ordering and don't race with the liveDice write that
-    // dice-3d-roll-toggle.js issues right after.
-    myLive3dRef().update({ active: false, ph: 'done', ts: Date.now() });
+    endBroadcast();
   }
+
+  // Deactivate my live 3D broadcast so any opponent spectating me closes. Always
+  // writes active:false when in a room (not gated on broadcastActive) so an exit
+  // from any overlay state — including the corner ✕ — reliably ends it, and
+  // clears the streamed frames so no stale tumble can re-render.
+  function endBroadcast() {
+    broadcastActive = false;
+    if (!inMP()) return;
+    try {
+      myLive3dRef().update({ active: false, ph: 'done', f: null, ts: Date.now() });
+    } catch (_) {}
+  }
+  // Let the 3D-roll toggle end a lingering broadcast when the player turns 3D
+  // roll OFF, so a mid-session toggle can't leave the opponent watching.
+  window.__yum3dEndBroadcast = endBroadcast;
 
   function onSpectatorHide() {
     // User clicked the "Hide" button mid-roll. Suppress reopen until the
