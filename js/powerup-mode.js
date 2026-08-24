@@ -38,6 +38,7 @@ let doublePointsActive = false;
 let undoPowerupState   = null; // {catId} for undo
 let freezeDieIndex = -1;
 let frozenDieValue = 0;
+let goldenDieIndex = -1; // die whose value was set by Golden Dice this roll (synced)
 let yamOrStrikeActive   = false;
 let yamOrStrikeAttempts = 0;     // number of attempts used (max 2)
 let suppressNextYumEarn = false; // forced YAM via yamOrStrike shouldn't earn another power-up
@@ -645,6 +646,7 @@ function refreshDieFreezeVisual() {
     const el = row.querySelector(`[data-i="${i}"]`);
     if (!el) continue;
     el.classList.toggle('die-frozen',     powerupMode && i === freezeDieIndex);
+    el.classList.toggle('die-golden',     powerupMode && i === goldenDieIndex);
     el.classList.toggle('die-selectable', powerupMode && !!pendingPowerup && dice[i] > 0);
   }
 }
@@ -661,7 +663,8 @@ function _pushLiveDice() {
     let _pdc = null; try { _pdc = JSON.parse(localStorage.getItem('yum_per_die_colors') || 'null'); } catch (e) {}
     const _roll = Math.max(0, Math.min(3, 3 - (typeof rollsLeft === 'number' ? rollsLeft : 0)));
     roomRef.child('players/' + playerId + '/liveDice').set({
-      dice: dice, held: held, roll: _roll, skin: _skinId, perDieColors: _pdc, ts: Date.now()
+      dice: dice, held: held, roll: _roll, skin: _skinId, perDieColors: _pdc,
+      golden: (typeof goldenDieIndex === 'number' ? goldenDieIndex : -1), ts: Date.now()
     });
   } catch (e) { console.warn('liveDice push failed:', e); }
 }
@@ -737,6 +740,7 @@ function applyGoldenDice(i, v) {
   consumePowerup('goldenDice');
   pendingPowerup = null;
   dice[i] = v;
+  goldenDieIndex = i; // mark for the golden halo (shown to both players)
   rolled = true;
   renderScores();
   renderDice(false);
@@ -1245,6 +1249,8 @@ clearDice = function() {
     freezeDieIndex = -1;
     frozenDieValue = 0;
   }
+  // The golden halo lasts only for the roll it was set on — clear it at turn end.
+  goldenDieIndex = -1;
 
   _pupOrigClearDice();
 
@@ -1552,6 +1558,9 @@ rollDice = function() {
   if (powerupMode && pendingFreezeIdx >= 0 && _isMyTurnNow()) {
     _applyPendingFreeze();
   }
+  // A fresh roll supersedes any Golden Dice pick from the previous roll, so clear
+  // its halo (the roll's own liveDice push doesn't carry the golden marker).
+  if (powerupMode) goldenDieIndex = -1;
   _pupOrigRollDicePending();
 };
 

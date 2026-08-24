@@ -227,17 +227,23 @@
     // Always show the POWER-UPS section in power-up mode — even when it's empty
     // it renders "— none —", so the player sees the opponent's power-up state
     // (or lack of one) instead of a missing section that looks like a bug.
-
-    // Show only what the opponent currently holds — not the used history — so a
-    // power-up disappears from the viewer the moment they spend it.
+    //
+    // Two rows: what they currently hold (IN HAND) and what they've spent so far
+    // (USED THIS GAME), so tapping a name shows the full power-up picture.
+    const usedIds = data.history.used.map(u => (typeof u === 'string') ? u : u.id);
     const html = `
       <div class="opp-section-title">
         <i class="icn icn-bolt"></i> POWER-UPS
-        <span class="opp-pup-summary">${totalInv} in hand</span>
+        <span class="opp-pup-summary">${totalInv} in hand · ${totalUsed} used</span>
       </div>
       <div class="opp-pup-section">
         <div class="opp-pup-row">
+          <div class="opp-pup-row-label">In hand</div>
           <div class="opp-pup-chips">${_renderPupChips(data.inventory)}</div>
+        </div>
+        <div class="opp-pup-row">
+          <div class="opp-pup-row-label">Used</div>
+          <div class="opp-pup-chips">${_renderPupChips(usedIds)}</div>
         </div>
       </div>`;
     const content = document.getElementById('oppSheetContent');
