@@ -1669,9 +1669,21 @@ function listenRoom() {
       const _gmPower = ((data.gameMode || 'normal') === 'powerup');
       if(_gmPower && !powerupMode) {
         powerupMode = true;
-        playerPowerups = [];
-        pendingPowerup = null;
-        doublePointsActive = false;
+        // Restore my power-up inventory from the synced livePowerups so a reload
+        // or rejoin mid-game doesn't wipe the power-ups I've earned. Only fall
+        // back to empty when there genuinely is no synced state (fresh game).
+        const _lp = (allPlayers[playerId] && allPlayers[playerId].livePowerups) || null;
+        playerPowerups = (_lp && Array.isArray(_lp.inventory)) ? _lp.inventory.slice() : [];
+        pendingPowerup = (_lp && _lp.pending) || null;
+        doublePointsActive = !!(_lp && _lp.doubleActive);
+        // Restore earned/used history too, so the opponent viewer and the
+        // game-over "used" list survive a reload.
+        if (typeof playerPowerupHistory !== 'undefined' && _lp && _lp.history) {
+          try {
+            playerPowerupHistory.earned = Array.isArray(_lp.history.earned) ? _lp.history.earned.slice() : [];
+            playerPowerupHistory.used   = Array.isArray(_lp.history.used)   ? _lp.history.used.slice()   : [];
+          } catch (e) {}
+        }
         undoPowerupState = null;
         freezeDieIndex = -1;
         frozenDieValue = 0;
