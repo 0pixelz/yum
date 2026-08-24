@@ -1649,6 +1649,23 @@ function listenRoom() {
     }
 
     if(data.started) {
+      // Rejoin / reload restore: the board-load transition above only fires once
+      // (while the waiting overlay is visible). A page reload skips it, so the
+      // game view can be missing — the leaderboard (player names + top score)
+      // and MP banner stay hidden even though their contents are populated.
+      // Ensure the core MP game UI is visible whenever we're in a started game.
+      if (allPlayers[playerId]) {
+        mpMode = true;
+        const _lb = document.getElementById('leaderboard');
+        if (_lb && _lb.style.display !== 'block') _lb.style.display = 'block';
+        const _bn = document.getElementById('mpBanner');
+        if (_bn && _bn.style.display !== 'block') _bn.style.display = 'block';
+        const _cb = document.getElementById('mpCodeBadge');
+        if (_cb && roomCode) _cb.textContent = roomCode;
+        const _wo = document.getElementById('waitingOverlay');
+        if (_wo && _wo.style.display !== 'none') _wo.style.display = 'none';
+      }
+
       updateMpUI();
       renderLeaderboard();
 
