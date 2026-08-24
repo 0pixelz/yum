@@ -766,7 +766,8 @@
       '<div class="d3d-actions" id="dice3dActions"></div>' +
       '<div class="d3d-prebonus" id="dice3dPreBonus"></div>' +
       '<div class="d3d-status" id="dice3dStatus">Drag the dice and flick to throw</div>' +
-      '<button class="d3d-cancel" id="dice3dCancel">Skip throw</button>';
+      '<button class="d3d-cancel" id="dice3dCancel">Skip throw</button>' +
+      '<button class="d3d-exit" id="dice3dExit" type="button" title="Exit 3D roll" aria-label="Exit 3D roll">✕</button>';
     document.body.appendChild(overlay);
     canvasEl = overlay.querySelector('#dice3dCanvas');
     statusEl = overlay.querySelector('#dice3dStatus');
@@ -779,37 +780,55 @@
     preBonusEl = overlay.querySelector('#dice3dPreBonus');
     yamEl = overlay.querySelector('#dice3dYam');
     _renderOppRolls();
-    cancelBtn.addEventListener('click', () => {
-      // While choosing a Lucky-Dice / Freeze target, the button just cancels that.
-      if (luckyPending) { exitLuckySelect(true); return; }
-      if (freezePending) { exitFreezeSelect(true); return; }
-      if (mode === 'spectator') {
-        // "Hide" the live view of an opponent's roll — purely local; the
-        // roll continues on their side and the regular post-roll dice update
-        // will appear in the roller card via the existing liveDice channel.
-        if (_onSpectatorHideCb) { try { _onSpectatorHideCb(); } catch (_) {} }
-        closeOverlay();
-        return;
-      }
-      if (mpRoll) {
-        // Server-authoritative MP roll: before the flick this is "Skip throw"
-        // (abort, change nothing). Once flicked, the roll is already committed
-        // to the server, so the button is inert until it resolves.
-        if (!mpFlicked) finishMpRoll({ skipped: true });
-        return;
-      }
-      if (interactiveTurn) {
-        // After at least one throw the button is a real "Done" (commit the hand
-        // as it stands); before any throw it's "Skip" (abort, change nothing).
-        if (turnRollsUsed > 0) finalizeTurn(null);
-        else finalizeTurn(null, true);
-        return;
-      }
-      if (!resolveFn) return;
-      const r = resolveFn; resolveFn = null;
+    cancelBtn.addEventListener('click', () => handleCancelOrExit(false));
+    // The corner ✕ is an always-available escape hatch: it forces a way out of
+    // the overlay even after the dice settle (when the inline button is hidden),
+    // so a mis-tapped 3D roll never traps the player. Exiting mid-turn drops
+    // them back to the 2D board with the current dice, where they can score.
+    const exitBtn = overlay.querySelector('#dice3dExit');
+    if (exitBtn) exitBtn.addEventListener('click', () => handleCancelOrExit(true));
+  }
+
+  // Shared handler for the inline Skip/Done button and the always-visible corner
+  // ✕. `forceExit` (from the ✕) guarantees the overlay closes even in states the
+  // inline button treats as inert.
+  function handleCancelOrExit(forceExit) {
+    // While choosing a Lucky-Dice / Freeze target, the button just cancels that.
+    if (luckyPending) { exitLuckySelect(true); return; }
+    if (freezePending) { exitFreezeSelect(true); return; }
+    if (mode === 'spectator') {
+      // "Hide" the live view of an opponent's roll — purely local; the
+      // roll continues on their side and the regular post-roll dice update
+      // will appear in the roller card via the existing liveDice channel.
+      if (_onSpectatorHideCb) { try { _onSpectatorHideCb(); } catch (_) {} }
       closeOverlay();
-      r(Math.floor(Math.random() * 6) + 1);
-    });
+      return;
+    }
+    if (mpRoll) {
+      // Server-authoritative MP roll: before the flick this is "Skip throw"
+      // (abort, change nothing). Once flicked, the roll is already committed
+      // to the server, so the inline button is inert until it resolves — but
+      // the ✕ still forces an exit (the roll result still lands via liveDice).
+      if (!mpFlicked) finishMpRoll({ skipped: true });
+      else if (forceExit) finishMpRoll({ skipped: true });
+      return;
+    }
+    if (interactiveTurn) {
+      // After at least one throw the button is a real "Done" (commit the hand
+      // as it stands); before any throw it's "Skip" (abort, change nothing).
+      if (turnRollsUsed > 0) finalizeTurn(null);
+      else finalizeTurn(null, true);
+      return;
+    }
+    if (!resolveFn) {
+      // Nothing is waiting on a result (e.g. an already-resolved turn) — the ✕
+      // must still be able to dismiss a lingering overlay.
+      if (forceExit) closeOverlay();
+      return;
+    }
+    const r = resolveFn; resolveFn = null;
+    closeOverlay();
+    r(Math.floor(Math.random() * 6) + 1);
   }
 
   function initScene() {
