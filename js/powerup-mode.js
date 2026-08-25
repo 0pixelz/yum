@@ -5,7 +5,7 @@ const POWERUPS = [
   { id:'extraRoll',    name:'Extra Roll',    icon:'<i class="icn icn-dice"></i>',
     desc:'Get one bonus reroll this turn',
     color:'#4ecdc4', gradient:'linear-gradient(135deg,#4ecdc4,#2ecc71)' },
-  { id:'doublePoints',name:'Double Points', icon:'<i class="icn icn-sparkle"></i>',
+  { id:'doublePoints',name:'Double Points', icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:inline-block;vertical-align:-0.16em"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="currentColor"/><text x="12" y="12.9" text-anchor="middle" dominant-baseline="central" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="11" fill="#141428">×2</text></svg>',
     desc:'Double the score for your next category',
     color:'#f5a623', gradient:'linear-gradient(135deg,#f5a623,#f39c12)' },
   { id:'goldenDice',  name:'Golden Dice',   icon:'<i class="icn icn-dice-stack"></i>',
@@ -388,20 +388,12 @@ function activatePowerup(id) {
     }
 
     case 'wildcard': {
-      // Arms a two-step pick (see _wildcardOnRowTap): step 1 taps a category you
-      // ALREADY completed whose combo your CURRENT roll makes (its rolled score
-      // is added on top), step 2 taps an EMPTY category to strike as the cost.
-      // Requires a roll — you must actually roll the combo to add it.
-      // `wildcardMaxCat` (not a special pendingPowerup value) is the step flag,
-      // so the flow survives snapshot re-renders that could reset pendingPowerup.
+      // Popup flow: a picker shows exactly which already-scored categories your
+      // CURRENT roll can add to; after choosing, a second picker shows which
+      // empty categories you can strike as the cost. No scoresheet tapping, and
+      // both popups have a Cancel. Requires a roll (you must roll the combo).
       if (!rolled) { showToast('Roll your dice first — Wildcard adds the combo you roll!'); return; }
-      pendingPowerup   = 'wildcard';
-      wildcardMaxCat   = null;
-      wildcardMaxScore = 0;
-      renderPowerupBar();
-      refreshWildcardHighlight();
-      showToast('Wildcard — tap a category you already scored that your roll makes, to add it again!');
-      syncPowerupsToDb();
+      openWildcardAddPicker();
       break;
     }
 
@@ -962,6 +954,163 @@ function _wcRolled(cat) {
     }
   } catch (e) {}
   return 0;
+}
+
+// ── Wildcard popup pickers ────────────────────────────────────────────────────
+// Two popups replace scoresheet tapping: pick what to ADD to, then what to
+// STRIKE. Both cancel cleanly (the power-up is only consumed on a completed
+// strike). MP goes through _wildcardMpStrike; solo/bot through _wcExecute.
+function _wcEsc(s) {
+  if (typeof window.escapeHtml === 'function') return window.escapeHtml(s);
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function ensureWildcardPickerStyles() {
+  if (document.getElementById('wcPickerStyles')) return;
+  const s = document.createElement('style');
+  s.id = 'wcPickerStyles';
+  s.textContent = `
+    #wildcardPickerOverlay{position:fixed;inset:0;z-index:1700;display:none;align-items:center;
+      justify-content:center;background:rgba(0,0,0,.75);padding:18px;}
+    #wildcardPickerOverlay.open{display:flex;}
+    #wildcardPickerOverlay .wcp-sheet{background:var(--panel,#1b1b2f);border-radius:20px;
+      padding:20px 16px 16px;width:100%;max-width:380px;max-height:86dvh;overflow-y:auto;
+      box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 0 1px rgba(245,166,35,.35);}
+    #wildcardPickerOverlay .wcp-title{font-family:"Bebas Neue","Arial Narrow",sans-serif;
+      letter-spacing:2px;font-size:1.4rem;color:#f6c343;text-align:center;
+      display:flex;align-items:center;justify-content:center;gap:8px;}
+    #wildcardPickerOverlay .wcp-sub{font-size:.84rem;color:var(--muted,#aab);text-align:center;margin:4px 0 14px;line-height:1.4;}
+    #wildcardPickerOverlay .wcp-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+    #wildcardPickerOverlay .wcp-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.05);color:#fff;cursor:pointer;font-family:Nunito,sans-serif;
+      text-align:left;transition:background .12s,border-color .12s;}
+    #wildcardPickerOverlay .wcp-opt:hover,#wildcardPickerOverlay .wcp-opt:active{background:rgba(245,166,35,.14);border-color:rgba(245,166,35,.55);}
+    #wildcardPickerOverlay .wcp-opt.strike:hover,#wildcardPickerOverlay .wcp-opt.strike:active{background:rgba(233,69,96,.16);border-color:rgba(233,69,96,.55);}
+    #wildcardPickerOverlay .wcp-opt-name{font-weight:800;font-size:.95rem;}
+    #wildcardPickerOverlay .wcp-opt-val{font-family:"Bebas Neue",cursive;font-size:1.05rem;color:#f6c343;white-space:nowrap;}
+    #wildcardPickerOverlay .wcp-opt.strike .wcp-opt-val{color:#e94560;}
+    #wildcardPickerOverlay .wcp-cancel{width:100%;background:rgba(255,255,255,.08);color:#fff;
+      border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:11px;font-size:.9rem;font-weight:700;cursor:pointer;}
+  `;
+  document.head.appendChild(s);
+}
+function _wcOverlay() {
+  let ov = document.getElementById('wildcardPickerOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'wildcardPickerOverlay';
+    document.body.appendChild(ov);
+    // Backdrop tap cancels — an easy out if it was opened by mistake.
+    ov.addEventListener('click', e => { if (e.target === ov) cancelWildcard(); });
+  }
+  return ov;
+}
+function _wcClosePicker() {
+  const ov = document.getElementById('wildcardPickerOverlay');
+  if (ov) ov.classList.remove('open');
+}
+function cancelWildcard() {
+  pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
+  _wcClosePicker();
+  renderPowerupBar();
+}
+
+// Popup 1 — pick an already-scored category your current roll can add to.
+function openWildcardAddPicker() {
+  if (typeof powerupMode === 'undefined' || !powerupMode) return;
+  if (typeof rolled === 'undefined' || !rolled) { showToast('Roll your dice first — Wildcard adds the combo you roll!'); return; }
+  const cats = (typeof categories !== 'undefined' && Array.isArray(categories)) ? categories : [];
+  const opts = [];
+  cats.forEach(c => {
+    if (typeof scores === 'undefined' || scores[c.id] === undefined) return; // must be already scored
+    const rv = _wcRolled(c);
+    if (rv <= 0) return;                                                      // your roll must make it
+    const cur = Number(scores[c.id]) || 0;
+    opts.push({ id: c.id, name: c.name, cur, add: rv, total: cur + rv });
+  });
+  if (!opts.length) {
+    showToast("Roll a combo you've already scored, then use Wildcard.");
+    return;
+  }
+  ensureWildcardPickerStyles();
+  const ov = _wcOverlay();
+  ov.innerHTML =
+    '<div class="wcp-sheet">' +
+      '<div class="wcp-title"><i class="icn icn-target"></i> WILDCARD</div>' +
+      '<div class="wcp-sub">Pick a category to <b>add your roll to</b></div>' +
+      '<div class="wcp-list">' +
+        opts.map(o =>
+          `<button class="wcp-opt" type="button" data-add="${o.id}" data-amt="${o.add}">
+            <span class="wcp-opt-name">${_wcEsc(o.name)}</span>
+            <span class="wcp-opt-val">${o.cur} +${o.add} = ${o.total}</span>
+          </button>`).join('') +
+      '</div>' +
+      '<button class="wcp-cancel" type="button" data-wc="cancel">Cancel</button>' +
+    '</div>';
+  ov.querySelectorAll('.wcp-opt').forEach(b => {
+    b.onclick = () => {
+      if (!_wcTurnOk()) return;
+      openWildcardStrikePicker(b.getAttribute('data-add'), Number(b.getAttribute('data-amt')) || 0);
+    };
+  });
+  const cancel = ov.querySelector('[data-wc="cancel"]');
+  if (cancel) cancel.onclick = () => cancelWildcard();
+  ov.classList.add('open');
+}
+
+// Popup 2 — pick an empty category to strike as the cost, then execute.
+function openWildcardStrikePicker(addCat, addAmount) {
+  const cats = (typeof categories !== 'undefined' && Array.isArray(categories)) ? categories : [];
+  const addC = _wcCat(addCat) || {};
+  const cur  = Number((typeof scores !== 'undefined' ? scores[addCat] : 0)) || 0;
+  const empties = cats.filter(c =>
+    (typeof scores === 'undefined' || scores[c.id] === undefined) && c.id !== addCat);
+  if (!empties.length) { showToast('No empty category left to strike.'); return; }
+  ensureWildcardPickerStyles();
+  const ov = _wcOverlay();
+  ov.innerHTML =
+    '<div class="wcp-sheet">' +
+      '<div class="wcp-title"><i class="icn icn-target"></i> WILDCARD</div>' +
+      `<div class="wcp-sub"><b style="color:#f6c343">${_wcEsc(addC.name || addCat)} ${cur} +${addAmount} = ${cur + addAmount}</b><br>Now pick an <b>empty category to strike (0)</b> as the cost</div>` +
+      '<div class="wcp-list">' +
+        empties.map(c =>
+          `<button class="wcp-opt strike" type="button" data-strike="${c.id}">
+            <span class="wcp-opt-name">${_wcEsc(c.name)}</span>
+            <span class="wcp-opt-val">STRIKE · 0</span>
+          </button>`).join('') +
+      '</div>' +
+      '<button class="wcp-cancel" type="button" data-wc="cancel">Cancel</button>' +
+    '</div>';
+  ov.querySelectorAll('.wcp-opt').forEach(b => {
+    b.onclick = () => {
+      if (!_wcTurnOk()) return;
+      const strikeId = b.getAttribute('data-strike');
+      _wcClosePicker();
+      _wcExecute(addCat, addAmount, strikeId);
+    };
+  });
+  const cancel = ov.querySelector('[data-wc="cancel"]');
+  if (cancel) cancel.onclick = () => cancelWildcard();
+  ov.classList.add('open');
+}
+
+// Commit the Wildcard: MP through the guarded submit, solo/bot locally.
+function _wcExecute(addCat, addAmount, strikeId) {
+  if (typeof mpMode !== 'undefined' && mpMode) {
+    _wildcardMpStrike(addCat, addAmount, strikeId);
+    return;
+  }
+  const newTotal = (Number((typeof scores !== 'undefined' ? scores[addCat] : 0)) || 0) + addAmount;
+  consumePowerup('wildcard');
+  pendingPowerup = null; wildcardMaxCat = null; wildcardMaxScore = 0;
+  if (typeof scores !== 'undefined') scores[strikeId] = 0;
+  if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
+  activeModal   = addCat;
+  selectedScore = newTotal;
+  renderPowerupBar();
+  syncPowerupsToDb();
+  showToast(`Wildcard — ${(_wcCat(addCat)||{}).name || addCat} +${addAmount} = ${newTotal}, struck ${(_wcCat(strikeId)||{}).name || strikeId}.`);
+  if (typeof confirmScore === 'function') confirmScore();
 }
 
 // Handle a scorecard tap while the Wildcard power-up is armed. Returns true if
