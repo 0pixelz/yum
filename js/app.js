@@ -761,6 +761,7 @@ function runPrediction() {
   if(!dice.every(v=>v>0)) return;
   const panel = document.getElementById('predOverlay');
   const cont  = document.getElementById('predContent');
+  if(!panel || !cont) return;   // Predict UI removed — nothing to open.
   panel.classList.add('open');
   cont.innerHTML='<div class="pred-spinner"><i class="icn icn-orb"></i> Simulating… hang tight</div>';
 
