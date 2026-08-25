@@ -54,6 +54,139 @@
   const MILE = {};
   MILESTONES.forEach(m => { MILE[m.id] = m; });
 
+  // ── Premium avatars (bought with store credit) ───────────────────────
+  // Prices MUST match AVATAR_COSTS in functions/index.js. Ownership is
+  // server-authoritative (purchaseAvatar writes users/$uid/avatars).
+  const PREMIUM = [
+    { id:'p_flame',  name:'Inferno', price:15,  face:6, top:'#ffe08a', mid:'#ff5722', bot:'#7a1500', stroke:'#3a0a00', pip:'#fff3d6', ring:'#ff8a3d', glow:'rgba(255,87,34,0.65)' },
+    { id:'p_frost',  name:'Glacier', price:25,  face:5, top:'#eaffff', mid:'#5bd0ff', bot:'#1a6a96', stroke:'#0a3552', pip:'#eafaff', ring:'#a8ecff', glow:'rgba(91,208,255,0.6)'  },
+    { id:'p_gold',   name:'Midas',   price:50,  face:6, top:'#fff4c2', mid:'#f5c542', bot:'#a9760a', stroke:'#4a2f04', pip:'#3a2600', ring:'#ffe07a', glow:'rgba(245,197,66,0.7)'  },
+    { id:'p_cosmic', name:'Cosmic',  price:100, face:6, top:'#b58cff', mid:'#6d28d9', bot:'#1b0740', stroke:'#0d0322', pip:'#fff0a8', ring:'#c9a8ff', glow:'rgba(150,90,240,0.65)' },
+    { id:'p_crown',  name:'Royal',   price:200, face:5, top:'#ffe1a0', mid:'#c81e5a', bot:'#5c0b28', stroke:'#2c0512', pip:'#ffe7a8', ring:'#ffd76a', glow:'rgba(200,30,90,0.6)'   },
+    { id:'p_dragon', name:'Dragon',  price:400, face:6, top:'#c6ff9e', mid:'#159957', bot:'#06331f', stroke:'#021a10', pip:'#eafff0', ring:'#7dffb0', glow:'rgba(21,153,87,0.65)'  }
+  ];
+  const PREM = {};
+  PREMIUM.forEach(p => { PREM[p.id] = p; });
+
+  // Owned premium avatars (server-authoritative; mirrored locally for offline
+  // rendering). Hydrated from users/$uid/avatars on picker open / login.
+  const OWNED_KEY = 'yum_owned_avatars';
+  function ownedAvatars() {
+    try { const a = JSON.parse(localStorage.getItem(OWNED_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function setOwnedAvatars(list) {
+    try { localStorage.setItem(OWNED_KEY, JSON.stringify([...new Set(list)])); } catch (e) {}
+  }
+  function premiumOwned(id) { return ownedAvatars().indexOf(id) >= 0; }
+
+  function authUid() {
+    try {
+      if (window.firebase && firebase.auth && firebase.auth().currentUser) {
+        return String(firebase.auth().currentUser.uid || '').trim();
+      }
+    } catch (e) {}
+    return '';
+  }
+  function isLoggedIn() { return !!authUid(); }
+  function credits() {
+    return (typeof window.getYumCredits === 'function') ? (window.getYumCredits() || 0) : 0;
+  }
+
+  // Pull owned premium avatars from the server so they follow the user across
+  // devices and survive a localStorage wipe.
+  let _avatarHydratePromise = null;
+  function hydrateOwnedAvatars() {
+    try {
+      if (typeof window.ensureFirebaseDb === 'function') window.ensureFirebaseDb();
+      const uid = authUid();
+      if (!window.db || !uid) return Promise.resolve(false);
+      if (_avatarHydratePromise) return _avatarHydratePromise;
+      _avatarHydratePromise = window.db.ref('users/' + uid + '/avatars').once('value')
+        .then(snap => {
+          const obj = snap.val() || {};
+          setOwnedAvatars(Object.keys(obj).filter(k => obj[k]));
+          return true;
+        })
+        .catch(() => false)
+        .finally(() => { _avatarHydratePromise = null; });
+      return _avatarHydratePromise;
+    } catch (e) { return Promise.resolve(false); }
+  }
+
+  // Buy a premium avatar with credits (server-authoritative, like buySkin).
+  async function buyPremiumAvatar(id) {
+    const p = PREM[id];
+    if (!p) return;
+    if (premiumOwned(id)) { setCurrentId(id); renderPickerGrid(); return; }
+    if (!isLoggedIn()) {
+      if (window.showToast) showToast('Sign in with Google to buy premium avatars');
+      return;
+    }
+    if (credits() < p.price) {
+      if (window.showToast) showToast('Not enough credits yet');
+      return;
+    }
+    if (!window.YumCloud || typeof window.YumCloud.purchaseAvatar !== 'function') {
+      if (window.showToast) showToast('Store unavailable — reload and try again');
+      return;
+    }
+    try {
+      const resp = await window.YumCloud.purchaseAvatar({ avatarId: id });
+      if (resp && typeof window.applyYumCreditWallet === 'function') {
+        window.applyYumCreditWallet({ credits: resp.credits, earned: resp.earned, spent: resp.spent });
+      }
+    } catch (err) {
+      const msg = String((err && err.message) || '');
+      if (/already/i.test(msg)) {
+        setOwnedAvatars(ownedAvatars().concat(id));
+        setCurrentId(id);
+        renderPickerGrid();
+        return;
+      }
+      if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+        try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
+      }
+      if (window.showToast) showToast('Purchase failed — not enough credits');
+      return;
+    }
+    if (typeof window.hydrateYumCreditsFromFirebase === 'function') {
+      try { await window.hydrateYumCreditsFromFirebase(); } catch (e) {}
+    }
+    setOwnedAvatars(ownedAvatars().concat(id));
+    setCurrentId(id);
+    renderPickerGrid();
+    if (window.showToast) showToast(`Unlocked ${p.name}!`);
+  }
+
+  // A premium die: richer gradient, a glowing accent ring, and a small star
+  // badge that marks it as premium.
+  function premiumDieSvg(p, sizeAttr) {
+    const id = 'avpr-' + Math.random().toString(36).slice(2, 9);
+    const pips = PIPS[p.face] || PIPS[6];
+    const pipMarkup = pips.map(([cx,cy]) => `<circle cx="${cx}" cy="${cy}" r="3" fill="${p.pip}"/>`).join('');
+    return `<svg viewBox="0 0 64 64" ${sizeAttr || ''} aria-hidden="true">
+      <defs>
+        <radialGradient id="${id}-f" cx="0.32" cy="0.26" r="0.98">
+          <stop offset="0%" stop-color="${p.top}"/>
+          <stop offset="52%" stop-color="${p.mid}"/>
+          <stop offset="100%" stop-color="${p.bot}"/>
+        </radialGradient>
+        <radialGradient id="${id}-g" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stop-color="${p.glow}"/>
+          <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx="32" cy="58" rx="22" ry="3.5" fill="rgba(0,0,0,0.35)"/>
+      <circle cx="32" cy="32" r="30" fill="url(#${id}-g)"/>
+      <rect x="8.5" y="6.5" width="47" height="47" rx="11" fill="none" stroke="${p.ring}" stroke-width="1.8" opacity="0.9"/>
+      <rect x="11" y="9" width="42" height="42" rx="8.5" fill="url(#${id}-f)" stroke="${p.stroke}" stroke-width="1.2"/>
+      ${pipMarkup}
+      <circle cx="49.5" cy="12.5" r="6" fill="#141024" stroke="${p.ring}" stroke-width="1"/>
+      <text x="49.5" y="13.4" text-anchor="middle" dominant-baseline="central" font-size="8.5" fill="${p.ring}">★</text>
+    </svg>`;
+  }
+
   function totalWins() {
     try {
       const s = JSON.parse(localStorage.getItem('yum_stats') || '{}');
@@ -152,6 +285,8 @@
       // A milestone avatar stays selected only while it's still unlocked (win
       // counts don't drop, but this keeps things safe if stats reset).
       if (id && MILE[id] && milestoneUnlocked(MILE[id])) return id;
+      // A premium avatar stays selected while it's owned.
+      if (id && PREM[id] && premiumOwned(id)) return id;
     } catch(e) {}
     return DEFAULT_ID;
   }
@@ -159,6 +294,7 @@
   function setCurrentId(id) {
     if (id === 'google') { if (!googleProfile()) return; }
     else if (MILE[id]) { if (!milestoneUnlocked(MILE[id])) return; } // locked — ignore
+    else if (PREM[id]) { if (!premiumOwned(id)) return; }            // not bought — ignore
     else if (!THEMES[id]) return;
     try { localStorage.setItem(STORAGE_KEY, id); } catch(e) {}
     publishToRoom(id);
@@ -191,6 +327,7 @@
   function markup(id, name) {
     if (id === 'google') return googlePhotoMarkup(name);
     if (MILE[id]) return numberDieSvg(MILE[id]);
+    if (PREM[id]) return premiumDieSvg(PREM[id]);
     const theme = THEMES[id] || THEMES[DEFAULT_ID];
     return dieSvg(theme);
   }
@@ -363,6 +500,16 @@
         margin-top: 2px; font-size: 0.62rem; font-weight: 800;
         letter-spacing: 0.3px; color: var(--gold, #f5a623); opacity: 0.85;
       }
+      .ya-pick-price {
+        margin-top: 3px; display: inline-flex; align-items: center; gap: 4px;
+        font-size: 0.66rem; font-weight: 900;
+        padding: 2px 8px; border-radius: 999px;
+        background: rgba(245,166,35,0.14);
+        border: 1px solid rgba(245,166,35,0.4);
+        color: var(--gold, #f5a623);
+      }
+      .ya-pick-price.short { opacity: 0.6; }
+      .ya-pick-tile.premium-buy .ya-pick-art { opacity: 0.92; }
     `;
     document.head.appendChild(style);
   }
@@ -435,9 +582,28 @@
         </button>`;
     }).join('');
 
+    // Premium avatars: owned ones select normally; unowned show a credit price
+    // and buy on tap.
+    const c = credits();
+    const premTiles = PREMIUM.map(p => {
+      const owned = premiumOwned(p.id);
+      const sel = current === p.id;
+      const afford = c >= p.price;
+      return `
+        <button type="button" class="ya-pick-tile ${sel ? 'selected' : ''} ${owned ? '' : 'premium-buy'}"
+                data-id="${p.id}" data-buy="${owned ? '0' : '1'}" data-price="${p.price}">
+          <span class="ya-pick-check">✓</span>
+          <div class="ya-pick-art">${premiumDieSvg(p)}</div>
+          <div class="ya-pick-name">${p.name}</div>
+          ${owned ? '' : `<div class="ya-pick-price ${afford ? '' : 'short'}"><i class="icn icn-coin"></i> ${p.price}</div>`}
+        </button>`;
+    }).join('');
+
     grid.innerHTML = tiles.join('') +
       `<div class="ya-section">WIN MILESTONES <span class="ya-section-note">${wins} win${wins === 1 ? '' : 's'} so far</span></div>` +
-      mileTiles;
+      mileTiles +
+      `<div class="ya-section">PREMIUM <span class="ya-section-note"><i class="icn icn-coin"></i> ${c} credit${c === 1 ? '' : 's'}</span></div>` +
+      premTiles;
 
     grid.querySelectorAll('.ya-pick-tile').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -446,6 +612,10 @@
         if (btn.getAttribute('data-locked') === '1') {
           const req = btn.getAttribute('data-req');
           if (window.showToast) showToast(`Reach ${req} wins to unlock this avatar`);
+          return;
+        }
+        if (btn.getAttribute('data-buy') === '1') {
+          buyPremiumAvatar(id);
           return;
         }
         setCurrentId(id);
@@ -462,7 +632,25 @@
     renderPickerGrid();
     const ov = document.getElementById('yumAvatarPickerOverlay');
     if (ov) ov.classList.add('show');
+    // Pull the latest owned premium avatars + credit balance, then re-render so
+    // ownership and affordability are current when the sheet opens.
+    Promise.resolve(
+      (typeof window.hydrateYumCreditsFromFirebase === 'function')
+        ? window.hydrateYumCreditsFromFirebase() : null
+    ).catch(() => {});
+    hydrateOwnedAvatars().then(changed => {
+      if (document.getElementById('yumAvatarPickerOverlay')?.classList.contains('show')) {
+        renderPickerGrid();
+      }
+    }).catch(() => {});
   }
+
+  // Keep the picker's credit balance + affordability fresh if credits change
+  // while it's open.
+  window.addEventListener('yumCreditsChanged', () => {
+    const ov = document.getElementById('yumAvatarPickerOverlay');
+    if (ov && ov.classList.contains('show')) renderPickerGrid();
+  });
 
   function closePicker() {
     const ov = document.getElementById('yumAvatarPickerOverlay');
@@ -475,7 +663,8 @@
 
   window.YumAvatars = {
     list: ORDER.map(id => ({ id, name: THEMES[id].name, face: THEMES[id].face }))
-      .concat(MILESTONES.map(m => ({ id: m.id, name: m.name, wins: m.wins }))),
+      .concat(MILESTONES.map(m => ({ id: m.id, name: m.name, wins: m.wins })))
+      .concat(PREMIUM.map(p => ({ id: p.id, name: p.name, price: p.price }))),
     getCurrentId,
     setCurrentId,
     markup,
@@ -484,9 +673,11 @@
     closePicker,
     refreshLobbyAvatar() {},
     totalWins,
+    hydrateOwnedAvatars,
     nameOf(id) {
       if (id === 'google') return 'Google photo';
       if (MILE[id]) return MILE[id].name;
+      if (PREM[id]) return PREM[id].name;
       return (THEMES[id] || THEMES[DEFAULT_ID]).name;
     }
   };

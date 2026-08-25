@@ -606,6 +606,83 @@ exports.purchaseSkin = onCall(async (req) => {
   };
 });
 
+// ─── purchaseAvatar ──────────────────────────────────────────────────
+// Premium profile avatars bought with credits. Mirrors purchaseSkin: a
+// server-authoritative transaction that deducts credits and records
+// ownership under users/$uid/avatars. Keep AVATAR_COSTS in sync with the
+// PREMIUM catalog in js/profile-avatar.js — a client-only avatar with no
+// row here fails with "unknown avatar".
+const AVATAR_COSTS = {
+  p_flame:  15,
+  p_frost:  25,
+  p_gold:   50,
+  p_cosmic: 100,
+  p_crown:  200,
+  p_dragon: 400
+};
+
+exports.purchaseAvatar = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const data = req.data || {};
+  const avatarId = data.avatarId;
+  if (typeof avatarId !== 'string' || avatarId.length > 30 || !(avatarId in AVATAR_COSTS)) {
+    throw new HttpsError('invalid-argument', 'unknown avatar');
+  }
+  const cost = AVATAR_COSTS[avatarId];
+
+  const userRef = db().ref('users/' + uid);
+
+  const before = (await userRef.once('value')).val() || {};
+  if ((before.avatars || {})[avatarId]) {
+    throw new HttpsError('already-exists', 'avatar already owned');
+  }
+  const haveCredits = Math.max(0, Number((before.creditWallet || {}).credits) || 0);
+  if (cost > 0 && haveCredits < cost) {
+    throw new HttpsError('failed-precondition', 'insufficient credits');
+  }
+
+  const result = await userRef.transaction((curr) => {
+    if (curr === null) return null; // force a real re-read (see purchaseSkin note)
+    const u = curr;
+    const wallet = u.creditWallet || { credits: 0, earned: 0, spent: 0 };
+    const avatars = u.avatars || {};
+    if (avatars[avatarId]) return;                 // owned in a race — abort
+    const credits = Math.max(0, Number(wallet.credits) || 0);
+    if (cost > 0 && credits < cost) return;        // raced below cost — abort
+
+    const earned = Math.min(MAX_CREDITS, Number(wallet.earned) || 0);
+    const spent = Math.min(MAX_CREDITS, (Number(wallet.spent) || 0) + cost);
+    const newCredits = Math.max(0, Math.min(MAX_CREDITS, credits - cost));
+
+    u.avatars = Object.assign({}, avatars, { [avatarId]: true });
+    u.creditWallet = {
+      credits: newCredits,
+      earned,
+      spent,
+      lastReason: 'avatar-' + avatarId,
+      updatedAt: SERVER_TIMESTAMP
+    };
+    return u;
+  });
+
+  if (!result.committed) {
+    const current = (await userRef.once('value')).val() || {};
+    if ((current.avatars || {})[avatarId]) {
+      throw new HttpsError('already-exists', 'avatar already owned');
+    }
+    throw new HttpsError('failed-precondition', 'insufficient credits');
+  }
+  const after = result.snapshot.val() || {};
+  const w = after.creditWallet || { credits: 0, earned: 0, spent: 0 };
+  return {
+    avatarId,
+    cost,
+    credits: Math.max(0, Number(w.credits) || 0),
+    earned: Math.max(0, Number(w.earned) || 0),
+    spent: Math.max(0, Number(w.spent) || 0)
+  };
+});
+
 // ─── grantAchievementCredits ─────────────────────────────────────────
 // The achievement catalog itself is client-side, but the credit grant
 // must come through the server. Client tells us which achievement just
