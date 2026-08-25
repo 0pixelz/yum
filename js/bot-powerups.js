@@ -44,25 +44,22 @@ function _botWeightedPick(weights) {
 
 // At game start: pick something that's useful out of the gate. Skip undoMove
 // (no prior move to undo) and weight high-impact picks higher.
+// Only pick power-ups the bot actually has usage logic for (doublePoints,
+// extraRoll). Lucky Dice + Freeze Die were removed from the roster; Golden Dice
+// and Chance Roll have no bot-usage logic, so the bot would just hold them.
 function _botPickStarterPowerup() {
   return _botWeightedPick({
-    doublePoints: 35,
-    extraRoll:    25,
-    luckyDice:    20,
-    freezeDie:    20,
+    doublePoints: 55,
+    extraRoll:    45,
   });
 }
 
 // On YUM earn: weight by remaining turns. Skip undoMove (bot doesn't currently
 // have logic to use it intelligently).
 function _botPickEarnedPowerup() {
-  const filled    = (typeof botScores === 'object') ? Object.keys(botScores).length : 0;
-  const remaining = 13 - filled;
   return _botWeightedPick({
-    doublePoints: 30,
-    extraRoll:    25,
-    luckyDice:    20,
-    freezeDie:    remaining >= 4 ? 20 : 5,
+    doublePoints: 55,
+    extraRoll:    45,
   });
 }
 
