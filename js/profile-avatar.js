@@ -40,6 +40,65 @@
 
   const ORDER = ['classic','ruby','sapphire','emerald','amethyst','onyx','pearl','lava','ice','galaxy'];
 
+  // ── Win-milestone avatars ────────────────────────────────────────────
+  // A die face showing a win count, unlocked once the player reaches that many
+  // total wins (online + vs-bot). Escalating metal/gem colours mark prestige.
+  const MILESTONES = [
+    { id:'win25',   num:25,   wins:25,   name:'25 Wins',   top:'#f0d7b8', mid:'#c07a34', bot:'#6e3f14', stroke:'#3a1f08', ink:'#fff3e0', glow:'rgba(192,122,52,0.55)' },
+    { id:'win50',   num:50,   wins:50,   name:'50 Wins',   top:'#eef1f6', mid:'#9aa6bd', bot:'#59657e', stroke:'#2c3446', ink:'#ffffff', glow:'rgba(154,166,189,0.55)' },
+    { id:'win100',  num:100,  wins:100,  name:'100 Wins',  top:'#ffe7a8', mid:'#f5a623', bot:'#c46b0d', stroke:'#5a2a08', ink:'#3a1a05', glow:'rgba(245,166,35,0.6)'  },
+    { id:'win200',  num:200,  wins:200,  name:'200 Wins',  top:'#d7fbff', mid:'#41c7d8', bot:'#186f7c', stroke:'#0a3540', ink:'#04252b', glow:'rgba(65,199,216,0.6)'  },
+    { id:'win500',  num:500,  wins:500,  name:'500 Wins',  top:'#f0d6ff', mid:'#a855f7', bot:'#5b1ea3', stroke:'#260a52', ink:'#f6ecff', glow:'rgba(168,85,247,0.6)'  },
+    { id:'win1000', num:1000, wins:1000, name:'1000 Wins', top:'#ffd6e0', mid:'#e94560', bot:'#7d1029', stroke:'#3a0612', ink:'#fff0f3', glow:'rgba(233,69,96,0.65)' }
+  ];
+  const MILE = {};
+  MILESTONES.forEach(m => { MILE[m.id] = m; });
+
+  function totalWins() {
+    try {
+      const s = JSON.parse(localStorage.getItem('yum_stats') || '{}');
+      return (Number(s.onlineWins) || 0) + (Number(s.botGameWins) || 0);
+    } catch (e) { return 0; }
+  }
+  function milestoneUnlocked(m) { return !!m && totalWins() >= m.wins; }
+
+  // Small gold padlock that matches the game's dice/gold styling (no emoji).
+  function lockSvg() {
+    return `<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+      <path d="M8 10V7.5a4 4 0 0 1 8 0V10" fill="none" stroke="#ffd76a" stroke-width="2.1" stroke-linecap="round"/>
+      <rect x="5.5" y="10" width="13" height="9.5" rx="2.2" fill="#f5a623" stroke="#5a2a08" stroke-width="1"/>
+      <circle cx="12" cy="14.4" r="1.5" fill="#5a2a08"/>
+      <rect x="11.2" y="14.4" width="1.6" height="3" rx="0.8" fill="#5a2a08"/>
+    </svg>`;
+  }
+
+  // A die avatar whose face shows a number instead of pips.
+  function numberDieSvg(m, sizeAttr) {
+    const id = 'avn-' + Math.random().toString(36).slice(2, 9);
+    const label = String(m.num);
+    const fs = label.length >= 4 ? 19 : label.length === 3 ? 23 : 30;
+    return `<svg viewBox="0 0 64 64" ${sizeAttr || ''} aria-hidden="true">
+      <defs>
+        <radialGradient id="${id}-f" cx="0.32" cy="0.28" r="0.95">
+          <stop offset="0%" stop-color="${m.top}"/>
+          <stop offset="55%" stop-color="${m.mid}"/>
+          <stop offset="100%" stop-color="${m.bot}"/>
+        </radialGradient>
+        <radialGradient id="${id}-g" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stop-color="${m.glow}"/>
+          <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx="32" cy="58" rx="22" ry="3.5" fill="rgba(0,0,0,0.35)"/>
+      <circle cx="32" cy="32" r="28" fill="url(#${id}-g)"/>
+      <rect x="10" y="8" width="44" height="44" rx="9"
+            fill="url(#${id}-f)" stroke="${m.stroke}" stroke-width="1.2"/>
+      <text x="32" y="31" text-anchor="middle" dominant-baseline="central"
+            font-family="'Bebas Neue','Arial Narrow',sans-serif" font-weight="700"
+            font-size="${fs}" letter-spacing="0.5" fill="${m.ink}">${label}</text>
+    </svg>`;
+  }
+
   // Pip layouts on a 64x64 die (rect from x=10..54, y=8..52).
   const PIPS = {
     1: [[32,30]],
@@ -88,14 +147,19 @@
   function getCurrentId() {
     try {
       const id = localStorage.getItem(STORAGE_KEY);
-      if (id && (THEMES[id] || id === 'google')) return id;
+      if (id && THEMES[id]) return id;
+      if (id === 'google') return id;
+      // A milestone avatar stays selected only while it's still unlocked (win
+      // counts don't drop, but this keeps things safe if stats reset).
+      if (id && MILE[id] && milestoneUnlocked(MILE[id])) return id;
     } catch(e) {}
     return DEFAULT_ID;
   }
 
   function setCurrentId(id) {
-    if (id !== 'google' && !THEMES[id]) return;
-    if (id === 'google' && !googleProfile()) return;
+    if (id === 'google') { if (!googleProfile()) return; }
+    else if (MILE[id]) { if (!milestoneUnlocked(MILE[id])) return; } // locked — ignore
+    else if (!THEMES[id]) return;
     try { localStorage.setItem(STORAGE_KEY, id); } catch(e) {}
     publishToRoom(id);
     document.dispatchEvent(new CustomEvent('yum-avatar-changed', { detail: { id } }));
@@ -126,6 +190,7 @@
   // styling stays consistent with whatever surface it lives on).
   function markup(id, name) {
     if (id === 'google') return googlePhotoMarkup(name);
+    if (MILE[id]) return numberDieSvg(MILE[id]);
     const theme = THEMES[id] || THEMES[DEFAULT_ID];
     return dieSvg(theme);
   }
@@ -269,6 +334,35 @@
         justify-content: center;
       }
       .ya-pick-tile.selected .ya-pick-check { display: inline-flex; }
+      .ya-section {
+        grid-column: 1 / -1;
+        margin: 6px 0 2px;
+        font-family: 'Bebas Neue', cursive;
+        letter-spacing: 2px;
+        font-size: 0.95rem;
+        color: var(--gold, #f5a623);
+        display: flex; align-items: baseline; gap: 8px;
+      }
+      .ya-section-note {
+        font-family: Nunito, sans-serif; font-weight: 700;
+        letter-spacing: 0; font-size: 0.68rem; color: var(--muted, #aab);
+      }
+      .ya-pick-tile.locked { cursor: default; }
+      .ya-pick-tile.locked .ya-pick-art { opacity: 0.4; filter: grayscale(0.55); }
+      .ya-pick-tile.locked .ya-pick-name { opacity: 0.5; }
+      .ya-pick-lock {
+        position: absolute; top: 6px; left: 6px;
+        width: 22px; height: 22px; border-radius: 50%;
+        background: rgba(20,12,4,0.72);
+        border: 1px solid rgba(245,166,35,0.55);
+        box-shadow: 0 0 8px rgba(245,166,35,0.25);
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+      .ya-pick-lock svg { display: block; }
+      .ya-pick-req {
+        margin-top: 2px; font-size: 0.62rem; font-weight: 800;
+        letter-spacing: 0.3px; color: var(--gold, #f5a623); opacity: 0.85;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -325,11 +419,35 @@
       `);
     });
 
-    grid.innerHTML = tiles.join('');
+    // Win-milestone avatars, with a lock badge + requirement until earned.
+    const wins = totalWins();
+    const mileTiles = MILESTONES.map(m => {
+      const unlocked = wins >= m.wins;
+      const sel = current === m.id;
+      return `
+        <button type="button" class="ya-pick-tile ${sel ? 'selected' : ''} ${unlocked ? '' : 'locked'}"
+                data-id="${m.id}" data-locked="${unlocked ? '0' : '1'}" data-req="${m.wins}">
+          <span class="ya-pick-check">✓</span>
+          ${unlocked ? '' : `<span class="ya-pick-lock">${lockSvg()}</span>`}
+          <div class="ya-pick-art">${numberDieSvg(m)}</div>
+          <div class="ya-pick-name">${m.name}</div>
+          ${unlocked ? '' : `<div class="ya-pick-req">Win ${m.wins}</div>`}
+        </button>`;
+    }).join('');
+
+    grid.innerHTML = tiles.join('') +
+      `<div class="ya-section">WIN MILESTONES <span class="ya-section-note">${wins} win${wins === 1 ? '' : 's'} so far</span></div>` +
+      mileTiles;
+
     grid.querySelectorAll('.ya-pick-tile').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
         if (!id) return;
+        if (btn.getAttribute('data-locked') === '1') {
+          const req = btn.getAttribute('data-req');
+          if (window.showToast) showToast(`Reach ${req} wins to unlock this avatar`);
+          return;
+        }
         setCurrentId(id);
         renderPickerGrid();
         if (window.showToast) showToast('Avatar updated');
@@ -356,7 +474,8 @@
   injectStyles();
 
   window.YumAvatars = {
-    list: ORDER.map(id => ({ id, name: THEMES[id].name, face: THEMES[id].face })),
+    list: ORDER.map(id => ({ id, name: THEMES[id].name, face: THEMES[id].face }))
+      .concat(MILESTONES.map(m => ({ id: m.id, name: m.name, wins: m.wins }))),
     getCurrentId,
     setCurrentId,
     markup,
@@ -364,8 +483,10 @@
     openPicker,
     closePicker,
     refreshLobbyAvatar() {},
+    totalWins,
     nameOf(id) {
       if (id === 'google') return 'Google photo';
+      if (MILE[id]) return MILE[id].name;
       return (THEMES[id] || THEMES[DEFAULT_ID]).name;
     }
   };
