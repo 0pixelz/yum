@@ -964,6 +964,14 @@ function _wcEsc(s) {
   if (typeof window.escapeHtml === 'function') return window.escapeHtml(s);
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+// The category's scorecard icon (die face for upper, symbol for lower), so the
+// popup rows read like the scoresheet instead of plain text.
+function _wcIconHtml(cat) {
+  try {
+    if (typeof renderIcon === 'function' && cat && cat.icon) return renderIcon(cat.icon);
+  } catch (e) {}
+  return '';
+}
 function ensureWildcardPickerStyles() {
   if (document.getElementById('wcPickerStyles')) return;
   const s = document.createElement('style');
@@ -981,11 +989,14 @@ function ensureWildcardPickerStyles() {
     #wildcardPickerOverlay .wcp-sub{font-size:.84rem;color:var(--muted,#aab);text-align:center;margin:4px 0 14px;line-height:1.4;}
     #wildcardPickerOverlay .wcp-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
     #wildcardPickerOverlay .wcp-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;
-      padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);
+      padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);
       background:rgba(255,255,255,.05);color:#fff;cursor:pointer;font-family:Nunito,sans-serif;
       text-align:left;transition:background .12s,border-color .12s;}
     #wildcardPickerOverlay .wcp-opt:hover,#wildcardPickerOverlay .wcp-opt:active{background:rgba(245,166,35,.14);border-color:rgba(245,166,35,.55);}
     #wildcardPickerOverlay .wcp-opt.strike:hover,#wildcardPickerOverlay .wcp-opt.strike:active{background:rgba(233,69,96,.16);border-color:rgba(233,69,96,.55);}
+    #wildcardPickerOverlay .wcp-opt-left{display:flex;align-items:center;gap:10px;min-width:0;}
+    #wildcardPickerOverlay .wcp-opt-icon{width:26px;height:26px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;}
+    #wildcardPickerOverlay .wcp-opt-icon svg,#wildcardPickerOverlay .wcp-opt-icon i{width:24px;height:24px;font-size:1.3rem;}
     #wildcardPickerOverlay .wcp-opt-name{font-weight:800;font-size:.95rem;}
     #wildcardPickerOverlay .wcp-opt-val{font-family:"Bebas Neue",cursive;font-size:1.05rem;color:#f6c343;white-space:nowrap;}
     #wildcardPickerOverlay .wcp-opt.strike .wcp-opt-val{color:#e94560;}
@@ -1000,10 +1011,22 @@ function _wcOverlay() {
     ov = document.createElement('div');
     ov.id = 'wildcardPickerOverlay';
     document.body.appendChild(ov);
-    // Backdrop tap cancels — an easy out if it was opened by mistake.
-    ov.addEventListener('click', e => { if (e.target === ov) cancelWildcard(); });
+    // Backdrop tap cancels — an easy out if it was opened by mistake. Guard
+    // against the OPENING tap itself: the popup is centered but its backdrop
+    // covers the whole screen (including the power-up button you just tapped),
+    // so on mobile the same tap can bubble to the backdrop and instantly close
+    // it. Ignore backdrop taps for a moment after opening.
+    ov.addEventListener('click', e => {
+      if (e.target !== ov) return;
+      if (Date.now() - (window.__wcPickerOpenedAt || 0) < 400) return;
+      cancelWildcard();
+    });
   }
   return ov;
+}
+function _wcShow(ov) {
+  window.__wcPickerOpenedAt = Date.now();
+  ov.classList.add('open');
 }
 function _wcClosePicker() {
   const ov = document.getElementById('wildcardPickerOverlay');
@@ -1026,7 +1049,7 @@ function openWildcardAddPicker() {
     const rv = _wcRolled(c);
     if (rv <= 0) return;                                                      // your roll must make it
     const cur = Number(scores[c.id]) || 0;
-    opts.push({ id: c.id, name: c.name, cur, add: rv, total: cur + rv });
+    opts.push({ id: c.id, name: c.name, cur, add: rv, total: cur + rv, icon: _wcIconHtml(c) });
   });
   if (!opts.length) {
     showToast("Roll a combo you've already scored, then use Wildcard.");
@@ -1041,7 +1064,10 @@ function openWildcardAddPicker() {
       '<div class="wcp-list">' +
         opts.map(o =>
           `<button class="wcp-opt" type="button" data-add="${o.id}" data-amt="${o.add}">
-            <span class="wcp-opt-name">${_wcEsc(o.name)}</span>
+            <span class="wcp-opt-left">
+              <span class="wcp-opt-icon">${o.icon}</span>
+              <span class="wcp-opt-name">${_wcEsc(o.name)}</span>
+            </span>
             <span class="wcp-opt-val">${o.cur} +${o.add} = ${o.total}</span>
           </button>`).join('') +
       '</div>' +
@@ -1055,7 +1081,7 @@ function openWildcardAddPicker() {
   });
   const cancel = ov.querySelector('[data-wc="cancel"]');
   if (cancel) cancel.onclick = () => cancelWildcard();
-  ov.classList.add('open');
+  _wcShow(ov);
 }
 
 // Popup 2 — pick an empty category to strike as the cost, then execute.
@@ -1075,7 +1101,10 @@ function openWildcardStrikePicker(addCat, addAmount) {
       '<div class="wcp-list">' +
         empties.map(c =>
           `<button class="wcp-opt strike" type="button" data-strike="${c.id}">
-            <span class="wcp-opt-name">${_wcEsc(c.name)}</span>
+            <span class="wcp-opt-left">
+              <span class="wcp-opt-icon">${_wcIconHtml(c)}</span>
+              <span class="wcp-opt-name">${_wcEsc(c.name)}</span>
+            </span>
             <span class="wcp-opt-val">STRIKE · 0</span>
           </button>`).join('') +
       '</div>' +
@@ -1091,7 +1120,7 @@ function openWildcardStrikePicker(addCat, addAmount) {
   });
   const cancel = ov.querySelector('[data-wc="cancel"]');
   if (cancel) cancel.onclick = () => cancelWildcard();
-  ov.classList.add('open');
+  _wcShow(ov);
 }
 
 // Commit the Wildcard: MP through the guarded submit, solo/bot locally.
