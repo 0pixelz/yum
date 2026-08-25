@@ -186,7 +186,8 @@
       #turnTimer {
         position: absolute;
         top: 12px;
-        right: 12px;
+        left: 50%;
+        transform: translateX(-50%);
         z-index: 5;
         background: rgba(20, 20, 40, 0.92);
         border: 1.5px solid rgba(245, 166, 35, 0.5);
@@ -202,7 +203,7 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         transition: color 0.2s, border-color 0.2s, background 0.2s;
         pointer-events: none;
-        transform-origin: top right;
+        transform-origin: top center;
       }
       #turnTimer.tt-show { display: inline-flex; }
       #turnTimer .tt-unit { opacity: 0.7; font-size: 0.85em; }
@@ -212,12 +213,13 @@
         background: rgba(60, 20, 30, 0.95);
         animation: ttPulse 0.7s ease-in-out infinite;
       }
+      /* Keep the horizontal centering while the warn pulse scales it. */
       @keyframes ttPulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.08); }
+        0%, 100% { transform: translateX(-50%) scale(1); }
+        50% { transform: translateX(-50%) scale(1.08); }
       }
       @media (max-width: 480px) {
-        #turnTimer { top: 10px; right: 10px; font-size: 0.85rem; padding: 3px 9px; }
+        #turnTimer { top: 10px; font-size: 0.85rem; padding: 3px 9px; }
       }
     `;
     document.head.appendChild(style);
