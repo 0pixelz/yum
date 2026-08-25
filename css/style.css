@@ -3098,6 +3098,10 @@
     opacity: 0; pointer-events: none;
     transition: opacity 0.22s;
   }
+  /* The starter/earn power-up picker must sit above the who-goes-first overlay
+     (880) and the free-roll popup (1400) so it can open the instant the roll-off
+     closes, instead of waiting for those to clear. */
+  #powerupPickerModal { z-index: 1600; }
   #powerupPickerModal.open,
   #botModeModal.open,
   #findMatchModeModal.open {
