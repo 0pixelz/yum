@@ -1233,10 +1233,16 @@
     // unresponsive. The raf above still fires every frame, so the moment an
     // interaction sets one of these flags (or bumps _wakeUntil) rendering
     // resumes on the very next frame.
+    // NOTE: don't gate on _onFrameCb — the multiplayer-stream bridge sets it
+    // once, globally, for every game (solo included), so keying idle off it kept
+    // the loop pinned at 60fps during the solo interactive turn and starved the
+    // bottom buttons of taps on mobile. The roller only needs to render while
+    // something moves; the opponent already holds the settled frame. Only the
+    // spectator view (receiving opponent frames) must render continuously.
     const _busy =
       throwing || multiThrowing || dragging || multiDragging ||
       flyTweens.length > 0 || !!luckyBody || luckyHalos.length > 0 ||
-      ((mode === 'multi' || mode === 'spectator') && _onFrameCb);
+      mode === 'spectator';
     if (_busy) _wakeUntil = now + 400;      // keep rendering through the settle tail
     if (!_busy && now >= _wakeUntil) return; // at rest — free the main thread
 
