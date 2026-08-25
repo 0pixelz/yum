@@ -19,6 +19,16 @@
   let overlay, canvasEl, statusEl, cancelBtn;
   let rafId = null;
   let lastTime = 0;
+  // When nothing is animating, the render loop idles (skips physics + WebGL)
+  // so the main thread stays free for DOM button taps. `_wakeUntil` keeps the
+  // loop rendering until this timestamp; interactions bump it forward.
+  let _wakeUntil = 0;
+  function _wakeRender(ms) {
+    let t = 0;
+    try { t = performance.now(); } catch (_) {}
+    const until = t + (ms || 1500);
+    if (until > _wakeUntil) _wakeUntil = until;
+  }
   let resolveFn = null;
   let dragging = false;
   let throwing = false;
@@ -1035,6 +1045,7 @@
     }
     ev.preventDefault();
     dragging = true;
+    _wakeRender(2500);
     dieBody.type = CANNON.Body.KINEMATIC;
     dieBody.velocity.set(0, 0, 0);
     dieBody.angularVelocity.set(0, 0, 0);
@@ -1214,6 +1225,21 @@
     rafId = requestAnimationFrame(tick);
     const dt = lastTime ? Math.min(0.05, (now - lastTime) / 1000) : 1 / 60;
     lastTime = now;
+
+    // Idle guard: when the dice are at rest and nothing is animating, skip the
+    // physics step and the WebGL render entirely. The continuous 60fps loop was
+    // saturating the mobile main thread, which made the DOM buttons overlaid on
+    // the canvas (score chips, SCORECARD, DONE, ROLL AGAIN, BONUS) laggy or
+    // unresponsive. The raf above still fires every frame, so the moment an
+    // interaction sets one of these flags (or bumps _wakeUntil) rendering
+    // resumes on the very next frame.
+    const _busy =
+      throwing || multiThrowing || dragging || multiDragging ||
+      flyTweens.length > 0 || !!luckyBody || luckyHalos.length > 0 ||
+      ((mode === 'multi' || mode === 'spectator') && _onFrameCb);
+    if (_busy) _wakeUntil = now + 400;      // keep rendering through the settle tail
+    if (!_busy && now >= _wakeUntil) return; // at rest — free the main thread
+
     world.step(1 / 60, dt, 3);
     // While the player is holding the dice, spin each one around its own
     // axis so the orientation at release is unpredictable (no cheating).
@@ -1686,6 +1712,7 @@
   function holdDie(idx) {
     const b = multiDiceBodies[idx];
     if (!b || b._kept) return;
+    _wakeRender(2500);
     b._kept = true;
     // MP: _value already holds the server value and the die may be re-skinned,
     // so the geometric top face no longer matches what the player sees.
@@ -1706,6 +1733,7 @@
       if (typeof showToast === 'function') showToast('This die is frozen — it carries to next turn.');
       return;
     }
+    _wakeRender(2500);
     b._kept = false;
     placeFloorDie(b, idx);
     renderKeptRow();
@@ -2722,6 +2750,7 @@
   function rerollTurn() {
     if (turnRollsUsed >= turnRollsLeft) return;
     if (multiDiceBodies.filter(b => !b._kept).length === 0) return;
+    _wakeRender(2500);
     turnSettled = false;
     clearSuggest();
     clearActions();
@@ -2907,10 +2936,11 @@
     // After the dice settle in an interactive turn, taps pick dice to keep
     // (fly to the shelf) or un-keep them — they don't start a new throw. During
     // Yam-or-Strike there's no keeping: the player flicks the lone armed die.
-    if (!yamStrike3D && interactiveTurn && turnSettled) { handleSettleTap(ev); return; }
+    if (!yamStrike3D && interactiveTurn && turnSettled) { _wakeRender(2500); handleSettleTap(ev); return; }
     if (!multiReady || multiThrowing) return;
     ev.preventDefault();
     multiDragging = true;
+    _wakeRender(2500);
     multiPointerSamples = [];
     try { canvasEl.setPointerCapture(ev.pointerId); } catch (_) {}
     const p = pointerOnDragPlane(ev);
@@ -3047,6 +3077,7 @@
       if (!rafId) {
         lastTime = 0;
         rafId = requestAnimationFrame(tick);
+        _wakeRender(2500);
       }
 
       return new Promise(res => { resolveFn = res; });
@@ -3253,6 +3284,7 @@
       if (!rafId) {
         lastTime = 0;
         rafId = requestAnimationFrame(tick);
+        _wakeRender(2500);
       }
 
       return new Promise(res => {
@@ -3437,6 +3469,7 @@
       if (!rafId) {
         lastTime = 0;
         rafId = requestAnimationFrame(tick);
+        _wakeRender(2500);
       }
 
       return new Promise(res => { mpResolve = res; });
@@ -3499,6 +3532,7 @@
       if (!rafId) {
         lastTime = 0;
         rafId = requestAnimationFrame(tick);
+        _wakeRender(2500);
       }
 
       return {
