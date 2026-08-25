@@ -1498,23 +1498,11 @@ closeFirstRoll = function() {
     const begunScoring =
       (typeof scores === 'object' && scores && Object.keys(scores).length > 0);
     if (window.__pupStarterPickedThisGame || begunScoring) return;
-    // Open the starter picker once the first-roll overlay has animated out — but
-    // if I won the roll-off, the "FREE EXTRA ROLL!" popup is up for ~2.6s and
-    // would sit on top of the picker (looking like it was skipped). Poll the
-    // popup's real DOM state at fire time (the winner grant runs on a later
-    // timer, so a synchronous flag check here would miss it) and wait for it to
-    // clear, with a safety cap so we never hang.
-    let _pickTries = 0;
-    function openStarterWhenClear() {
-      const frp = document.getElementById('freeRollPop');
-      const popupUp = frp && frp.classList.contains('show');
-      if (popupUp && _pickTries++ < 12) { setTimeout(openStarterWhenClear, 300); return; }
-      openPowerupPickerModal('start');
-    }
-    // Initial wait lets the first-roll overlay animate out and gives the winner's
-    // free-roll popup time to appear (it's granted on a later timer); then the
-    // poll above holds the picker until that popup clears.
-    setTimeout(openStarterWhenClear, 1100);
+    // Open the starter picker right after the player taps "Let's Go". The picker
+    // now sits above the roll-off overlay and the free-roll popup (see the
+    // z-index rule in style.css), so it no longer has to wait for those to clear
+    // — a short beat just lets the tap register and the overlay begin closing.
+    setTimeout(() => openPowerupPickerModal('start'), 250);
   }
 };
 
