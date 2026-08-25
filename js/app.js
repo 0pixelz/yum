@@ -1037,6 +1037,12 @@ function powerupIconFor(pid) {
   return '<i class="icn icn-bolt"></i>';
 }
 let mpGameOverShown = false;
+// The room code we've already run the one-time board-load transition for. Keyed
+// on the room so a NEW match (Find Match / rematch into a fresh room) always
+// loads its board, instead of relying on the waiting overlay's visibility —
+// which a previous game can leave hidden, stranding the next match on "accepted"
+// with no board. Rematches reuse the same room and re-show via their own path.
+let _mpBoardLoadedRoom = null;
 
 function genCode() {
   // Firebase rules require ^[A-Z0-9]{4,8}$, so guarantee exactly 4 chars
@@ -1569,8 +1575,17 @@ function listenRoom() {
         : 'Take as long as you want — no auto-pick';
     }
 
-    if(data.started && document.getElementById('waitingOverlay').style.display !== 'none') {
-      // Game started!
+    // A room whose game isn't started yet (a fresh room, or a rematch path that
+    // toggles `started` off then on) should re-run the board load when it starts
+    // again — clear the latch so the transition below fires next time.
+    if(!data.started && _mpBoardLoadedRoom === roomCode) _mpBoardLoadedRoom = null;
+
+    if(data.started && _mpBoardLoadedRoom !== roomCode) {
+      // Game started! Run the one-time board load for this room. Latched on the
+      // room code (not the waiting overlay) so repeated matches with the same
+      // opponent always load — a prior game could leave the overlay hidden,
+      // which used to strand the next match on "accepted" with a blank board.
+      _mpBoardLoadedRoom = roomCode;
       document.getElementById('waitingOverlay').style.display = 'none';
       mpMode = true;
       mpGameOverShown = false;
@@ -1908,6 +1923,7 @@ function leaveGame() {
   }
   window.__yumReactionsAttachedFor = null;
   window.__yumTurnTimerEnabled = true;
+  _mpBoardLoadedRoom = null; // next match reloads its board from scratch
   mpMode = false; roomCode = null;
   document.getElementById('waitingOverlay').style.display = 'none';
   document.getElementById('mpBanner').style.display = 'none';
