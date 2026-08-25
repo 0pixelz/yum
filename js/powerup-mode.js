@@ -1473,15 +1473,17 @@ closeFirstRoll = function() {
   if (powerupMode && (mpMode || botMode)) {
     // Only offer the STARTER power-up for a genuinely fresh game. On a reload /
     // rejoin the first-roll overlay can replay, and without this guard it would
-    // re-open the starter picker and hand out an extra power-up mid-game. If the
-    // player already picked a starter (restored inventory/history) or has begun
-    // scoring, skip it.
-    const alreadyStarted =
-      (typeof playerPowerups !== 'undefined' && playerPowerups.length > 0) ||
+    // re-open the starter picker and hand out an extra power-up mid-game. Detect
+    // "already started" by an actual STARTER pick (history entry with
+    // source 'start') or by having begun scoring — NOT by inventory size, since
+    // the who-goes-first winner is granted a free Extra Roll before this runs,
+    // which must not suppress the starter picker on a fresh game.
+    const pickedStarter =
       (typeof playerPowerupHistory !== 'undefined' && playerPowerupHistory.earned &&
-        playerPowerupHistory.earned.length > 0) ||
+        playerPowerupHistory.earned.some(e => e && e.source === 'start'));
+    const begunScoring =
       (typeof scores === 'object' && scores && Object.keys(scores).length > 0);
-    if (alreadyStarted) return;
+    if (pickedStarter || begunScoring) return;
     // Show picker after the first-roll overlay finishes animating out (~900ms)
     setTimeout(() => openPowerupPickerModal('start'), 1100);
   }
