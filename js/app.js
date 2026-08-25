@@ -1958,6 +1958,21 @@ function renderLeaderboard() {
   const rows = sorted.map(([id, p], i) => {
     const sc = p.scores || {};
     const total = calcTotal(sc) + (p.megaYamBonus || 0);
+    // Series total across the matches in this room (max 5 games per set).
+    // `series` banks each finished game; combine with the live game's total,
+    // except right at game-over (already banked) to avoid double-counting.
+    const _s = p.series || {};
+    const _sGames = Number(_s.games) || 0;
+    const _sScore = Number(_s.score) || 0;
+    let seriesGames, seriesTotal;
+    if (mpGameOverShown) {                // this game already banked
+      seriesGames = _sGames; seriesTotal = _sScore;
+    } else if (_sGames >= 5) {            // a set of 5 finished — new set in progress
+      seriesGames = 1; seriesTotal = total;
+    } else {                             // add the in-progress game
+      seriesGames = _sGames + 1; seriesTotal = _sScore + total;
+    }
+    const showSeries = _sGames > 0;      // only once at least one game has finished
     const filled = Object.keys(sc).length;
     const isMe = id === playerId;
     const isTurn = id === currentTurnId;
@@ -2002,6 +2017,7 @@ function renderLeaderboard() {
       ${avatarHtml}
       <div class="lb-name-col">
         <div class="lb-name">${escapeHtml(p.name)}<span style="font-size:0.65rem;color:var(--muted)"> <i class="icn icn-eye"></i> ${isMe?'tap':'view'}</span></div>
+        ${showSeries ? `<div class="lb-series"><i class="icn icn-trophy icn-gold"></i> Series ${seriesTotal} pts · ${seriesGames}/5</div>` : ''}
         ${pupHtml}
       </div>
       ${reactBtnHtml}
@@ -2083,6 +2099,26 @@ function showMpGameOver() {
     const sc = id === playerId ? scores : (p.scores || {});
     return { name: p.name, score: calcTotal(sc) + (p.megaYamBonus || 0), isMe: id === playerId };
   }).sort((a,b) => b.score - a.score);
+
+  // Series running total: bank THIS game's final score into my cumulative
+  // series so the leaderboard can show the total across the matches in this
+  // room. The series spans a MAXIMUM of 5 games, then starts a fresh set.
+  // Runs once per game — mpGameOverShown gates it, and rematch-final resets
+  // that flag for the next round. Each client writes only its own series
+  // (rules allow auth.uid === $playerId).
+  if (mpMode && roomRef && playerId) {
+    const myFinal = calcTotal(scores) + ((allPlayers[playerId] && allPlayers[playerId].megaYamBonus) || 0);
+    try {
+      roomRef.child('players/' + playerId + '/series').transaction(cur => {
+        const games = (cur && Number(cur.games)) || 0;
+        const score = (cur && Number(cur.score)) || 0;
+        // A 6th game rolls over into a new 5-game set starting with this game.
+        if (games >= 5) return { score: myFinal, games: 1 };
+        return { score: score + myFinal, games: games + 1 };
+      });
+    } catch (e) {}
+  }
+
   showGameOver(players);
 }
 

@@ -1331,6 +1331,10 @@
   .lb-avatar-bot { color: #c084fc; background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.28); font-size: .85rem; }
   .lb-name-col { flex:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
   .lb-name { font-weight: 700; font-size: 0.9rem; }
+  .lb-series {
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.3px;
+    color: var(--gold); display: flex; align-items: center; gap: 4px;
+  }
   .lb-pups { display:flex; gap:5px; flex-wrap:wrap; }
   .lb-pup-icon { font-size: 0.78rem; opacity:0.85; white-space:nowrap; }
   .lb-pup-icon sup { font-size:0.55rem; vertical-align:super; }
