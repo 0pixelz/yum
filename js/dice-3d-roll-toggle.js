@@ -35,20 +35,24 @@
     const s = document.createElement('style');
     s.id = 'd3dInlineToggleStyles';
     s.textContent = `
+      /* Anchor the corner toggle to the dice-roller card. */
+      .dice-section { position: relative; }
       .d3d-inline-wrap {
-        text-align: center;
-        margin: 4px 0 2px;
+        position: absolute;
+        top: 12px; right: 12px;
+        margin: 0; text-align: right;
+        z-index: 5;
       }
       .d3d-inline-btn {
-        display: inline-flex; align-items: center; gap: 8px;
-        padding: 5px 14px;
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 11px;
         border-radius: 999px;
         border: 1px solid rgba(255,255,255,0.18);
         background: rgba(255,255,255,0.05);
         color: var(--muted, #aab);
         font-family: 'Bebas Neue', cursive;
-        font-size: 0.78rem;
-        letter-spacing: 2px;
+        font-size: 0.7rem;
+        letter-spacing: 1.5px;
         cursor: pointer;
         transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
@@ -61,7 +65,7 @@
       }
       .d3d-inline-dot {
         display: inline-block;
-        width: 8px; height: 8px;
+        width: 7px; height: 7px;
         border-radius: 50%;
         background: rgba(255,255,255,0.25);
       }
@@ -78,9 +82,8 @@
       refreshInlineToggle();
       return;
     }
-    const controls = document.querySelector('.dice-section .dice-controls');
-    const rollCount = document.getElementById('rollCount');
-    if (!controls || !rollCount) return;
+    const section = document.querySelector('.dice-section');
+    if (!section) return;
     injectToggleStyles();
     const wrap = document.createElement('div');
     wrap.className = 'd3d-inline-wrap';
@@ -91,7 +94,8 @@
     btn.setAttribute('aria-pressed', 'false');
     btn.addEventListener('click', () => { window.toggle3DRoll(); });
     wrap.appendChild(btn);
-    rollCount.parentNode.insertBefore(wrap, rollCount);
+    // Pin it to the card's top-right corner (over the "DICE ROLLER" header row).
+    section.appendChild(wrap);
     refreshInlineToggle();
   }
 
