@@ -1000,10 +1000,22 @@ function _wcOverlay() {
     ov = document.createElement('div');
     ov.id = 'wildcardPickerOverlay';
     document.body.appendChild(ov);
-    // Backdrop tap cancels — an easy out if it was opened by mistake.
-    ov.addEventListener('click', e => { if (e.target === ov) cancelWildcard(); });
+    // Backdrop tap cancels — an easy out if it was opened by mistake. Guard
+    // against the OPENING tap itself: the popup is centered but its backdrop
+    // covers the whole screen (including the power-up button you just tapped),
+    // so on mobile the same tap can bubble to the backdrop and instantly close
+    // it. Ignore backdrop taps for a moment after opening.
+    ov.addEventListener('click', e => {
+      if (e.target !== ov) return;
+      if (Date.now() - (window.__wcPickerOpenedAt || 0) < 400) return;
+      cancelWildcard();
+    });
   }
   return ov;
+}
+function _wcShow(ov) {
+  window.__wcPickerOpenedAt = Date.now();
+  ov.classList.add('open');
 }
 function _wcClosePicker() {
   const ov = document.getElementById('wildcardPickerOverlay');
@@ -1055,7 +1067,7 @@ function openWildcardAddPicker() {
   });
   const cancel = ov.querySelector('[data-wc="cancel"]');
   if (cancel) cancel.onclick = () => cancelWildcard();
-  ov.classList.add('open');
+  _wcShow(ov);
 }
 
 // Popup 2 — pick an empty category to strike as the cost, then execute.
@@ -1091,7 +1103,7 @@ function openWildcardStrikePicker(addCat, addAmount) {
   });
   const cancel = ov.querySelector('[data-wc="cancel"]');
   if (cancel) cancel.onclick = () => cancelWildcard();
-  ov.classList.add('open');
+  _wcShow(ov);
 }
 
 // Commit the Wildcard: MP through the guarded submit, solo/bot locally.
