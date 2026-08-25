@@ -1580,11 +1580,14 @@ function listenRoom() {
     // again — clear the latch so the transition below fires next time.
     if(!data.started && _mpBoardLoadedRoom === roomCode) _mpBoardLoadedRoom = null;
 
-    if(data.started && _mpBoardLoadedRoom !== roomCode) {
-      // Game started! Run the one-time board load for this room. Latched on the
-      // room code (not the waiting overlay) so repeated matches with the same
-      // opponent always load — a prior game could leave the overlay hidden,
-      // which used to strand the next match on "accepted" with a blank board.
+    if(data.started && _mpBoardLoadedRoom !== roomCode && !data.firstRollDone) {
+      // FRESH game start only. Run the one-time board load for this room —
+      // latched on the room code (not the waiting overlay) so repeated matches
+      // with the same opponent always load. Gated on !firstRollDone so a REJOIN
+      // (page reload mid-game, roll-off already done) never re-runs this: it
+      // would re-show "who goes first" and wipe local scores/power-ups. On
+      // rejoin the view is restored below (leaderboard/banner) and restoreMyDiceUI
+      // + the scores sync bring the board back to where it was.
       _mpBoardLoadedRoom = roomCode;
       document.getElementById('waitingOverlay').style.display = 'none';
       mpMode = true;
