@@ -2258,13 +2258,31 @@
     to   { opacity: 1; transform: translateY(0)    scale(1);   }
   }
   #dice3dOverlay .d3d-canvas-wrap {
-    flex: 1; min-height: 0; position: relative; width: 100%;
+    /* z-index:0 pins the WebGL canvas + its floating children to the BOTTOM of
+       the overlay's stacking order. On iOS WebKit a big <canvas> gets its own
+       GPU compositing layer that otherwise hit-tests ABOVE the normal-flow
+       controls below it (score chips, Scorecard, Done), so those taps landed on
+       the canvas and did nothing — while "Roll again", which lives inside this
+       wrap at z-index:4, worked. Giving the wrap an explicit low stacking
+       context, and the control bars below their own higher one, makes the
+       controls win the hit-test. */
+    flex: 1; min-height: 0; position: relative; width: 100%; z-index: 0;
   }
   #dice3dOverlay canvas {
     display: block; width: 100% !important; height: 100% !important;
     touch-action: none; cursor: grab;
   }
   #dice3dOverlay canvas:active { cursor: grabbing; }
+  /* Lift every interactive control that sits BELOW the canvas in normal flow
+     into its own stacking context above the canvas layer, so iOS delivers taps
+     to them instead of to the canvas underneath. */
+  #dice3dOverlay .d3d-suggest,
+  #dice3dOverlay .d3d-actions,
+  #dice3dOverlay .d3d-prebonus,
+  #dice3dOverlay .d3d-status,
+  #dice3dOverlay .d3d-cancel {
+    position: relative; z-index: 6;
+  }
   #dice3dOverlay .d3d-status {
     text-align: center; color: var(--white);
     font-size: 0.82rem; letter-spacing: 0.5px;
