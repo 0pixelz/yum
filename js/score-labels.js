@@ -94,7 +94,10 @@
   }
 
   function diamondString(wins = winCount()) {
-    return '◆'.repeat(diamondCountFromWins(wins));
+    // 💎 gem emoji (one per win milestone: 50 / 100 / 200 / 500). Replaces the
+    // old flat ◆ character; stripDiamondSuffix still cleans both so existing
+    // names carrying ◆ migrate to 💎 the next time they're decorated.
+    return '💎'.repeat(diamondCountFromWins(wins));
   }
 
   function stripDiamondSuffix(name) {
