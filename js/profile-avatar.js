@@ -62,6 +62,16 @@
   }
   function milestoneUnlocked(m) { return !!m && totalWins() >= m.wins; }
 
+  // Small gold padlock that matches the game's dice/gold styling (no emoji).
+  function lockSvg() {
+    return `<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+      <path d="M8 10V7.5a4 4 0 0 1 8 0V10" fill="none" stroke="#ffd76a" stroke-width="2.1" stroke-linecap="round"/>
+      <rect x="5.5" y="10" width="13" height="9.5" rx="2.2" fill="#f5a623" stroke="#5a2a08" stroke-width="1"/>
+      <circle cx="12" cy="14.4" r="1.5" fill="#5a2a08"/>
+      <rect x="11.2" y="14.4" width="1.6" height="3" rx="0.8" fill="#5a2a08"/>
+    </svg>`;
+  }
+
   // A die avatar whose face shows a number instead of pips.
   function numberDieSvg(m, sizeAttr) {
     const id = 'avn-' + Math.random().toString(36).slice(2, 9);
@@ -342,12 +352,13 @@
       .ya-pick-tile.locked .ya-pick-name { opacity: 0.5; }
       .ya-pick-lock {
         position: absolute; top: 6px; left: 6px;
-        width: 20px; height: 20px; border-radius: 50%;
-        background: rgba(0,0,0,0.55);
-        border: 1px solid rgba(255,255,255,0.18);
-        color: #fff; font-size: 0.62rem;
+        width: 22px; height: 22px; border-radius: 50%;
+        background: rgba(20,12,4,0.72);
+        border: 1px solid rgba(245,166,35,0.55);
+        box-shadow: 0 0 8px rgba(245,166,35,0.25);
         display: inline-flex; align-items: center; justify-content: center;
       }
+      .ya-pick-lock svg { display: block; }
       .ya-pick-req {
         margin-top: 2px; font-size: 0.62rem; font-weight: 800;
         letter-spacing: 0.3px; color: var(--gold, #f5a623); opacity: 0.85;
@@ -417,7 +428,7 @@
         <button type="button" class="ya-pick-tile ${sel ? 'selected' : ''} ${unlocked ? '' : 'locked'}"
                 data-id="${m.id}" data-locked="${unlocked ? '0' : '1'}" data-req="${m.wins}">
           <span class="ya-pick-check">✓</span>
-          ${unlocked ? '' : '<span class="ya-pick-lock">🔒</span>'}
+          ${unlocked ? '' : `<span class="ya-pick-lock">${lockSvg()}</span>`}
           <div class="ya-pick-art">${numberDieSvg(m)}</div>
           <div class="ya-pick-name">${m.name}</div>
           ${unlocked ? '' : `<div class="ya-pick-req">Win ${m.wins}</div>`}
