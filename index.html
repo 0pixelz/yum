@@ -440,11 +440,10 @@
     <div class="die-wrap"><div class="die" data-i="4" onclick="cycleDie(4)">–</div><button class="die-hold-btn" data-hold="4" onclick="toggleHold(4)">HOLD</button></div>
   </div>
   <div class="die-label"><i class="icn icn-tap"></i> Tap dice to HOLD &nbsp;·&nbsp; ROLL for the rest</div>
-  <div class="dice-controls"><button class="btn btn-roll" onclick="rollDice()">ROLL</button><button class="predict-btn" id="predictBtn" onclick="runPrediction()" disabled><i class="icn icn-orb"></i> PREDICT</button></div>
+  <div class="dice-controls"><button class="btn btn-roll" onclick="rollDice()">ROLL</button></div>
   <div class="roll-count" id="rollCount">Rolls: 0 / 3</div>
 </div>
 
-<div id="predOverlay" onclick="closePredictionOverlay(event)"><div class="pred-sheet"><div class="pred-header"><div class="pred-header-title"><i class="icn icn-orb"></i> NEXT MOVE PREDICTION</div><button class="pred-close" onclick="closePrediction()"><i class="icn icn-close"></i></button></div><div id="predContent"><div class="pred-spinner">Set all 5 dice then tap PREDICT</div></div><div class="pred-note">Based on 500 Monte Carlo simulations per option · unfilled categories only</div></div></div>
 <div id="powerupBar" style="display:none"></div>
 <div id="botThinkBar" style="display:none;margin:0 12px 10px;background:var(--card);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:10px 14px;align-items:center;gap:10px"><span style="font-size:1.3rem;color:#c084fc"><i class="icn icn-bot"></i></span><div style="flex:1"><div style="font-weight:800;font-size:0.85rem;color:#c084fc" id="botThinkMsg">Bot is thinking…</div><div style="font-size:0.72rem;color:var(--muted);margin-top:2px">Calculating best move</div></div><div class="bot-dots"><span></span><span></span><span></span></div></div>
 <div class="score-section" id="scoreSection"></div>
@@ -593,7 +592,6 @@
       <div class="howto-section">
         <div class="howto-section-title">6 · Tips</div>
         <ul class="howto-list">
-          <li>Tap <b>PREDICT</b> after a roll for AI-suggested holds and best scores.</li>
           <li>In multiplayer, tap an opponent's name to peek at their scorecard.</li>
           <li>Save big categories (YAM, Large Straight) for when you actually roll them — scratch a low Ones early if you must.</li>
           <li>Watch the Upper Bonus tracker — that +35 often decides the game.</li>
