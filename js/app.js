@@ -1714,6 +1714,11 @@ function listenRoom() {
           try {
             playerPowerupHistory.earned = Array.isArray(_lp.history.earned) ? _lp.history.earned.slice() : [];
             playerPowerupHistory.used   = Array.isArray(_lp.history.used)   ? _lp.history.used.slice()   : [];
+            // If a starter was already picked this game, mark it so a reload that
+            // replays the roll-off doesn't offer the starter picker again.
+            if (playerPowerupHistory.earned.some(e => e && e.source === 'start')) {
+              window.__pupStarterPickedThisGame = true;
+            }
           } catch (e) {}
         }
         undoPowerupState = null;

@@ -131,6 +131,10 @@ function openPowerupPickerModal(context) {
 
 function selectPowerup(id, context) {
   playerPowerups.push(id);
+  // Mark that this game's STARTER pick is done, so closeFirstRoll won't offer it
+  // again. Per-game (reset by the showFirstRoll wrapper on each roll-off), so it
+  // never leaks into the next match the way the old history check did.
+  if (context === 'start') window.__pupStarterPickedThisGame = true;
   document.getElementById('powerupPickerModal').classList.remove('open');
   const p = POWERUPS.find(x => x.id === id);
   renderPowerupBar();
@@ -1469,24 +1473,31 @@ quitGame = function() {
   document.getElementById('lobbyOverlay').style.display = 'flex';
 };
 
+// Patch showFirstRoll — each roll-off begins a game, so re-arm the one-per-game
+// starter picker. Reset here (not in a game-start reset that a rejoin skips) so
+// every fresh game AND every rematch offers the starter exactly once.
+if (typeof showFirstRoll === 'function') {
+  const _pupOrigShowFirstRoll = showFirstRoll;
+  showFirstRoll = function() {
+    window.__pupStarterPickedThisGame = false;
+    return _pupOrigShowFirstRoll.apply(this, arguments);
+  };
+}
+
 // Patch closeFirstRoll — in MP/bot power-up mode, show power-up picker after first-roll
 const _pupOrigCloseFirstRoll = closeFirstRoll;
 closeFirstRoll = function() {
   _pupOrigCloseFirstRoll();
   if (powerupMode && (mpMode || botMode)) {
-    // Only offer the STARTER power-up for a genuinely fresh game. On a reload /
-    // rejoin the first-roll overlay can replay, and without this guard it would
-    // re-open the starter picker and hand out an extra power-up mid-game. Detect
-    // "already started" by an actual STARTER pick (history entry with
-    // source 'start') or by having begun scoring — NOT by inventory size, since
-    // the who-goes-first winner is granted a free Extra Roll before this runs,
-    // which must not suppress the starter picker on a fresh game.
-    const pickedStarter =
-      (typeof playerPowerupHistory !== 'undefined' && playerPowerupHistory.earned &&
-        playerPowerupHistory.earned.some(e => e && e.source === 'start'));
+    // Only offer the STARTER power-up once per game. The flag is reset on each
+    // roll-off (showFirstRoll wrapper) and set when a starter is picked, so it
+    // reflects THIS game only — unlike the old inventory/history checks, which
+    // leaked across matches (stale 'start' history) and were tripped by the
+    // who-goes-first winner's free Extra Roll, wrongly suppressing the picker.
+    // `begunScoring` covers a reload that lands after scoring has started.
     const begunScoring =
       (typeof scores === 'object' && scores && Object.keys(scores).length > 0);
-    if (pickedStarter || begunScoring) return;
+    if (window.__pupStarterPickedThisGame || begunScoring) return;
     // Open the starter picker once the first-roll overlay has animated out — but
     // if I won the roll-off, the "FREE EXTRA ROLL!" popup is up for ~2.6s and
     // would sit on top of the picker (looking like it was skipped). Poll the
