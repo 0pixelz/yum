@@ -550,6 +550,12 @@ function consumePowerup(id) {
 // scoring-rules.js's updateTotals so the header total reflects the bonus. In MP
 // it's banked in megaYamBonus (which the leaderboard already sums); solo/bot
 // keep a local running counter that game resets clear.
+// Is the Double Points power-up armed right now? Used by the possibilities
+// panel to preview the doubled score the player will actually get.
+window.isDoublePointsActive = function () {
+  return !!doublePointsActive;
+};
+
 window.powerupSelfBonus = function () {
   if (typeof powerupMode === 'undefined' || !powerupMode) return 0;
   if (typeof mpMode !== 'undefined' && mpMode) {
