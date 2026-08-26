@@ -1321,16 +1321,20 @@
   .lb-row:last-child { border-bottom: none; }
   .lb-row.me { background: rgba(78,205,196,0.07); }
   /* Whose-turn highlight: a pulsing teal ring around the active player's row.
-     Uses an inset box-shadow so the parent's overflow:hidden doesn't clip it
-     and it shows even over a row that sets its own inline background. */
+     The row is a slightly inset, rounded pill so the ring + soft glow sit
+     wholly inside the leaderboard's rounded, overflow-hidden corners (a
+     full-bleed row got its bottom corners clipped). The inset ring also shows
+     over a row that sets its own inline background. */
   .lb-row.lb-turn {
+    border-radius: 12px;
+    margin: 3px 5px;
     background: rgba(78,205,196,0.14);
-    box-shadow: inset 0 0 0 2px rgba(78,205,196,0.6);
+    box-shadow: inset 0 0 0 2px rgba(78,205,196,0.65), 0 0 14px rgba(78,205,196,0.3);
     animation: lbTurnPulse 1.5s ease-in-out infinite;
   }
   @keyframes lbTurnPulse {
-    0%, 100% { box-shadow: inset 0 0 0 2px rgba(78,205,196,0.4); }
-    50%      { box-shadow: inset 0 0 0 2px rgba(78,205,196,0.9); }
+    0%, 100% { box-shadow: inset 0 0 0 2px rgba(78,205,196,0.45), 0 0 10px rgba(78,205,196,0.2); }
+    50%      { box-shadow: inset 0 0 0 2px rgba(78,205,196,0.9),  0 0 18px rgba(78,205,196,0.45); }
   }
   .lb-rank { font-family: 'Bebas Neue', cursive; font-size: 1.4rem; color: rgba(255,255,255,0.2); width:24px; }
   .lb-avatar {
