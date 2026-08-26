@@ -298,17 +298,7 @@ function renderAchievements() {
         font-size: 0.62rem;
         font-weight: 800;
       }
-      /* ×2 tag shown on possibility chips while Double Points is armed. */
-      .dp-x2 {
-        font-size: 0.56rem;
-        font-weight: 900;
-        letter-spacing: 0.4px;
-        color: #141428;
-        background: var(--gold);
-        border-radius: 999px;
-        padding: 1px 5px;
-        box-shadow: 0 0 8px rgba(245,166,35,0.5);
-      }
+      /* Doubled score preview (Double Points armed) shown in gold. */
       .dp-points.dp-doubled { color: var(--gold); }
       .dp-empty {
         text-align: center;
@@ -444,12 +434,10 @@ function renderAchievements() {
     const chips = options.slice(0, 8).map(({ cat, points }) => {
       const pct = cat.max ? Math.round((points / cat.max) * 100) : 0;
       const shown = doubled ? points * 2 : points;
-      const x2 = doubled ? '<span class="dp-x2">×2</span>' : '';
       return `<div class="dp-chip" onclick="openModal('${cat.id}')">
         <span class="dp-icon">${categoryIcon(cat)}</span>
         <span class="dp-name">${cat.name}</span>
         <span class="dp-points${doubled ? ' dp-doubled' : ''}">${shown} pts</span>
-        ${x2}
         <span class="dp-pct">${pct}%</span>
       </div>`;
     }).join('');
