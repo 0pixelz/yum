@@ -2020,7 +2020,7 @@ function renderLeaderboard() {
     const reactBtnHtml = !isMe
       ? `<button class="lb-react-btn" onclick="event.stopPropagation(); openReactionPicker('${id}')" aria-label="Send reaction to ${escapeHtml(p.name)}" title="Send reaction"><i class="icn icn-sparkle icn-gold"></i></button>`
       : '';
-    return `<div class="lb-row ${isMe?'me':''}" onclick="${tapAction}" style="cursor:pointer">
+    return `<div class="lb-row ${isMe?'me':''} ${isTurn?'lb-turn':''}" onclick="${tapAction}" style="cursor:pointer">
       <div class="lb-rank">${i+1}</div>
       ${isTurn ? '<div class="lb-turn-dot"></div>' : '<div style="width:8px"></div>'}
       ${avatarHtml}
@@ -2503,7 +2503,7 @@ function renderBotLeaderboard() {
     ? `<div class="lb-avatar">${window.YumAvatars.markup(window.__yumQuickMatchAvatarId, botName)}</div>`
     : '<div class="lb-avatar lb-avatar-bot"><i class="icn icn-bot"></i></div>';
   document.getElementById('lbRows').innerHTML = `
-    <div class="lb-row me" style="cursor:pointer" onclick="openOppViewer('me', playerName, scores, playerScoreDice, window.megaYamPlayerBonus?megaYamPlayerBonus():0)">
+    <div class="lb-row me ${playerTurn?'lb-turn':''}" style="cursor:pointer" onclick="openOppViewer('me', playerName, scores, playerScoreDice, window.megaYamPlayerBonus?megaYamPlayerBonus():0)">
       <div class="lb-rank">${pLeading?'1':'2'}</div>
       <div style="width:8px"></div>
       ${myLbAvatar}
@@ -2514,7 +2514,7 @@ function renderBotLeaderboard() {
       <div class="lb-filled">${pFilled}/13</div>
       <div class="lb-score">${pTotal}</div>
     </div>
-    <div class="lb-row" style="cursor:pointer;background:rgba(168,85,247,0.07)" onclick="openOppViewer('bot','${botName}',botScores,botScoreDice, window.megaYamBotBonus?megaYamBotBonus():0)">
+    <div class="lb-row ${!playerTurn?'lb-turn':''}" style="cursor:pointer;background:rgba(168,85,247,0.07)" onclick="openOppViewer('bot','${botName}',botScores,botScoreDice, window.megaYamBotBonus?megaYamBotBonus():0)">
       <div class="lb-rank">${pLeading?'2':'1'}</div>
       <div style="width:8px"></div>
       ${botLbAvatar}
