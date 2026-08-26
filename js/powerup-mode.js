@@ -5,7 +5,7 @@ const POWERUPS = [
   { id:'extraRoll',    name:'Extra Roll',    icon:'<i class="icn icn-dice"></i>',
     desc:'Get one bonus reroll this turn',
     color:'#4ecdc4', gradient:'linear-gradient(135deg,#4ecdc4,#2ecc71)' },
-  { id:'doublePoints',name:'Double Points', icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:inline-block;vertical-align:-0.16em"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="currentColor"/><text x="12" y="12.9" text-anchor="middle" dominant-baseline="central" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="11" fill="#141428">×2</text></svg>',
+  { id:'doublePoints',name:'Double Points', icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:inline-block;vertical-align:-0.16em"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="#f0f0f0"/><text x="12" y="12.9" text-anchor="middle" dominant-baseline="central" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="11" fill="#141428">×2</text></svg>',
     desc:'Double the score for your next category',
     color:'#f5a623', gradient:'linear-gradient(135deg,#f5a623,#f39c12)' },
   { id:'goldenDice',  name:'Golden Dice',   icon:'<i class="icn icn-dice-stack"></i>',
