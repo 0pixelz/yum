@@ -412,11 +412,8 @@
   <button class="lobby-btn lobby-btn-solo" style="max-width:280px;margin-top:6px" onclick="leaveGame()"><i class="icn icn-close"></i> Cancel</button>
 </div>
 
-<div id="mpBanner"><div class="mp-room-info"><span style="font-size:0.75rem;color:var(--muted);font-weight:700">ROOM</span><span class="mp-code-badge" id="mpCodeBadge">----</span><span class="mp-turn-badge" id="mpTurnBadge">…</span><span style="flex:1"></span><button onclick="confirmNewGame()" style="background:none;border:none;color:var(--muted);font-size:0.8rem;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700">LEAVE</button></div></div>
-
-<div id="leaderboard"><div class="lb-title"><i class="icn icn-players"></i> PLAYERS</div><div id="lbRows"></div></div>
-<div id="mpToast"></div>
-
+<!-- YAMIO banner sits at the top of the game view for every mode; the room bar
+     and PLAYERS leaderboard follow below it. -->
 <header>
   <button class="ach-btn" onclick="openAchievements()" title="Achievements"><i class="icn icn-trophy"></i></button>
   <button class="howto-btn" onclick="openHowToPlay()" title="How to Play" aria-label="How to play">?</button>
@@ -429,6 +426,11 @@
   <div class="progress-label" id="progressLabel">0% Complete · 0 pts</div>
   <div class="game-mode-badge gm-classic" id="gameModeBadge" style="display:none"><i class="icn icn-gamepad"></i> <span id="gameModeBadgeText">CLASSIC</span></div>
 </header>
+
+<div id="mpBanner"><div class="mp-room-info"><span style="font-size:0.75rem;color:var(--muted);font-weight:700">ROOM</span><span class="mp-code-badge" id="mpCodeBadge">----</span><span class="mp-turn-badge" id="mpTurnBadge">…</span><span style="flex:1"></span><button onclick="confirmNewGame()" style="background:none;border:none;color:var(--muted);font-size:0.8rem;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700">LEAVE</button></div></div>
+
+<div id="leaderboard"><div class="lb-title"><i class="icn icn-players"></i> PLAYERS</div><div id="lbRows"></div></div>
+<div id="mpToast"></div>
 
 <div class="dice-section" style="margin:12px">
   <h2><i class="icn icn-dice"></i> DICE ROLLER</h2>
