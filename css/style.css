@@ -1280,7 +1280,8 @@
     display: none;
     background: linear-gradient(135deg, var(--panel), #1a1a5e);
     border-bottom: 1px solid rgba(78,205,196,0.3);
-    padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+    /* Sits below the YAMIO header now, so no status-bar (safe-area) padding. */
+    padding: 10px 16px;
     position: sticky; top: 0; z-index: 99;
   }
   .mp-room-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
