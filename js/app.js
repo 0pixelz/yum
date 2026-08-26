@@ -454,7 +454,7 @@ function renderScores() {
       </div>
       ${pct!==null?`<div class="score-pct" style="color:${pctColor}">${pct}%</div>`:'<div class="score-pct">–</div>'}
       ${bonusBadge}
-      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:${_sv.doubled?'var(--gold)':'var(--green)'};font-size:1.1rem">${_sv.show}?${_sv.doubled?' <span style="font-size:.72rem;font-weight:900">×2</span>':''}</span>`:'–')}</div>
+      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:${_sv.doubled?'var(--gold)':'var(--green)'};font-size:1.1rem">${_sv.show}?</span>`:'–')}</div>
     </div>`;
   });
   html += `</div>`;
@@ -494,7 +494,7 @@ function renderScores() {
         ${pct!==null?`<div class="pct-bar-wrap"><div class="pct-bar" style="width:${pct}%;background:${pctColor}"></div></div>`:''}
       </div>
       ${pct!==null?`<div class="score-pct" style="color:${pctColor}">${pct}%</div>`:'<div class="score-pct">–</div>'}
-      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:${_sv.doubled?'var(--gold)':'var(--green)'};font-size:1.1rem">${_sv.show}?${_sv.doubled?' <span style="font-size:.72rem;font-weight:900">×2</span>':''}</span>`:'–')}</div>
+      <div class="score-value ${filled||suggested!==null?'':'empty'}">${filled?val:(suggested!==null?`<span style="color:${_sv.doubled?'var(--gold)':'var(--green)'};font-size:1.1rem">${_sv.show}?</span>`:'–')}</div>
     </div>`;
   });
   html += `</div>`;
