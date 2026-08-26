@@ -507,7 +507,7 @@ function renderScores() {
     const lbEarned = (typeof allButYumPowerupAwarded !== 'undefined' && allButYumPowerupAwarded);
     html += `<div class="bonus-row">
       <div>
-        <div class="bonus-label">${iconHtml('icn-bolt',{size:'1.2em'})} LOWER BONUS</div>
+        <div class="bonus-label"><i class="icn icn-gift" style="font-size:1.2em"></i> LOWER BONUS</div>
         <div class="bonus-sub">Fill the lower section (except Yam) → +1 power-up${lbEarned?' <i class="icn icn-check icn-green"></i>':''}</div>
         <div class="pct-bar-wrap" style="width:180px;margin-top:5px">
           <div class="pct-bar" style="width:${(lowerFilled/lowerTotal)*100}%"></div>
