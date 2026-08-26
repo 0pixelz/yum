@@ -16,8 +16,13 @@
     font-family: 'Nunito', sans-serif;
     background: var(--bg);
     color: var(--white);
-    min-height: 100vh;
-    padding-bottom: 100px;
+    /* dvh (dynamic viewport) matches the actually-visible area on mobile. With
+       100vh, iOS uses the LARGE viewport (as if the toolbars were hidden), so
+       the body overshot the screen and you could scroll down into empty space
+       past the last button. The old 100px bottom padding added to that gap;
+       trim it to a small, safe-area-aware clearance instead. */
+    min-height: 100dvh;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   }
 
   header {
