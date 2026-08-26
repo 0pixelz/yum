@@ -247,6 +247,13 @@ function renderPowerupBar() {
   const countMap = {};
   playerPowerups.forEach(id => { countMap[id] = (countMap[id] || 0) + 1; });
 
+  // Double Points is consumed from inventory the moment it's armed, but we still
+  // want its chip on screen — glowing gold — so the player can see it's active
+  // and tap it again to cancel. Inject a zero-count entry while it's armed.
+  if (doublePointsActive && !Object.prototype.hasOwnProperty.call(countMap, 'doublePoints')) {
+    countMap.doublePoints = 0;
+  }
+
   const hasAny = Object.keys(countMap).length > 0;
   bar.style.display = hasAny ? 'flex' : 'flex'; // always show in powerup mode for context
 
@@ -254,10 +261,13 @@ function renderPowerupBar() {
     const p        = POWERUPS.find(x => x.id === id);
     const isActive = pendingPowerup === id;
     const isUsed   = id === 'doublePoints' && doublePointsActive;
+    // When Double Points is armed the chip itself glows gold (like a held die);
+    // re-tapping it cancels — no separate banner needed.
+    const title = isUsed ? 'Double Points armed — tap to cancel' : p.desc;
     return `
       <button class="pup-btn ${isActive ? 'pup-active' : ''} ${isUsed ? 'pup-used' : ''}"
         onclick="activatePowerup('${id}')"
-        title="${p.desc}"
+        title="${title}"
         style="--pup-color:${p.color}">
         <span class="pup-icon">${p.icon}</span>
         <span class="pup-label">${p.name}</span>
@@ -269,10 +279,8 @@ function renderPowerupBar() {
     btns = `<span class="pup-empty">Roll 5-of-a-kind to earn more!</span>`;
   }
 
-  // Double-points active banner
-  const dblBanner = doublePointsActive
-    ? `<div class="pup-dbl-banner"><i class="icn icn-sparkle"></i> DOUBLE POINTS ACTIVE — score any category to double it!</div>`
-    : '';
+  // (The old "DOUBLE POINTS ACTIVE" text banner is gone — the armed chip glows
+  // gold instead, and tapping it cancels.)
 
   // Pending action hint
   const hintMap = {
@@ -309,7 +317,6 @@ function renderPowerupBar() {
 
   bar.innerHTML = `
     <div class="pup-bar-head"><i class="icn icn-bolt"></i> POWER-UPS</div>
-    ${dblBanner}
     ${wcBanner}
     ${hint}
     <div class="pup-items">${btns}</div>`;
@@ -329,6 +336,27 @@ function activatePowerup(id) {
     renderPowerupBar();
     refreshDieFreezeVisual();
     refreshWildcardHighlight();
+    syncPowerupsToDb();
+    return;
+  }
+
+  // Re-tapping Double Points while it's armed cancels it (mis-tap undo): hand the
+  // power-up back to the inventory, clear the flag, and drop the "used" history
+  // entry the consume-wrapper logged so game-over doesn't count a canceled use.
+  if (id === 'doublePoints' && doublePointsActive) {
+    doublePointsActive = false;
+    playerPowerups.push('doublePoints');
+    try {
+      const uh = window.playerPowerupHistory && window.playerPowerupHistory.used;
+      if (Array.isArray(uh)) {
+        for (let i = uh.length - 1; i >= 0; i--) {
+          if (uh[i] && uh[i].id === 'doublePoints') { uh.splice(i, 1); break; }
+        }
+      }
+    } catch (_) {}
+    renderPowerupBar();
+    if (typeof renderScores === 'function') renderScores();  // clear doubled previews
+    showToast('Double Points canceled.');
     syncPowerupsToDb();
     return;
   }
