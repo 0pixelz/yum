@@ -1877,6 +1877,14 @@
       // In MP the value was set from the server during the guided settle — keep
       // it (the die is already oriented to it); only read the physics face solo.
       if (!b._kept && !authRollFn) b._value = topFaceFor(b);
+      // Freeze the settled in-play dice. Otherwise, later frames that re-run the
+      // physics step (e.g. when holding a die wakes the render loop) re-integrate
+      // these not-fully-asleep bodies and nudge them a degree or two — a jog the
+      // opponent sees as a "little spin" on every hold. Sleeping them keeps their
+      // pose exactly put; a re-roll wakes them again via armNonKept/multiFlick.
+      if (!b._kept) {
+        try { b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.sleep(); } catch (_) {}
+      }
     }
     if (yamStrike3D) { settleYamStrike(); return; }
     updateSettleStatus();
