@@ -465,7 +465,7 @@ function renderScores() {
   const bonusProgress = Math.min(upperTotal, BONUS_TARGET);
   html += `<div class="bonus-row">
     <div>
-      <div class="bonus-label">${iconHtml('icn-gift',{size:'1.2em'})} UPPER BONUS</div>
+      <div class="bonus-label"><i class="icn icn-gift" style="font-size:1.2em"></i> UPPER BONUS</div>
       <div class="bonus-sub">${upperTotal}/${BONUS_TARGET} pts → +35 bonus${_pupOn?' · +1 <i class="icn icn-bolt"></i> power-up':''}${bonusEarned?' <i class="icn icn-check icn-green"></i>':''}</div>
       <div class="pct-bar-wrap" style="width:180px;margin-top:5px">
         <div class="pct-bar" style="width:${(bonusProgress/BONUS_TARGET)*100}%"></div>
