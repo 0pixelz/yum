@@ -556,6 +556,11 @@ function openModal(id) {
     const rolled_score = cat.calc(dice);
     const pct = Math.round((rolled_score / cat.max) * 100);
     const diceIcons = dice.map(v => `<span style="display:inline-block;width:22px;height:22px;vertical-align:-6px;margin-right:2px">${dieIcon(v)}</span>`).join('');
+    // Double Points preview: show the doubled score the player will actually get
+    // (it's doubled at confirm, so keep selectScore on the base value — the gold
+    // colour marks it as doubled).
+    const _dbl = (typeof window.isDoublePointsActive === 'function' && window.isDoublePointsActive());
+    const _shownScore = _dbl ? rolled_score * 2 : rolled_score;
 
     if(rolled_score > 0) {
       // Show score option only if dice actually score points
@@ -567,7 +572,7 @@ function openModal(id) {
                    background:rgba(78,205,196,0.12);border-color:rgba(78,205,196,0.4)">
             <div style="font-size:1.1rem;margin-bottom:4px">${diceIcons}</div>
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span style="color:var(--green)">Score ${rolled_score} pts</span>
+              <span style="color:${_dbl?'var(--gold)':'var(--green)'}">Score ${_shownScore} pts</span>
               <span style="font-size:0.75rem;color:var(--muted)">${pct}% of max</span>
             </div>
           </button>
