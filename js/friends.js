@@ -154,6 +154,53 @@
     const style = document.createElement('style');
     style.id = 'friendsMenuStyles';
     style.textContent = `
+      /* Share chooser (QR vs Link) */
+      #frShareModal {
+        position: fixed; inset: 0; z-index: 1300;
+        background: rgba(0,0,0,0.6);
+        display: none; align-items: center; justify-content: center;
+        padding: 20px;
+      }
+      #frShareModal.open { display: flex; }
+      .frs-box {
+        width: 100%; max-width: 340px;
+        background: linear-gradient(135deg, var(--panel,#22314f), var(--card,#16213e));
+        border: 1px solid rgba(78,205,196,0.35);
+        border-radius: 18px; padding: 20px 18px 16px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        text-align: center;
+      }
+      .frs-title {
+        font-family: 'Bebas Neue', cursive; font-size: 1.2rem; letter-spacing: 2px;
+        color: var(--gold,#f5a623); display: flex; align-items: center; justify-content: center; gap: 8px;
+      }
+      .frs-sub { color: var(--muted,#9aa); font-size: 0.8rem; margin: 4px 0 16px; }
+      .frs-choices { display: flex; gap: 12px; }
+      .frs-choice {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+        padding: 16px 10px; border-radius: 14px;
+        border: 1px solid rgba(78,205,196,0.4);
+        background: rgba(78,205,196,0.08); color: var(--white,#fff);
+        cursor: pointer; transition: background 0.15s, transform 0.1s;
+      }
+      .frs-choice:active { transform: scale(0.96); }
+      .frs-choice:hover { background: rgba(78,205,196,0.16); }
+      .frs-choice svg { width: 34px; height: 34px; }
+      .frs-choice-title { font-family: 'Bebas Neue', cursive; font-size: 1rem; letter-spacing: 1px; color: var(--green,#4ecdc4); }
+      .frs-choice-desc { font-size: 0.64rem; color: var(--muted,#9aa); line-height: 1.2; }
+      .frs-qr { margin-top: 16px; display: none; flex-direction: column; align-items: center; gap: 8px; }
+      .frs-qr.show { display: flex; }
+      .frs-qr-code { background: #fff; padding: 10px; border-radius: 12px; line-height: 0; }
+      .frs-qr-code img, .frs-qr-code canvas { display: block; }
+      .frs-qr-hint { font-size: 0.72rem; color: var(--muted,#9aa); }
+      .frs-cancel {
+        margin-top: 16px; width: 100%;
+        padding: 10px; border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.05);
+        color: var(--muted,#9aa); cursor: pointer;
+        font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 0.8rem;
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      }
       .friends-menu-btn {
         position: fixed; top: max(8px, env(safe-area-inset-top)); left: 14px;
         z-index: 600;
@@ -656,6 +703,36 @@
         </div>
       `;
       document.body.appendChild(overlay);
+    }
+
+    if (!el('frShareModal')) {
+      const modal = document.createElement('div');
+      modal.id = 'frShareModal';
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeShareModal(); });
+      modal.innerHTML = `
+        <div class="frs-box">
+          <div class="frs-title"><i class="icn icn-players"></i> SHARE FRIEND CODE</div>
+          <div class="frs-sub">How do you want to add friends?</div>
+          <div class="frs-choices">
+            <button class="frs-choice" onclick="window.YumFriends.shareQR()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#4ecdc4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="14" y2="17"/><line x1="17" y1="14" x2="21" y2="14"/><line x1="21" y1="14" x2="21" y2="21"/><line x1="14" y1="21" x2="17" y2="21"/><line x1="17" y1="17" x2="17" y2="17"/></svg>
+              <div class="frs-choice-title">QR CODE</div>
+              <div class="frs-choice-desc">Friend scans to add you</div>
+            </button>
+            <button class="frs-choice" onclick="window.YumFriends.shareLink()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#4ecdc4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
+              <div class="frs-choice-title">LINK</div>
+              <div class="frs-choice-desc">Send an add-me link</div>
+            </button>
+          </div>
+          <div class="frs-qr" id="frsQr">
+            <div class="frs-qr-code" id="frsQrCode"></div>
+            <div class="frs-qr-hint">Scan to add me on Yamio</div>
+          </div>
+          <button class="frs-cancel" onclick="window.YumFriends.closeShareModal()"><i class="icn icn-close"></i> Close</button>
+        </div>
+      `;
+      document.body.appendChild(modal);
     }
   }
 
@@ -1245,16 +1322,76 @@
     showToast(ok ? 'Friend code copied' : myUid);
   }
 
-  async function shareMyCode() {
-    if (!myUid) return;
-    const text = `Add me as a friend on Yamio! My friend code: ${myUid}`;
+  // Public add-me link — always the hosted site so it opens for anyone (the
+  // native app's own origin wouldn't resolve on a friend's device).
+  function friendLink() {
+    return 'https://yamio.io/?friend=' + encodeURIComponent(myUid || getMyUid() || '');
+  }
+
+  // Tapping SHARE opens a small chooser: QR code (scan to add) or a link.
+  function shareMyCode() {
+    if (!myUid && !getMyUid()) return;
+    const modal = el('frShareModal');
+    if (!modal) { return shareLink(); }   // no modal (shouldn't happen) → link
+    const qr = el('frsQr');
+    if (qr) qr.classList.remove('show');  // reset to the choice view each open
+    modal.classList.add('open');
+  }
+
+  function closeShareModal() {
+    const modal = el('frShareModal');
+    if (modal) modal.classList.remove('open');
+  }
+
+  // Render the friend-link QR right in the chooser for a friend to scan.
+  function shareQR() {
+    const wrap = el('frsQr');
+    const box = el('frsQrCode');
+    if (!box || !wrap) return;
+    box.innerHTML = '';
     try {
-      if (navigator.share) {
-        await navigator.share({ title: 'My Yamio friend code', text });
+      if (typeof QRCode === 'function') {
+        new QRCode(box, {
+          text: friendLink(),
+          width: 200, height: 200,
+          colorDark: '#0b1220', colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        wrap.classList.add('show');
         return;
       }
-    } catch(e) { return; }
-    await copyMyCode();
+    } catch (e) { /* fall through */ }
+    // QR library unavailable (offline / blocked) — fall back to the link share.
+    showToast('QR unavailable — sharing a link instead');
+    shareLink();
+  }
+
+  // Native share sheet with the add-me link; falls back to copying it.
+  async function shareLink() {
+    const url = friendLink();
+    const text = 'Add me as a friend on Yamio!';
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Add me on Yamio', text, url });
+        closeShareModal();
+        return;
+      }
+    } catch (e) { return; }   // user canceled the share sheet
+    // No native share — copy the link.
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        showToast('<i class="icn icn-check"></i> Add-me link copied');
+        closeShareModal();
+        return;
+      }
+    } catch (e) {}
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showToast('Add-me link copied'); } catch (e) { showToast(url); }
+    ta.remove();
+    closeShareModal();
   }
 
   function showToast(msg) {
@@ -1307,7 +1444,33 @@
     cancelOutgoingInvite,
     copyMyCode,
     shareMyCode,
+    shareQR,
+    shareLink,
+    closeShareModal,
     recordRecentOpponent,
     addRecent: addRecentAsFriend
   };
+
+  // Deep link: opening the app with ?friend=CODE prefills the Add-a-Friend
+  // field and opens the Friends panel so a shared QR/link adds the sender.
+  (function handleFriendDeepLink() {
+    let code = null;
+    try { code = new URLSearchParams(window.location.search).get('friend'); } catch (e) {}
+    if (!code) return;
+    code = code.trim();
+    if (code.length < 6 || code.length > 64) return;
+    const apply = () => {
+      try {
+        openFriendsMenu();
+        const inp = el('frAddInput');
+        if (inp) { inp.value = code; inp.focus(); }
+        showToast('Friend code ready — tap ADD to add them');
+      } catch (e) {}
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(apply, 300));
+    } else {
+      setTimeout(apply, 300);
+    }
+  })();
 })();
