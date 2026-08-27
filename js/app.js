@@ -3473,7 +3473,7 @@ function showYourTurnPop(sub) {
   void box.offsetWidth;
   box.style.animation = '';
   pop.classList.add('show');
-  setTimeout(() => pop.classList.remove('show'), 1400);
+  setTimeout(() => pop.classList.remove('show'), 1050);
 }
 
 
