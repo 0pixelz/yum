@@ -247,6 +247,12 @@
       const txt = el.textContent || '';
       if (txt.includes('◆') || txt.includes('💎')) return;
       if (txt.toLowerCase().includes('bot')) return;
+      // Only badge the LOCAL player's own name. This used to stamp the local
+      // player's diamonds onto EVERY listed name (e.g. all World Ranking rows),
+      // so players who hadn't hit the win milestone still showed a diamond.
+      // Other players' earned diamonds still show via their own baked-in name.
+      const isMine = !!(el.closest && el.closest('.me')) || txt.includes('(you)');
+      if (!isMine) return;
       const badge = document.createElement('span');
       badge.className = 'diamond-badge';
       badge.textContent = diamonds;
