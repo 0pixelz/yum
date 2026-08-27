@@ -2979,12 +2979,20 @@ function showOpponentDiceInRoller(liveDice, oppName) {
   const oppHeld = liveDice.held || [false,false,false,false,false];
   const rollNum  = liveDice.roll || 1;
 
+  // Only play the roll spin when the opponent ACTUALLY rolled (their dice
+  // values or roll number changed), not on every liveDice update. Otherwise
+  // holding a die — which fires a room update with the same dice — replayed the
+  // spin on all the other dice ("the other dice spin every time they hold").
+  const oppSig = currentTurnId + '|' + (liveDice.roll || 0) + '|' + oppDice.join(',');
+  const oppRolled = oppSig !== window.__lastOppDiceSig;
+  window.__lastOppDiceSig = oppSig;
+
   // Temporarily set dice/held for rendering
   const savedDice = dice.slice();
   const savedHeld = held.slice();
   dice = oppDice.slice();
   held = oppHeld.slice();
-  renderDice(true);
+  renderDice(oppRolled);
   dice = savedDice;
   held = savedHeld;
 
