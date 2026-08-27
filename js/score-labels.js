@@ -244,6 +244,9 @@
 
     document.querySelectorAll('.lb-name, .opp-hname, .bap-name, .mp-turn-badge, .rvb-player').forEach(el => {
       if (!el || el.querySelector('.diamond-badge')) return;
+      // The World Ranking renders each player's own diamonds per row already;
+      // don't stamp the local player's on top of those.
+      if (el.closest && el.closest('#lbWorld')) return;
       const txt = el.textContent || '';
       if (txt.includes('◆') || txt.includes('💎')) return;
       if (txt.toLowerCase().includes('bot')) return;

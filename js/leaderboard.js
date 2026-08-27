@@ -413,6 +413,13 @@
     return board === 'bot' ? row.botLosses : row.onlineLosses;
   }
 
+  // Win-milestone diamonds for ANY player, from their own win count — so the
+  // ranking shows everyone who's earned them (not just the local player).
+  function diamondsFor(wins) {
+    const n = [50, 100, 200, 500].filter(t => (Number(wins) || 0) >= t).length;
+    return n ? '<span class="lb-gems" style="margin-left:5px;font-size:0.9em;letter-spacing:1px">' + '💎'.repeat(n) + '</span>' : '';
+  }
+
   function renderWorld() {
     const el = document.getElementById('lbWorld');
     if (!el) return;
@@ -452,7 +459,7 @@
         <div class="lb-rank">${rankHtml}</div>
         <div class="lb-av">${avatarMarkup(r.avatar, r.name, isMe)}</div>
         <div class="lb-who">
-          <div class="lb-name">${esc(r.name)}${isMe ? ' (you)' : ''}</div>
+          <div class="lb-name">${esc((r.name || '').replace(/\s*[◆💎]+\s*$/g, '').trim())}${isMe ? ' (you)' : ''}${diamondsFor(r.w)}</div>
           <div class="lb-sub">${r.l} lost · ${rate}% win rate</div>
         </div>
         <div class="lb-wins">
