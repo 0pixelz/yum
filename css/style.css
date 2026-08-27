@@ -1973,30 +1973,34 @@
     pointer-events: none;
   }
   #yourTurnPop.show { display: flex; }
-  /* No box — just glowing text that flashes across left → right and vanishes. */
   .your-turn-box {
-    background: none; border: none; box-shadow: none;
-    padding: 0 20px; text-align: center;
-    animation: turnFlash 1s cubic-bezier(0.22,1,0.36,1) forwards;
+    background: linear-gradient(135deg, var(--panel), #1a1a5e);
+    border: 2px solid rgba(78,205,196,0.5);
+    border-radius: 28px;
+    padding: 32px 40px;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(78,205,196,0.25), 0 20px 60px rgba(0,0,0,0.6);
+    animation: turnPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards,
+               turnPopOut 0.4s ease-in 1.8s forwards;
   }
-  @keyframes turnFlash {
-    0%   { transform: translateX(-70px); opacity: 0; }
-    22%  { transform: translateX(0);     opacity: 1; }
-    66%  { transform: translateX(0);     opacity: 1; }
-    100% { transform: translateX(85px);  opacity: 0; }
+  @keyframes turnPopIn {
+    0%   { transform: scale(0.4); opacity: 0; }
+    100% { transform: scale(1);   opacity: 1; }
   }
-  .your-turn-emoji { display: none; }
+  @keyframes turnPopOut {
+    0%   { transform: scale(1);   opacity: 1; }
+    100% { transform: scale(0.8); opacity: 0; }
+  }
+  .your-turn-emoji { font-size: 3.5rem; display: block; margin-bottom: 8px; }
   .your-turn-text {
     font-family: 'Bebas Neue', cursive;
-    font-size: 3rem; letter-spacing: 6px;
+    font-size: 2.8rem; letter-spacing: 6px;
     color: var(--green);
-    /* halo */
-    text-shadow: 0 0 16px rgba(78,205,196,0.95), 0 0 40px rgba(78,205,196,0.55);
+    text-shadow: 0 0 30px rgba(78,205,196,0.6);
   }
   .your-turn-sub {
-    font-size: 0.9rem; color: var(--white);
-    margin-top: 2px; letter-spacing: 3px; font-weight: 800;
-    text-shadow: 0 0 12px rgba(78,205,196,0.5);
+    font-size: 0.85rem; color: var(--muted);
+    margin-top: 6px; letter-spacing: 2px; font-weight: 700;
   }
 
 
