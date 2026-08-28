@@ -325,6 +325,8 @@ function _botFinishWithPowerups(move) {
 
   botScores[move.cat.id]    = scored;
   botScoreDice[move.cat.id] = botDice.slice();
+  // Remember the bot's last positive score (incl. its Double Points) for Copycat.
+  if (Number(scored) > 0) window.__lastOppScore = Number(scored);
 
   renderBotLeaderboard();
 

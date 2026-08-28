@@ -1028,7 +1028,7 @@ let previousPlayerCount = null;
 let previousPlayers = {};
 let prevOpponentScores = {}; // track opponent score counts for change detection
 let prevOpponentPowerups = {}; // track opponent powerup state for change detection
-const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i class="icn icn-gem"></i>', doublePoints:'<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:inline-block;vertical-align:-0.16em"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="#f0f0f0"/><text x="12" y="12.9" text-anchor="middle" dominant-baseline="central" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="11" fill="#141428">×2</text></svg>', luckyDice:'<i class="icn icn-star"></i>', undoMove:'<i class="icn icn-refresh"></i>', chanceRoll:'<i class="icn icn-volcano"></i>', yamOrStrike:'<i class="icn icn-skull"></i>', wildcard:'<i class="icn icn-target"></i>', goldenDice:'<i class="icn icn-dice-stack"></i>', bonus25:'<i class="icn icn-coin"></i>' };
+const POWERUP_ICONS = { extraRoll:'<i class="icn icn-dice"></i>', freezeDie:'<i class="icn icn-gem"></i>', doublePoints:'<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:inline-block;vertical-align:-0.16em"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="#f0f0f0"/><text x="12" y="12.9" text-anchor="middle" dominant-baseline="central" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="11" fill="#141428">×2</text></svg>', luckyDice:'<i class="icn icn-star"></i>', undoMove:'<i class="icn icn-refresh"></i>', chanceRoll:'<i class="icn icn-volcano"></i>', yamOrStrike:'<i class="icn icn-skull"></i>', wildcard:'<i class="icn icn-target"></i>', goldenDice:'<i class="icn icn-dice-stack"></i>', bonus25:'<i class="icn icn-coin"></i>', copycat:'<i class="icn icn-clipboard"></i>' };
 // Resolve a power-up's icon: the map above first, then its own icon from the
 // POWERUPS catalog (so a new power-up shows its real logo, not a generic bolt),
 // falling back to a bolt only if truly unknown.
@@ -1825,6 +1825,8 @@ function listenRoom() {
               const isPerfect = scored === cat.max && cat.max > 0;
               const isZero = scored === 0;
               showBotActionPopup(p.name, [], cat.name, scored, isPerfect, isZero, true);
+              // Remember the opponent's last positive score for the Copycat power-up.
+              if (Number(scored) > 0) window.__lastOppScore = Number(scored);
             }
           }
         }
@@ -2794,6 +2796,8 @@ function finishBotTurn(move) {
   const scored = move.cat.calc(botDice);
   botScores[move.cat.id] = scored;
   botScoreDice[move.cat.id] = botDice.slice(); // remember which dice were used
+  // Remember the bot's last positive score for the Copycat power-up.
+  if (Number(scored) > 0) window.__lastOppScore = Number(scored);
 
   // Animate score appearing in leaderboard
   renderBotLeaderboard();

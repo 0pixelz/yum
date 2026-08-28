@@ -23,6 +23,9 @@ const POWERUPS = [
   { id:'bonus25',     name:'+25 Bonus',     icon:'<i class="icn icn-coin"></i>',
     desc:'Instantly add 25 points to your total score',
     color:'#f5c542', gradient:'linear-gradient(135deg,#ffe08a,#f5a623)' },
+  { id:'copycat',     name:'Copycat',       icon:'<i class="icn icn-clipboard"></i>',
+    desc:"Copy your opponent's last score ×2 into a category — strike an empty one if it's already filled",
+    color:'#e056fd', gradient:'linear-gradient(135deg,#e056fd,#9b59b6)' },
 ];
 
 let powerupMode    = false;
@@ -56,6 +59,7 @@ function startPowerupMode() {
   playerPowerups     = [];
   pendingPowerup     = null;
   doublePointsActive = false;
+  window.__lastOppScore = 0;   // reset Copycat's copy target for the new game
   undoPowerupState   = null;
   freezeDieIndex     = -1;
   frozenDieValue     = 0;
@@ -425,6 +429,14 @@ function activatePowerup(id) {
       break;
     }
 
+    case 'copycat': {
+      // Popup flow (like Wildcard): pick a category to drop the opponent's last
+      // score ×2 into. An empty category is filled directly; a filled one adds
+      // on top and you strike an empty one as the cost (keeps fill-count fair).
+      openCopycatPicker();
+      break;
+    }
+
     case 'chanceRoll': {
       if (yamOrStrikeActive) { showToast('Finish Yam or Strike first!'); return; }
       consumePowerup('chanceRoll');
@@ -791,6 +803,7 @@ function applyGoldenDice(i, v) {
 // turn (no rerolls). Fires every time it happens (a first-roll straight is rare).
 function checkPowerupFirstRollStraightEarn(catId, scoreVal, rollsBefore) {
   if (!powerupMode) return;
+  if (window.__copycatCommitting) return;   // Copycat commits never earn power-ups
   if (catId !== 'lgStraight') return;   // Large Straight only
   if (!(scoreVal > 0)) return;          // must actually be a valid straight
   if (rollsBefore !== 2) return;        // only on the first roll (no rerolls)
@@ -814,6 +827,7 @@ function _pupScheduleRewardPicker(context) {
 
 function checkPowerupYumEarn(savedDice, scoreVal) {
   if (!powerupMode) return;
+  if (window.__copycatCommitting) return;   // copied scores never earn a power-up
   if (scoreVal <= 0) return;
   // Yam-or-Strike forced YAMs don't earn a bonus power-up
   if (suppressNextYumEarn) { suppressNextYumEarn = false; return; }
@@ -826,6 +840,7 @@ function checkPowerupYumEarn(savedDice, scoreVal) {
 
 function checkPowerupUpperBonusEarn(justScoredId, justScoredValue) {
   if (!powerupMode) return;
+  if (window.__copycatCommitting) return;   // copied scores never earn a power-up
   if (upperBonusPowerupAwarded) return;
   const ids = (typeof UPPER_IDS !== 'undefined') ? UPPER_IDS : ['ones','twos','threes','fours','fives','sixes'];
   const target = (typeof BONUS_TARGET !== 'undefined') ? BONUS_TARGET : 63;
@@ -850,6 +865,7 @@ function checkPowerupUpperBonusEarn(justScoredId, justScoredValue) {
 // of whether Yam itself is filled or not. Fires once per game.
 function checkPowerupAllButYumEarn(justScoredId, justScoredVal) {
   if (!powerupMode) return;
+  if (window.__copycatCommitting) return;   // copied scores never earn a power-up
   if (allButYumPowerupAwarded) return;
   if (typeof categories === 'undefined' || !Array.isArray(categories)) return;
 
@@ -1174,6 +1190,178 @@ function _wcExecute(addCat, addAmount, strikeId) {
   syncPowerupsToDb();
   showToast(`Wildcard — ${(_wcCat(addCat)||{}).name || addCat} +${addAmount} = ${newTotal}, struck ${(_wcCat(strikeId)||{}).name || strikeId}.`);
   if (typeof confirmScore === 'function') confirmScore();
+}
+
+// ── COPYCAT power-up ──────────────────────────────────────────────────────────
+// Copy the opponent's LAST recorded score (whatever they actually put down,
+// including any Double Points they used), DOUBLED, into a category you pick.
+// Empty target → filled directly. Filled target → adds on top and you strike an
+// empty one as the cost (like Wildcard), so the fill-count stays fair and nobody
+// gets an extra turn. Reuses the Wildcard popup machinery.
+const COPYCAT_MAX = 1000;
+function _copycatValue() {
+  const last = Number(window.__lastOppScore) || 0;
+  return Math.max(0, Math.min(COPYCAT_MAX, last * 2));
+}
+function _copycatCancel() {
+  pendingPowerup = null;
+  _wcClosePicker();
+  renderPowerupBar();
+}
+function openCopycatPicker() {
+  if (typeof powerupMode === 'undefined' || !powerupMode) return;
+  if (!_wcTurnOk()) return;
+  const V = _copycatValue();
+  if (V <= 0) { showToast("No opponent score to copy yet — wait for them to score."); return; }
+  const cats = (typeof categories !== 'undefined' && Array.isArray(categories)) ? categories : [];
+  if (!cats.length) return;
+  ensureWildcardPickerStyles();
+  const ov = _wcOverlay();
+  const rows = cats.map(c => {
+    const filled = (typeof scores !== 'undefined' && scores[c.id] !== undefined);
+    const cur = filled ? (Number(scores[c.id]) || 0) : 0;
+    const total = Math.min(COPYCAT_MAX, cur + V);
+    const valTxt = filled ? `${cur} +${V} = ${total}` : `+${V}`;
+    return `<button class="wcp-opt" type="button" data-cat="${c.id}" data-filled="${filled ? 1 : 0}">
+      <span class="wcp-opt-left"><span class="wcp-opt-icon">${_wcIconHtml(c)}</span><span class="wcp-opt-name">${_wcEsc(c.name)}</span></span>
+      <span class="wcp-opt-val">${valTxt}</span>
+    </button>`;
+  }).join('');
+  ov.innerHTML =
+    '<div class="wcp-sheet">' +
+      '<div class="wcp-title"><i class="icn icn-clipboard"></i> COPYCAT</div>' +
+      `<div class="wcp-sub">Drop your opponent's last score <b style="color:#f6c343">×2 = ${V}</b> into a category. Fill an empty one, or add on top of a filled one (you'll strike an empty one as the cost).</div>` +
+      '<div class="wcp-list">' + rows + '</div>' +
+      '<button class="wcp-cancel" type="button" data-wc="cancel">Cancel</button>' +
+    '</div>';
+  ov.querySelectorAll('.wcp-opt').forEach(b => {
+    b.onclick = () => {
+      if (!_wcTurnOk()) return;
+      const cat = b.getAttribute('data-cat');
+      const filled = b.getAttribute('data-filled') === '1';
+      if (filled) {
+        openCopycatStrikePicker(cat, V);
+      } else {
+        _wcClosePicker();
+        _copycatFill(cat, V);
+      }
+    };
+  });
+  const cancel = ov.querySelector('[data-wc="cancel"]');
+  if (cancel) cancel.onclick = () => _copycatCancel();
+  _wcShow(ov);
+}
+function openCopycatStrikePicker(addCat, V) {
+  const cats = (typeof categories !== 'undefined' && Array.isArray(categories)) ? categories : [];
+  const addC = _wcCat(addCat) || {};
+  const cur  = Number((typeof scores !== 'undefined' ? scores[addCat] : 0)) || 0;
+  const empties = cats.filter(c =>
+    (typeof scores === 'undefined' || scores[c.id] === undefined) && c.id !== addCat);
+  if (!empties.length) { showToast('No empty category left to strike — pick an empty category instead.'); return; }
+  ensureWildcardPickerStyles();
+  const ov = _wcOverlay();
+  ov.innerHTML =
+    '<div class="wcp-sheet">' +
+      '<div class="wcp-title"><i class="icn icn-clipboard"></i> COPYCAT</div>' +
+      `<div class="wcp-sub"><b style="color:#f6c343">${_wcEsc(addC.name || addCat)} ${cur} +${V} = ${Math.min(COPYCAT_MAX, cur + V)}</b><br>Now pick an <b>empty category to strike (0)</b> as the cost</div>` +
+      '<div class="wcp-list">' +
+        empties.map(c =>
+          `<button class="wcp-opt strike" type="button" data-strike="${c.id}">
+            <span class="wcp-opt-left"><span class="wcp-opt-icon">${_wcIconHtml(c)}</span><span class="wcp-opt-name">${_wcEsc(c.name)}</span></span>
+            <span class="wcp-opt-val">STRIKE · 0</span>
+          </button>`).join('') +
+      '</div>' +
+      '<button class="wcp-cancel" type="button" data-wc="cancel">Cancel</button>' +
+    '</div>';
+  ov.querySelectorAll('.wcp-opt').forEach(b => {
+    b.onclick = () => {
+      if (!_wcTurnOk()) return;
+      const strikeId = b.getAttribute('data-strike');
+      _wcClosePicker();
+      _copycatExecuteFilled(addCat, V, strikeId);
+    };
+  });
+  const cancel = ov.querySelector('[data-wc="cancel"]');
+  if (cancel) cancel.onclick = () => _copycatCancel();
+  _wcShow(ov);
+}
+// Empty target — place V directly (a normal fill), no strike.
+function _copycatFill(cat, V) {
+  consumePowerup('copycat');
+  pendingPowerup = null;
+  // Don't let the player's OWN Double Points stack on the copied value.
+  const _savedDbl = doublePointsActive;
+  doublePointsActive = false;
+  window.__copycatCommitting = true;   // a copied score must not earn a power-up
+  activeModal   = cat;
+  selectedScore = Math.min(COPYCAT_MAX, V);
+  renderPowerupBar();
+  syncPowerupsToDb();
+  showToast(`Copycat — ${(_wcCat(cat) || {}).name || cat} = ${selectedScore} pts`);
+  try { if (typeof confirmScore === 'function') confirmScore(); }
+  finally { window.__copycatCommitting = false; doublePointsActive = _savedDbl; }
+}
+// Filled target — add V on top + strike an empty one. MP through the guarded
+// server submit (like Wildcard), solo/bot locally.
+function _copycatExecuteFilled(addCat, V, strikeId) {
+  if (typeof mpMode !== 'undefined' && mpMode) { _copycatMpStrike(addCat, V, strikeId); return; }
+  const cur = Number((typeof scores !== 'undefined' ? scores[addCat] : 0)) || 0;
+  const newTotal = Math.min(COPYCAT_MAX, cur + V);
+  consumePowerup('copycat');
+  pendingPowerup = null;
+  if (typeof scores !== 'undefined') scores[strikeId] = 0;
+  if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
+  const _savedDbl = doublePointsActive; doublePointsActive = false;
+  window.__copycatCommitting = true;   // a copied score must not earn a power-up
+  activeModal   = addCat;
+  selectedScore = newTotal;
+  renderPowerupBar();
+  syncPowerupsToDb();
+  showToast(`Copycat — ${(_wcCat(addCat) || {}).name || addCat} +${V} = ${newTotal}, struck ${(_wcCat(strikeId) || {}).name || strikeId}.`);
+  try { if (typeof confirmScore === 'function') confirmScore(); }
+  finally { window.__copycatCommitting = false; doublePointsActive = _savedDbl; }
+}
+async function _copycatMpStrike(addCat, V, strikeId) {
+  const cloud = (typeof window !== 'undefined') ? window.YumCloud : null;
+  if (!cloud || typeof cloud.submitScore !== 'function' || typeof roomCode === 'undefined' || !roomCode) {
+    showToast("Can't reach the server — try again in a moment."); return;
+  }
+  const _before = Number((typeof scores !== 'undefined' ? scores[addCat] : 0)) || 0;
+  pendingPowerup = null;
+  renderPowerupBar();
+  try {
+    const payload = { roomId: roomCode, categoryId: addCat, score: Math.max(0, V | 0),
+      wildcardDouble: true, strikeCategory: strikeId };
+    const resp = await cloud.submitScore(payload);
+    const serverScore = (resp && typeof resp.score === 'number') ? resp.score : Math.min(COPYCAT_MAX, _before + (V | 0));
+    consumePowerup('copycat');
+    if (typeof scores !== 'undefined') { scores[addCat] = serverScore; scores[strikeId] = 0; }
+    if (typeof playerScoreDice !== 'undefined') playerScoreDice[strikeId] = [];
+    try { if (window.SFX && typeof SFX.score === 'function') SFX.score(); } catch (e) {}
+    if (typeof clearDice === 'function')   { try { clearDice(); } catch (e) {} }
+    if (typeof closeModalEl === 'function') { try { closeModalEl(); } catch (e) {} }
+    if (typeof renderScores === 'function') renderScores();
+    renderPowerupBar();
+    syncPowerupsToDb();
+    showToast(`Copycat — ${(_wcCat(addCat) || {}).name || addCat} ${_before} → ${serverScore}, struck ${(_wcCat(strikeId) || {}).name || strikeId}.`);
+    // NOTE: intentionally no power-up earn checks here — a copied score must
+    // never earn a power-up (otherwise two players trading Copycats would
+    // generate power-ups endlessly).
+    try {
+      if (typeof allPlayers === 'object' && allPlayers && typeof categories !== 'undefined' &&
+          Object.keys(scores).length >= categories.length) {
+        const localDone = Object.entries(allPlayers).every(([pid, p]) => {
+          const sc = pid === playerId ? scores : (p.scores || {});
+          return Object.keys(sc).length >= categories.length;
+        });
+        if (localDone && typeof showMpGameOver === 'function') setTimeout(showMpGameOver, 800);
+      }
+    } catch (e) {}
+  } catch (err) {
+    console.warn('copycat MP strike failed:', err);
+    showToast("Couldn't apply Copycat — try again.");
+    pendingPowerup = null; renderPowerupBar();
+  }
 }
 
 // Handle a scorecard tap while the Wildcard power-up is armed. Returns true if
