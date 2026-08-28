@@ -1908,23 +1908,48 @@ closeFirstRoll = function() {
   }
 };
 
-// Patch doMpRematch — reset per-player power-up state and re-show picker
+// Full per-round power-up reset for an ONLINE rematch. Exposed globally so the
+// final rematch controller (rematch-final.js) can call it — that file REPLACES
+// window.doMpRematch, so the doMpRematch wrapper below never runs in practice.
+// The real rematch path (executeCommand → resetLocalBoard) invokes this instead.
+// Each client clears only its OWN livePowerups node (the DB rules forbid writing
+// another player's), so this runs on both clients when the new round starts.
+window.__pupResetForRematch = function __pupResetForRematch() {
+  if (typeof powerupMode === 'undefined' || !powerupMode) return;
+  playerPowerups      = [];
+  pendingPowerup      = null;
+  doublePointsActive  = false;
+  undoPowerupState    = null;
+  freezeDieIndex      = -1;
+  frozenDieValue      = 0;
+  pendingFreezeIdx    = -1;
+  pendingFreezeVal    = 0;
+  yamOrStrikeActive   = false;
+  yamOrStrikeAttempts = 0;
+  suppressNextYumEarn = false;
+  upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
+  _pupGameOverPending = false;
+  window.__yumScoreBonus = 0; // reset the +25 running total for the new game
+  window._pupRewardPickerPending = false; _pupDeferredGameOver = null;
+  // Copycat copy targets must not survive into the new round.
+  window.__lastOppScore = 0; window.__lastOppCat = null;
+  window.__lastPlayerScore = 0; window.__lastPlayerCat = null;
+  // Re-arm the one-per-game starter picker for the fresh round.
+  window.__pupStarterPickedThisGame = false;
+  try { renderPowerupBar(); } catch (e) {}
+  try {
+    if (typeof roomRef !== 'undefined' && roomRef && typeof playerId !== 'undefined' && playerId) {
+      roomRef.child('players/' + playerId + '/livePowerups').remove();
+    }
+  } catch (e) {}
+};
+
+// Patch doMpRematch — reset per-player power-up state and re-show picker.
+// (Legacy path: rematch-final.js overrides doMpRematch, so this rarely fires;
+// kept for any older caller and delegated to the shared reset above.)
 const _pupOrigDoMpRematch = doMpRematch;
 doMpRematch = function() {
-  if (powerupMode && mpMode) {
-    playerPowerups     = [];
-    pendingPowerup     = null;
-    doublePointsActive = false;
-    undoPowerupState   = null;
-    freezeDieIndex     = -1;
-    frozenDieValue     = 0;
-    pendingFreezeIdx   = -1;
-    pendingFreezeVal   = 0;
-    upperBonusPowerupAwarded = false; allButYumPowerupAwarded = false;
-    _pupGameOverPending = false;
-    renderPowerupBar();
-    if (roomRef) roomRef.child('players/' + playerId + '/livePowerups').remove();
-  }
+  if (powerupMode && mpMode) window.__pupResetForRematch();
   _pupOrigDoMpRematch();
 };
 
