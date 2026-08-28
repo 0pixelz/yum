@@ -180,6 +180,12 @@
     clearVoteTimer();
 
     resetLocalBoard();
+    // Wipe carried-over power-ups so a rematch is a genuinely fresh game, not a
+    // continuation. Runs on every client as the new round starts; each clears
+    // its own inventory + livePowerups node and re-arms the starter picker.
+    try {
+      if (typeof window.__pupResetForRematch === 'function') window.__pupResetForRematch();
+    } catch(e) {}
     if (typeof showToast === 'function') showToast('Rematch started! Rolling for first turn…');
 
     const players = sortedPlayersForFirstRoll();
