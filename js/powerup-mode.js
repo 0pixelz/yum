@@ -24,7 +24,7 @@ const POWERUPS = [
     desc:'Instantly add 25 points to your total score',
     color:'#f5c542', gradient:'linear-gradient(135deg,#ffe08a,#f5a623)' },
   { id:'copycat',     name:'Copycat',       icon:'<i class="icn icn-clipboard"></i>',
-    desc:"Copy your opponent's last score ×2 into a category — strike an empty one if it's already filled",
+    desc:"Mirror your opponent's last score ×2 into the same category — strike an empty one if you already filled it",
     color:'#e056fd', gradient:'linear-gradient(135deg,#e056fd,#9b59b6)' },
 ];
 
@@ -60,6 +60,9 @@ function startPowerupMode() {
   pendingPowerup     = null;
   doublePointsActive = false;
   window.__lastOppScore = 0;   // reset Copycat's copy target for the new game
+  window.__lastOppCat   = null;
+  window.__lastPlayerScore = 0; // reset the bot Copycat's copy target too
+  window.__lastPlayerCat   = null;
   undoPowerupState   = null;
   freezeDieIndex     = -1;
   frozenDieValue     = 0;
@@ -1213,40 +1216,39 @@ function openCopycatPicker() {
   if (!_wcTurnOk()) return;
   const V = _copycatValue();
   if (V <= 0) { showToast("No opponent score to copy yet — wait for them to score."); return; }
-  const cats = (typeof categories !== 'undefined' && Array.isArray(categories)) ? categories : [];
-  if (!cats.length) return;
+  // Copycat mirrors the EXACT category the opponent last filled — not a free
+  // choice. Only that one category is offered.
+  const catId = window.__lastOppCat;
+  const cat   = _wcCat(catId);
+  if (!catId || !cat) { showToast("No opponent category to copy yet — wait for them to score."); return; }
+  const filled = (typeof scores !== 'undefined' && scores[catId] !== undefined);
+  const cur    = filled ? (Number(scores[catId]) || 0) : 0;
+  const total  = Math.min(COPYCAT_MAX, cur + V);
+  const valTxt = filled ? `${cur} +${V} = ${total}` : `+${V}`;
   ensureWildcardPickerStyles();
   const ov = _wcOverlay();
-  const rows = cats.map(c => {
-    const filled = (typeof scores !== 'undefined' && scores[c.id] !== undefined);
-    const cur = filled ? (Number(scores[c.id]) || 0) : 0;
-    const total = Math.min(COPYCAT_MAX, cur + V);
-    const valTxt = filled ? `${cur} +${V} = ${total}` : `+${V}`;
-    return `<button class="wcp-opt" type="button" data-cat="${c.id}" data-filled="${filled ? 1 : 0}">
-      <span class="wcp-opt-left"><span class="wcp-opt-icon">${_wcIconHtml(c)}</span><span class="wcp-opt-name">${_wcEsc(c.name)}</span></span>
-      <span class="wcp-opt-val">${valTxt}</span>
-    </button>`;
-  }).join('');
   ov.innerHTML =
     '<div class="wcp-sheet">' +
       '<div class="wcp-title"><i class="icn icn-clipboard"></i> COPYCAT</div>' +
-      `<div class="wcp-sub">Drop your opponent's last score <b style="color:#f6c343">×2 = ${V}</b> into a category. Fill an empty one, or add on top of a filled one (you'll strike an empty one as the cost).</div>` +
-      '<div class="wcp-list">' + rows + '</div>' +
+      `<div class="wcp-sub">Mirror your opponent's last score <b style="color:#f6c343">×2 = ${V}</b> into <b>${_wcEsc(cat.name)}</b>${filled ? " — you already filled it, so this adds on top and you'll strike an empty category as the cost." : '.'}</div>` +
+      '<div class="wcp-list">' +
+        `<button class="wcp-opt" type="button" data-cat="${catId}" data-filled="${filled ? 1 : 0}">
+          <span class="wcp-opt-left"><span class="wcp-opt-icon">${_wcIconHtml(cat)}</span><span class="wcp-opt-name">${_wcEsc(cat.name)}</span></span>
+          <span class="wcp-opt-val">${valTxt}</span>
+        </button>` +
+      '</div>' +
       '<button class="wcp-cancel" type="button" data-wc="cancel">Cancel</button>' +
     '</div>';
-  ov.querySelectorAll('.wcp-opt').forEach(b => {
-    b.onclick = () => {
-      if (!_wcTurnOk()) return;
-      const cat = b.getAttribute('data-cat');
-      const filled = b.getAttribute('data-filled') === '1';
-      if (filled) {
-        openCopycatStrikePicker(cat, V);
-      } else {
-        _wcClosePicker();
-        _copycatFill(cat, V);
-      }
-    };
-  });
+  const opt = ov.querySelector('.wcp-opt');
+  if (opt) opt.onclick = () => {
+    if (!_wcTurnOk()) return;
+    if (filled) {
+      openCopycatStrikePicker(catId, V);
+    } else {
+      _wcClosePicker();
+      _copycatFill(catId, V);
+    }
+  };
   const cancel = ov.querySelector('[data-wc="cancel"]');
   if (cancel) cancel.onclick = () => _copycatCancel();
   _wcShow(ov);
@@ -1585,6 +1587,12 @@ confirmScore = function() {
   // it's written to `scores` asynchronously, so capture it here to feed the
   // upper-bonus check below.
   const finalScore = selectedScore;
+  // Remember the player's last positive score + category so the bot's Copycat
+  // can mirror that exact category.
+  if (finalScore > 0) {
+    window.__lastPlayerScore = finalScore;
+    window.__lastPlayerCat   = catId;
+  }
 
   _pupOrigConfirmScore();
 

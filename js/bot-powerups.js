@@ -17,6 +17,11 @@ function _botResetPowerups() {
   botFreezeDieIndex    = -1;
   botFrozenDieValue    = 0;
   botDoublePointsActive = false;
+  // Clear Copycat's copy targets so a fresh bot game never mirrors a stale score.
+  window.__lastOppScore    = 0;
+  window.__lastOppCat      = null;
+  window.__lastPlayerScore = 0;
+  window.__lastPlayerCat   = null;
 }
 
 function _botHasPowerup(id) { return botPowerups.indexOf(id) >= 0; }
@@ -49,8 +54,9 @@ function _botWeightedPick(weights) {
 // and Chance Roll have no bot-usage logic, so the bot would just hold them.
 function _botPickStarterPowerup() {
   return _botWeightedPick({
-    doublePoints: 55,
-    extraRoll:    45,
+    doublePoints: 45,
+    extraRoll:    40,
+    copycat:      15,
   });
 }
 
@@ -58,8 +64,9 @@ function _botPickStarterPowerup() {
 // have logic to use it intelligently).
 function _botPickEarnedPowerup() {
   return _botWeightedPick({
-    doublePoints: 55,
-    extraRoll:    45,
+    doublePoints: 45,
+    extraRoll:    40,
+    copycat:      15,
   });
 }
 
@@ -140,6 +147,107 @@ function _botFreezeCandidateIdx(cat) {
   return -1;
 }
 
+// ─── COPYCAT ────────────────────────────────────────────────────────────────
+// The bot mirrors the PLAYER's last positive score, doubled, into one of its
+// empty categories. Like the player's Copycat, a copied score never earns a
+// power-up (that path is simply not taken here), so trading Copycats can't
+// generate an endless power-up loop.
+const _BOT_COPYCAT_MAX = 1000;
+
+function _botCopycatValue() {
+  const last = Number(window.__lastPlayerScore) || 0;
+  return Math.max(0, Math.min(_BOT_COPYCAT_MAX, last * 2));
+}
+
+// Only spend Copycat when the doubled value is actually worth a turn. Lower the
+// bar late in the game so the power-up doesn't go to waste.
+function _botShouldUseCopycat(value) {
+  if (value <= 0) return false;
+  const turnsLeft = _botTurnsLeft();
+  if (turnsLeft <= 2) return value >= 8;
+  if (turnsLeft <= 5) return value >= 20;
+  return value >= 30;
+}
+
+// Pick the least valuable EMPTY bot category to strike as the cost when the
+// mirror category is already filled (upper singles / hard combos first).
+function _botPickCopycatStrike(exceptId) {
+  const priority = ['ones','twos','lgStraight','yum','fullHouse','fourKind',
+                    'threes','smStraight','threeKind','fours','fives','sixes','chance'];
+  for (const id of priority) {
+    if (id !== exceptId && botScores[id] === undefined) return id;
+  }
+  const any = categories.find(c => c.id !== exceptId && botScores[c.id] === undefined);
+  return any ? any.id : null;
+}
+
+// If it makes sense, use Copycat instead of rolling this turn. Copycat mirrors
+// the EXACT category the player last filled. Returns true if the turn was
+// consumed by the copy (so the caller must not roll).
+function _botMaybeUseCopycat() {
+  if (typeof powerupMode === 'undefined' || !powerupMode) return false;
+  if (!_botHasPowerup('copycat')) return false;
+  const value = _botCopycatValue();
+  if (!_botShouldUseCopycat(value)) return false;
+  const catId = window.__lastPlayerCat;
+  if (!catId || !categories.find(c => c.id === catId)) return false;
+
+  const filled = botScores[catId] !== undefined;
+  if (!filled) {
+    _botCommitCopycat(catId, value, null);   // simple fill of the mirror category
+    return true;
+  }
+  // Mirror category is already filled — adding on top costs an empty strike, so
+  // only do it late in the game when the power-up would otherwise be wasted.
+  if (_botTurnsLeft() > 3) return false;
+  const strikeId = _botPickCopycatStrike(catId);
+  if (!strikeId) return false;
+  _botCommitCopycat(catId, value, strikeId);
+  return true;
+}
+
+// Commit a copied score into the mirror category. NO yum earn check here — a
+// copied score must never earn a power-up. `strikeId` (optional) is an empty
+// category zeroed as the cost when adding on top of a filled mirror category.
+function _botCommitCopycat(catId, value, strikeId) {
+  _botConsumePowerup('copycat');
+  const cat = categories.find(c => c.id === catId) || { id: catId, name: catId };
+  const add    = Math.max(0, Math.min(_BOT_COPYCAT_MAX, value | 0));
+  const cur    = Number(botScores[catId]) || 0;
+  const scored = Math.min(_BOT_COPYCAT_MAX, cur + add);
+
+  botScores[catId]    = scored;
+  botScoreDice[catId] = [];
+  if (strikeId) { botScores[strikeId] = 0; botScoreDice[strikeId] = []; }
+  // The bot's board now shows this score, so the player's Copycat can mirror it.
+  if (scored > 0) { window.__lastOppScore = scored; window.__lastOppCat = catId; }
+
+  const bar = document.getElementById('botThinkBar');
+  if (bar) bar.style.display = 'none';
+  showBotDiceOverlay(false);
+
+  const struckName = strikeId
+    ? (categories.find(c => c.id === strikeId) || {}).name || strikeId
+    : null;
+  _botPowerupToast(
+    `<i class="icn icn-bot"></i> ${botName} used <i class="icn icn-clipboard"></i> Copycat → ${scored} in ${cat.name}` +
+    (struckName ? `, struck ${struckName}!` : '!')
+  );
+  renderBotLeaderboard();
+  showBotActionPopup(botName, [], 'Copycat · ' + cat.name, scored, false, scored === 0, false);
+
+  if (Object.keys(botScores).length === categories.length) {
+    clearDice();
+    setTimeout(showBotGameOver, 800);
+    return;
+  }
+
+  playerTurn = true;
+  clearDice();
+  renderBotLeaderboard();
+  setTimeout(() => showYourTurnPop('ROLL THE DICE'), 2500);
+}
+
 // ─── POWER-UP-AWARE BOT TURN ────────────────────────────────────────────────
 const _origBotTakeTurn = botTakeTurn;
 botTakeTurn = function() {
@@ -173,6 +281,10 @@ function _botSeedRoll1Dice() {
 }
 
 function _botPowerupTakeTurn() {
+  // Before rolling, decide whether to spend a Copycat on the player's last
+  // score. If used, it consumes the whole turn — don't roll.
+  if (_botMaybeUseCopycat()) return;
+
   const bar = document.getElementById('botThinkBar');
   if (bar) bar.style.display = 'flex';
   showBotDiceOverlay(true);
@@ -325,8 +437,12 @@ function _botFinishWithPowerups(move) {
 
   botScores[move.cat.id]    = scored;
   botScoreDice[move.cat.id] = botDice.slice();
-  // Remember the bot's last positive score (incl. its Double Points) for Copycat.
-  if (Number(scored) > 0) window.__lastOppScore = Number(scored);
+  // Remember the bot's last positive score + category (incl. its Double Points)
+  // so the player's Copycat mirrors that exact category.
+  if (Number(scored) > 0) {
+    window.__lastOppScore = Number(scored);
+    window.__lastOppCat   = move.cat.id;
+  }
 
   renderBotLeaderboard();
 

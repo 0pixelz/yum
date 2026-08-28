@@ -1825,8 +1825,12 @@ function listenRoom() {
               const isPerfect = scored === cat.max && cat.max > 0;
               const isZero = scored === 0;
               showBotActionPopup(p.name, [], cat.name, scored, isPerfect, isZero, true);
-              // Remember the opponent's last positive score for the Copycat power-up.
-              if (Number(scored) > 0) window.__lastOppScore = Number(scored);
+              // Remember the opponent's last positive score + which category it
+              // went in, so Copycat mirrors that exact category.
+              if (Number(scored) > 0) {
+                window.__lastOppScore = Number(scored);
+                window.__lastOppCat   = newKey;
+              }
             }
           }
         }
@@ -2796,8 +2800,11 @@ function finishBotTurn(move) {
   const scored = move.cat.calc(botDice);
   botScores[move.cat.id] = scored;
   botScoreDice[move.cat.id] = botDice.slice(); // remember which dice were used
-  // Remember the bot's last positive score for the Copycat power-up.
-  if (Number(scored) > 0) window.__lastOppScore = Number(scored);
+  // Remember the bot's last positive score + category for the Copycat power-up.
+  if (Number(scored) > 0) {
+    window.__lastOppScore = Number(scored);
+    window.__lastOppCat   = move.cat.id;
+  }
 
   // Animate score appearing in leaderboard
   renderBotLeaderboard();
