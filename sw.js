@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yamio-pwa-v67';
+const CACHE_NAME = 'yamio-pwa-v68';
 const NAV_TIMEOUT_MS = 4000;
 
 // Files that must be available offline so the PWA splash always resolves to a

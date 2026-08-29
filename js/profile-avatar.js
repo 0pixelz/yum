@@ -58,12 +58,19 @@
   // Prices MUST match AVATAR_COSTS in functions/index.js. Ownership is
   // server-authoritative (purchaseAvatar writes users/$uid/avatars).
   const PREMIUM = [
-    { id:'p_flame',  name:'Inferno', price:15,  face:6, top:'#ffe08a', mid:'#ff5722', bot:'#7a1500', stroke:'#3a0a00', pip:'#fff3d6', ring:'#ff8a3d', glow:'rgba(255,87,34,0.65)' },
+    { id:'p_flame',  name:'Flame',   price:15,  face:6, top:'#ffe08a', mid:'#ff5722', bot:'#7a1500', stroke:'#3a0a00', pip:'#fff3d6', ring:'#ff8a3d', glow:'rgba(255,87,34,0.65)' },
     { id:'p_frost',  name:'Glacier', price:25,  face:5, top:'#eaffff', mid:'#5bd0ff', bot:'#1a6a96', stroke:'#0a3552', pip:'#eafaff', ring:'#a8ecff', glow:'rgba(91,208,255,0.6)'  },
     { id:'p_gold',   name:'Midas',   price:50,  face:6, top:'#fff4c2', mid:'#f5c542', bot:'#a9760a', stroke:'#4a2f04', pip:'#3a2600', ring:'#ffe07a', glow:'rgba(245,197,66,0.7)'  },
     { id:'p_cosmic', name:'Cosmic',  price:100, face:6, top:'#b58cff', mid:'#6d28d9', bot:'#1b0740', stroke:'#0d0322', pip:'#fff0a8', ring:'#c9a8ff', glow:'rgba(150,90,240,0.65)' },
     { id:'p_crown',  name:'Royal',   price:200, face:5, top:'#ffe1a0', mid:'#c81e5a', bot:'#5c0b28', stroke:'#2c0512', pip:'#ffe7a8', ring:'#ffd76a', glow:'rgba(200,30,90,0.6)'   },
-    { id:'p_dragon', name:'Dragon',  price:400, face:6, top:'#c6ff9e', mid:'#159957', bot:'#06331f', stroke:'#021a10', pip:'#eafff0', ring:'#7dffb0', glow:'rgba(21,153,87,0.65)'  }
+    { id:'p_dragon', name:'Dragon',  price:400, face:6, top:'#c6ff9e', mid:'#159957', bot:'#06331f', stroke:'#021a10', pip:'#eafff0', ring:'#7dffb0', glow:'rgba(21,153,87,0.65)'  },
+    // ── ELITE tier: matches the elite dice skins, with a pulsing heartbeat
+    //    halo ring around the avatar (halo = "r,g,b"). ──
+    { id:'p_celestial', name:'Celestial', price:2500, face:6, elite:true, halo:'129,140,248', top:'#bae6fd', mid:'#818cf8', bot:'#4c1d95', stroke:'#312e81', pip:'#f0f9ff', ring:'#a5b4fc', glow:'rgba(129,140,248,0.6)' },
+    { id:'p_inferno',   name:'Inferno',   price:3000, face:6, elite:true, halo:'249,115,22',  top:'#fde047', mid:'#f97316', bot:'#7f1d1d', stroke:'#7f1d1d', pip:'#fff7ed', ring:'#fdba74', glow:'rgba(249,115,22,0.6)' },
+    { id:'p_venom',     name:'Venom',     price:3500, face:6, elite:true, halo:'132,204,22',  top:'#bef264', mid:'#65a30d', bot:'#052e16', stroke:'#14532d', pip:'#f7fee7', ring:'#a3e635', glow:'rgba(132,204,22,0.6)' },
+    { id:'p_eclipse',   name:'Eclipse',   price:4000, face:5, elite:true, halo:'250,204,21',  top:'#fde68a', mid:'#334155', bot:'#050810', stroke:'#000000', pip:'#fde68a', ring:'#facc15', glow:'rgba(250,204,21,0.55)' },
+    { id:'p_prism',     name:'Prism',     price:5000, face:6, elite:true, halo:'236,72,153',  top:'#f472b6', mid:'#a78bfa', bot:'#22d3ee', stroke:'#4c1d95', pip:'#1f1147', ring:'#f0abfc', glow:'rgba(236,72,153,0.6)' }
   ];
   const PREM = {};
   PREMIUM.forEach(p => { PREM[p.id] = p; });
@@ -165,6 +172,17 @@
     const id = 'avpr-' + Math.random().toString(36).slice(2, 9);
     const pips = PIPS[p.face] || PIPS[6];
     const pipMarkup = pips.map(([cx,cy]) => `<circle cx="${cx}" cy="${cy}" r="3" fill="${p.pip}"/>`).join('');
+    // Elite avatars: a pulsing "heartbeat" halo ring (two quick pulses then a
+    // rest), animated with SMIL so it travels with the SVG everywhere it renders
+    // (leaderboard, profile, matchmaking) without extra CSS. Kept within the
+    // 0..64 viewBox so it never clips against a round avatar container.
+    const haloMarkup = (p.elite && p.halo) ? `
+      <circle cx="32" cy="32" r="26" fill="none" stroke="rgb(${p.halo})" stroke-width="2.4">
+        <animate attributeName="r" dur="1.5s" repeatCount="indefinite"
+          keyTimes="0;0.12;0.24;0.38;0.58;1" values="25;30;26;31;25;25"/>
+        <animate attributeName="opacity" dur="1.5s" repeatCount="indefinite"
+          keyTimes="0;0.12;0.24;0.38;0.58;1" values="0.6;0;0.55;0;0;0"/>
+      </circle>` : '';
     return `<svg viewBox="0 0 64 64" ${sizeAttr || ''} aria-hidden="true">
       <defs>
         <radialGradient id="${id}-f" cx="0.32" cy="0.26" r="0.98">
@@ -179,6 +197,7 @@
       </defs>
       <ellipse cx="32" cy="58" rx="22" ry="3.5" fill="rgba(0,0,0,0.35)"/>
       <circle cx="32" cy="32" r="30" fill="url(#${id}-g)"/>
+      ${haloMarkup}
       <rect x="8.5" y="6.5" width="47" height="47" rx="11" fill="none" stroke="${p.ring}" stroke-width="1.8" opacity="0.9"/>
       <rect x="11" y="9" width="42" height="42" rx="8.5" fill="url(#${id}-f)" stroke="${p.stroke}" stroke-width="1.2"/>
       ${pipMarkup}
