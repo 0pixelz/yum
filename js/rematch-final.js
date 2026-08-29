@@ -12,6 +12,11 @@
   let voteTimer = null;
   let countdownInterval = null;
   let voteCountdown = 15;
+  // The room the vote/command listeners are currently bound to. When the room
+  // changes (a new Find Match with the same opponent gives a brand-new room),
+  // we must detach and rebind — otherwise the old `if (!voteRef)` guard left the
+  // listeners stuck on the previous room and a fresh accept never resolved.
+  let attachedRoomKey = null;
 
   function hasRoom() {
     try { return !!(mpMode && roomRef && playerId); } catch(e) { return false; }
@@ -229,10 +234,36 @@
     }, 2200);
   }
 
-  function setupListener() {
-    if (!hasRoom()) return;
+  // Detach the rematch listeners and forget the room they were bound to, so the
+  // next match rebinds cleanly. Also clears per-match vote state.
+  function detachRematchListeners() {
+    try { if (voteRef) voteRef.off(); } catch (e) {}
+    try { if (commandRef) commandRef.off(); } catch (e) {}
+    voteRef = null;
+    commandRef = null;
+    handledCommandId = null;
+    localVote = null;
+    cancelling = false;
+    attachedRoomKey = null;
+  }
 
-    if (!voteRef) {
+  function setupListener() {
+    if (!hasRoom()) {
+      // Left the room / back in the lobby — drop stale listeners so the next
+      // Find Match binds to its own room instead of the previous one.
+      if (attachedRoomKey !== null) detachRematchListeners();
+      return;
+    }
+
+    const key = roomRef.key;
+    // Already bound to THIS room: nothing to do.
+    if (attachedRoomKey === key && voteRef && commandRef) return;
+    // First attach, or the room changed since last time — rebind to the current
+    // room's rematch node.
+    detachRematchListeners();
+    attachedRoomKey = key;
+
+    {
       voteRef = roomRef.child('rematch2/votes');
       voteRef.on('value', snap => {
         const votes = snap.val() || {};
@@ -266,7 +297,7 @@
       });
     }
 
-    if (!commandRef) {
+    {
       commandRef = roomRef.child('rematch2/command');
       commandRef.on('value', snap => executeCommand(snap.val()));
     }
