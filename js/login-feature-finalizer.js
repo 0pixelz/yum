@@ -34,7 +34,13 @@
     { id:'cosmic', name:'Cosmic Dice', cost:1150, style:'background:radial-gradient(circle at 25% 25%,#fbbf24 0%,#1e1b4b 35%,#000 80%);color:#fef3c7;border:1px solid rgba(168,85,247,.6)' },
     { id:'dragon', name:'Dragon Dice', cost:1450, style:'background:linear-gradient(135deg,#dc2626,#000,#dc2626);color:#fde047;border:1px solid rgba(220,38,38,.8);box-shadow:inset 0 0 10px rgba(220,38,38,.4)' },
     { id:'mythic', name:'Mythic Dice', cost:1750, style:'background:conic-gradient(from 45deg,#a855f7,#22d3ee,#fbbf24,#ec4899,#a855f7);color:#fff;border:1px solid rgba(255,255,255,.6)' },
-    { id:'diamond', name:'Diamond Dice', cost:2000, style:'background:linear-gradient(135deg,#e0f7ff,#fff,#fce7f3,#dbeafe,#fff);color:#0f172a;border:1px solid rgba(255,255,255,.8);box-shadow:0 0 18px rgba(255,255,255,.55)' }
+    { id:'diamond', name:'Diamond Dice', cost:2000, style:'background:linear-gradient(135deg,#e0f7ff,#fff,#fce7f3,#dbeafe,#fff);color:#0f172a;border:1px solid rgba(255,255,255,.8);box-shadow:0 0 18px rgba(255,255,255,.55)' },
+    // ── ELITE tier: a heartbeat halo pulses around these dice (halo = "r,g,b") ──
+    { id:'celestial', name:'Celestial Dice', cost:2500, halo:'129,140,248', style:'background:linear-gradient(135deg,#38bdf8,#818cf8,#c084fc);color:#f0f9ff;border:1px solid rgba(129,140,248,.7)' },
+    { id:'inferno', name:'Inferno Dice', cost:3000, halo:'249,115,22', style:'background:radial-gradient(circle at 30% 30%,#fde047,#f97316 45%,#7f1d1d);color:#fff7ed;border:1px solid rgba(249,115,22,.7)' },
+    { id:'venom', name:'Venom Dice', cost:3500, halo:'132,204,22', style:'background:linear-gradient(135deg,#a3e635,#166534,#052e16);color:#f7fee7;border:1px solid rgba(132,204,22,.7)' },
+    { id:'eclipse', name:'Eclipse Dice', cost:4000, halo:'250,204,21', style:'background:radial-gradient(circle at 50% 42%,#334155 0%,#0b1120 62%,#000 100%);color:#fde68a;border:1px solid rgba(250,204,21,.6)' },
+    { id:'prism', name:'Prism Dice', cost:5000, halo:'236,72,153', style:'background:conic-gradient(from 0deg,#f87171,#fbbf24,#a3e635,#22d3ee,#a78bfa,#f472b6,#f87171);color:#1f1147;border:1px solid rgba(255,255,255,.7)' }
   ];
 
   function loadJSON(key, fallback) {
@@ -82,6 +88,16 @@
       .ssu-wallet-note{color:var(--muted);font-size:.72rem;font-weight:900;margin-top:2px}
       .ssu-login-lock{padding:16px;text-align:center;color:var(--muted);font-weight:900}
       .ssu-preview span{font-family:Arial, sans-serif}
+      /* Heartbeat halo on the ELITE skin preview swatches (--halo = "r,g,b"). */
+      .ssu-preview span.ssu-preview-halo{animation:ssuHeartbeat 1.5s ease-in-out infinite}
+      @keyframes ssuHeartbeat{
+        0%{box-shadow:0 0 0 0 rgba(var(--halo),.6),0 0 6px 1px rgba(var(--halo),.4)}
+        12%{box-shadow:0 0 0 3px rgba(var(--halo),0),0 0 11px 2px rgba(var(--halo),.55)}
+        24%{box-shadow:0 0 0 1px rgba(var(--halo),.5),0 0 7px 1px rgba(var(--halo),.4)}
+        38%{box-shadow:0 0 0 5px rgba(var(--halo),0),0 0 14px 3px rgba(var(--halo),.6)}
+        58%,100%{box-shadow:0 0 0 0 rgba(var(--halo),0),0 0 6px 1px rgba(var(--halo),.35)}
+      }
+      @media (prefers-reduced-motion: reduce){ .ssu-preview span.ssu-preview-halo{animation:none} }
       .yum-hidden-when-logged-out{display:none!important}
       .waiting-upgrade-card{width:min(420px,92vw);border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);border-radius:18px;padding:12px;margin:12px 0 8px}
       .waiting-upgrade-title{color:var(--gold);font-family:'Bebas Neue',cursive;letter-spacing:2px;font-size:1.1rem;margin-bottom:8px;text-align:left}
@@ -205,7 +221,9 @@
       const skins = SKINS.map(skin => {
         const isOwned = list.includes(skin.id);
         const isActive = active === skin.id;
-        const preview = DOT_FACES.map(face => `<span style="${skin.style}">${face}</span>`).join('');
+        const haloCls = skin.halo ? ' ssu-preview-halo' : '';
+        const haloVar = skin.halo ? `;--halo:${skin.halo}` : '';
+        const preview = DOT_FACES.map(face => `<span class="ssu-preview-die${haloCls}" style="${skin.style}${haloVar}">${face}</span>`).join('');
         let action = '';
         if (isActive) action = `<button class="ssu-action active" disabled><i class="icn icn-check"></i> EQUIPPED</button>`;
         else if (isOwned) action = `<button class="ssu-action" onclick="equipSkin('${skin.id}')">EQUIP</button>`;

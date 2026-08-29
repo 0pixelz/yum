@@ -21,7 +21,9 @@
     purple:   PIP_FACES, orange:   PIP_FACES, pink:     PIP_FACES,
     black:    PIP_FACES, teal:     PIP_FACES, candy:    PIP_FACES,
     ocean:    PIP_FACES, midnight: PIP_FACES, lava:     PIP_FACES,
-    rosegold: PIP_FACES, diamond:  PIP_FACES
+    rosegold: PIP_FACES, diamond:  PIP_FACES,
+    celestial: PIP_FACES, inferno: PIP_FACES, venom: PIP_FACES,
+    eclipse:  PIP_FACES, prism:   PIP_FACES
   };
 
   function activeSkinId() {
@@ -107,6 +109,20 @@
       #diceRow .die.remote-skin-lava:not(.held) { background:linear-gradient(135deg,#0f0000,#7f1d1d) !important; color:#fbbf24 !important; border:1px solid rgba(251,191,36,.4) !important; box-shadow:0 0 18px rgba(239,68,68,.35) !important; }
       #diceRow .die.remote-skin-rosegold:not(.held) { background:linear-gradient(135deg,#fce7f3,#f9a8d4,#fda4af) !important; color:#831843 !important; }
       #diceRow .die.remote-skin-diamond:not(.held) { background:linear-gradient(135deg,#dbeafe,#e0e7ff,#f3e8ff) !important; color:#312e81 !important; border:1px solid rgba(167,139,250,.7) !important; box-shadow:0 0 20px rgba(167,139,250,.3) !important; }
+      /* ELITE skins: colour + heartbeat halo so opponents see the pulse too. */
+      @keyframes remoteSkinHeartbeat{
+        0%{box-shadow:0 0 0 0 rgba(var(--halo),.55),0 0 10px 1px rgba(var(--halo),.35)}
+        12%{box-shadow:0 0 0 6px rgba(var(--halo),0),0 0 20px 5px rgba(var(--halo),.55)}
+        24%{box-shadow:0 0 0 1px rgba(var(--halo),.5),0 0 12px 2px rgba(var(--halo),.35)}
+        38%{box-shadow:0 0 0 9px rgba(var(--halo),0),0 0 26px 7px rgba(var(--halo),.6)}
+        58%,100%{box-shadow:0 0 0 0 rgba(var(--halo),0),0 0 12px 2px rgba(var(--halo),.3)}
+      }
+      #diceRow .die.remote-skin-celestial:not(.held) { background:linear-gradient(135deg,#38bdf8,#818cf8,#c084fc) !important; color:#f0f9ff !important; border:1px solid rgba(129,140,248,.7) !important; --halo:129,140,248; animation:remoteSkinHeartbeat 1.5s ease-in-out infinite; }
+      #diceRow .die.remote-skin-inferno:not(.held) { background:radial-gradient(circle at 30% 30%,#fde047,#f97316 45%,#7f1d1d) !important; color:#fff7ed !important; border:1px solid rgba(249,115,22,.7) !important; --halo:249,115,22; animation:remoteSkinHeartbeat 1.5s ease-in-out infinite; }
+      #diceRow .die.remote-skin-venom:not(.held) { background:linear-gradient(135deg,#a3e635,#166534,#052e16) !important; color:#f7fee7 !important; border:1px solid rgba(132,204,22,.7) !important; --halo:132,204,22; animation:remoteSkinHeartbeat 1.5s ease-in-out infinite; }
+      #diceRow .die.remote-skin-eclipse:not(.held) { background:radial-gradient(circle at 50% 42%,#334155 0%,#0b1120 62%,#000 100%) !important; color:#fde68a !important; border:1px solid rgba(250,204,21,.6) !important; --halo:250,204,21; animation:remoteSkinHeartbeat 1.5s ease-in-out infinite; }
+      #diceRow .die.remote-skin-prism:not(.held) { background:conic-gradient(from 0deg,#f87171,#fbbf24,#a3e635,#22d3ee,#a78bfa,#f472b6,#f87171) !important; color:#1f1147 !important; border:1px solid rgba(255,255,255,.7) !important; --halo:236,72,153; animation:remoteSkinHeartbeat 1.5s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce){ #diceRow .die[class*="remote-skin-"]:not(.held){animation:none !important} }
       .skin-mini-badge {
         display:inline-flex;
         align-items:center;
@@ -339,7 +355,8 @@
       galaxy: 'Galaxy', red: 'Red', blue: 'Blue', green: 'Green', purple: 'Purple',
       orange: 'Orange', pink: 'Pink', black: 'Black', teal: 'Teal', candy: 'Candy',
       ocean: 'Ocean', midnight: 'Midnight', lava: 'Lava', rosegold: 'Rose Gold',
-      diamond: 'Diamond'
+      diamond: 'Diamond', celestial: 'Celestial', inferno: 'Inferno',
+      venom: 'Venom', eclipse: 'Eclipse', prism: 'Prism'
     }[id] || 'Classic';
   }
 

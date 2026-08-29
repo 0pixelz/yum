@@ -25,7 +25,8 @@
     'gold','neon','ice','fire','galaxy',
     'emerald','ruby','sapphire','sunset','aurora',
     'obsidian','phantom','toxic','lava','frost',
-    'royal','cosmic','dragon','mythic','diamond'
+    'royal','cosmic','dragon','mythic','diamond',
+    'celestial','inferno','venom','eclipse','prism'
   ];
 
   function getActive() {
@@ -126,8 +127,24 @@
       body.skin-dragon .dice-section .die { background:linear-gradient(135deg,#dc2626,#000,#dc2626)!important;color:#fde047!important;border:1px solid rgba(220,38,38,.8)!important;box-shadow:inset 0 0 10px rgba(220,38,38,.4),0 0 18px rgba(220,38,38,.45)!important; }
       body.skin-mythic .dice-section .die { background:conic-gradient(from 45deg,#a855f7,#22d3ee,#fbbf24,#ec4899,#a855f7)!important;color:#fff!important;border:1px solid rgba(255,255,255,.6)!important;box-shadow:0 0 22px rgba(255,255,255,.4)!important; }
       body.skin-diamond .dice-section .die { background:linear-gradient(135deg,#e0f7ff,#fff,#fce7f3,#dbeafe,#fff)!important;color:#0f172a!important;border:1px solid rgba(255,255,255,.8)!important;box-shadow:0 0 22px rgba(255,255,255,.7),inset 0 0 12px rgba(186,230,253,.6)!important; }
+      /* ── ELITE skins: colour + a heartbeat halo pulsing around each die ──
+         Two quick ring pulses then a rest, coloured by the per-skin --halo
+         ("r,g,b"). Scoped to :not(.held) so held dice keep their gold ring. */
+      @keyframes skinUpgradeHeartbeat{
+        0%{box-shadow:0 0 0 0 rgba(var(--halo),.55),0 0 10px 1px rgba(var(--halo),.35)}
+        12%{box-shadow:0 0 0 6px rgba(var(--halo),0),0 0 20px 5px rgba(var(--halo),.55)}
+        24%{box-shadow:0 0 0 1px rgba(var(--halo),.5),0 0 12px 2px rgba(var(--halo),.35)}
+        38%{box-shadow:0 0 0 9px rgba(var(--halo),0),0 0 26px 7px rgba(var(--halo),.6)}
+        58%,100%{box-shadow:0 0 0 0 rgba(var(--halo),0),0 0 12px 2px rgba(var(--halo),.3)}
+      }
+      body.skin-celestial .dice-section .die:not(.held) { background:linear-gradient(135deg,#38bdf8,#818cf8,#c084fc)!important;color:#f0f9ff!important;border:1px solid rgba(129,140,248,.7)!important;--halo:129,140,248;animation:skinUpgradeHeartbeat 1.5s ease-in-out infinite; }
+      body.skin-inferno .dice-section .die:not(.held) { background:radial-gradient(circle at 30% 30%,#fde047,#f97316 45%,#7f1d1d)!important;color:#fff7ed!important;border:1px solid rgba(249,115,22,.7)!important;--halo:249,115,22;animation:skinUpgradeHeartbeat 1.5s ease-in-out infinite; }
+      body.skin-venom .dice-section .die:not(.held) { background:linear-gradient(135deg,#a3e635,#166534,#052e16)!important;color:#f7fee7!important;border:1px solid rgba(132,204,22,.7)!important;--halo:132,204,22;animation:skinUpgradeHeartbeat 1.5s ease-in-out infinite; }
+      body.skin-eclipse .dice-section .die:not(.held) { background:radial-gradient(circle at 50% 42%,#334155 0%,#0b1120 62%,#000 100%)!important;color:#fde68a!important;border:1px solid rgba(250,204,21,.6)!important;--halo:250,204,21;animation:skinUpgradeHeartbeat 1.5s ease-in-out infinite; }
+      body.skin-prism .dice-section .die:not(.held) { background:conic-gradient(from 0deg,#f87171,#fbbf24,#a3e635,#22d3ee,#a78bfa,#f472b6,#f87171)!important;color:#1f1147!important;border:1px solid rgba(255,255,255,.7)!important;--halo:236,72,153;animation:skinUpgradeHeartbeat 1.5s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce){ body[class*="skin-"] .dice-section .die:not(.held){animation:none!important} }
       body.skin-classic .dice-section .die,
-      body:not(.skin-gold):not(.skin-neon):not(.skin-ice):not(.skin-fire):not(.skin-galaxy):not(.skin-emerald):not(.skin-ruby):not(.skin-sapphire):not(.skin-sunset):not(.skin-aurora):not(.skin-obsidian):not(.skin-phantom):not(.skin-toxic):not(.skin-lava):not(.skin-frost):not(.skin-royal):not(.skin-cosmic):not(.skin-dragon):not(.skin-mythic):not(.skin-diamond) .dice-section .die {
+      body:not(.skin-gold):not(.skin-neon):not(.skin-ice):not(.skin-fire):not(.skin-galaxy):not(.skin-emerald):not(.skin-ruby):not(.skin-sapphire):not(.skin-sunset):not(.skin-aurora):not(.skin-obsidian):not(.skin-phantom):not(.skin-toxic):not(.skin-lava):not(.skin-frost):not(.skin-royal):not(.skin-cosmic):not(.skin-dragon):not(.skin-mythic):not(.skin-diamond):not(.skin-celestial):not(.skin-inferno):not(.skin-venom):not(.skin-eclipse):not(.skin-prism) .dice-section .die {
         background: var(--yum-custom-die-bg, #f8f8f8) !important;
         color: var(--yum-custom-die-fg, #111) !important;
       }
