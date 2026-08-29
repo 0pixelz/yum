@@ -624,7 +624,13 @@ const AVATAR_COSTS = {
   p_gold:   50,
   p_cosmic: 100,
   p_crown:  200,
-  p_dragon: 400
+  p_dragon: 400,
+  // Elite tier — heartbeat-halo avatars (js/profile-avatar.js)
+  p_celestial: 2500,
+  p_inferno:   3000,
+  p_venom:     3500,
+  p_eclipse:   4000,
+  p_prism:     5000
 };
 
 exports.purchaseAvatar = onCall(async (req) => {
