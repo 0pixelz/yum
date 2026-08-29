@@ -330,6 +330,10 @@ let lastRolledMask = 0b11111; // track which dice were just rolled (all by defau
 // for the rare engine without `el.animate`.
 window.spinDie = function(el, flash) {
   if (!el) return;
+  // Hard suppress: while rendering an opponent's non-roll update (e.g. they just
+  // held a die), never play the roll spin — even if a face repaint would
+  // otherwise trigger it. Cleared right after the opponent render.
+  if (window.__suppressDieSpin) return;
   // Stop any spin/flash already running so a rapid re-roll restarts cleanly.
   if (typeof el.getAnimations === 'function') {
     el.getAnimations().forEach(a => {
@@ -3008,7 +3012,16 @@ function showOpponentDiceInRoller(liveDice, oppName) {
   const savedHeld = held.slice();
   dice = oppDice.slice();
   held = oppHeld.slice();
-  renderDice(oppRolled);
+  // Only ever animate the opponent's dice when they ACTUALLY rolled. renderDice
+  // also spins on `faceChanged`, so a stray repaint (e.g. the die momentarily
+  // showing '–') made the non-held dice re-spin every time the opponent merely
+  // held a die. Suppressing spin unless oppRolled keeps them still on a hold.
+  window.__suppressDieSpin = !oppRolled;
+  try {
+    renderDice(oppRolled);
+  } finally {
+    window.__suppressDieSpin = false;
+  }
   dice = savedDice;
   held = savedHeld;
 
