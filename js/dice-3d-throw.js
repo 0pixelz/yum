@@ -350,7 +350,12 @@
     cosmic:   { stops: [[0,'#ffdf94'],[0.3,'#fbbf24'],[0.62,'#1e1b4b'],[1,'#020207']], pip:'#fef3c7', glow:'#a855f7' },
     dragon:   { stops: [[0,'#ff6a6a'],[0.38,'#dc2626'],[0.7,'#1c0303'],[1,'#000000']], pip:'#ffe14d', glow:'#ef4444' },
     mythic:   { stops: [[0,'#b06bff'],[0.33,'#22d3ee'],[0.62,'#fbbf24'],[1,'#ec4899']], pip:'#ffffff', glow:'#ffffff' },
-    diamond:  { stops: [[0,'#f5fdff'],[0.4,'#dbeafe'],[0.7,'#ede9fe'],[1,'#aeb8f5']], pip:'#241f5c', glow:'#c7d2fe' }
+    diamond:  { stops: [[0,'#f5fdff'],[0.4,'#dbeafe'],[0.7,'#ede9fe'],[1,'#aeb8f5']], pip:'#241f5c', glow:'#c7d2fe' },
+    celestial:{ stops: [[0,'#bae6fd'],[0.4,'#818cf8'],[0.75,'#c084fc'],[1,'#4c1d95']], pip:'#f0f9ff', glow:'#818cf8' },
+    inferno:  { stops: [[0,'#fde047'],[0.4,'#f97316'],[0.75,'#dc2626'],[1,'#7f1d1d']], pip:'#fff7ed', glow:'#f97316' },
+    venom:    { stops: [[0,'#bef264'],[0.4,'#65a30d'],[0.75,'#166534'],[1,'#052e16']], pip:'#f7fee7', glow:'#84cc16' },
+    eclipse:  { stops: [[0,'#fde68a'],[0.22,'#334155'],[0.62,'#0b1120'],[1,'#000000']], pip:'#fde68a', glow:'#facc15' },
+    prism:    { stops: [[0,'#f87171'],[0.3,'#fbbf24'],[0.55,'#22d3ee'],[0.8,'#a78bfa'],[1,'#f472b6']], pip:'#1f1147', glow:'#f472b6' }
   };
   // Flat colour skins — base colour + pip, expanded into a shaded gradient.
   const SOLID_THEMES = {

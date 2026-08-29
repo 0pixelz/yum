@@ -31,7 +31,13 @@
     { id:'cosmic', name:'Cosmic Dice', cost:1150, style:'background:radial-gradient(circle at 25% 25%,#fbbf24 0%,#1e1b4b 35%,#000 80%);color:#fef3c7;border:1px solid rgba(168,85,247,.6)' },
     { id:'dragon', name:'Dragon Dice', cost:1450, style:'background:linear-gradient(135deg,#dc2626,#000,#dc2626);color:#fde047;border:1px solid rgba(220,38,38,.8);box-shadow:inset 0 0 10px rgba(220,38,38,.4)' },
     { id:'mythic', name:'Mythic Dice', cost:1750, style:'background:conic-gradient(from 45deg,#a855f7,#22d3ee,#fbbf24,#ec4899,#a855f7);color:#fff;border:1px solid rgba(255,255,255,.6)' },
-    { id:'diamond', name:'Diamond Dice', cost:2000, style:'background:linear-gradient(135deg,#e0f7ff,#fff,#fce7f3,#dbeafe,#fff);color:#0f172a;border:1px solid rgba(255,255,255,.8);box-shadow:0 0 18px rgba(255,255,255,.55)' }
+    { id:'diamond', name:'Diamond Dice', cost:2000, style:'background:linear-gradient(135deg,#e0f7ff,#fff,#fce7f3,#dbeafe,#fff);color:#0f172a;border:1px solid rgba(255,255,255,.8);box-shadow:0 0 18px rgba(255,255,255,.55)' },
+    // ── ELITE tier: heartbeat-halo dice (halo = "r,g,b") ──
+    { id:'celestial', name:'Celestial Dice', cost:2500, halo:'129,140,248', style:'background:linear-gradient(135deg,#38bdf8,#818cf8,#c084fc);color:#f0f9ff;border:1px solid rgba(129,140,248,.7)' },
+    { id:'inferno', name:'Inferno Dice', cost:3000, halo:'249,115,22', style:'background:radial-gradient(circle at 30% 30%,#fde047,#f97316 45%,#7f1d1d);color:#fff7ed;border:1px solid rgba(249,115,22,.7)' },
+    { id:'venom', name:'Venom Dice', cost:3500, halo:'132,204,22', style:'background:linear-gradient(135deg,#a3e635,#166534,#052e16);color:#f7fee7;border:1px solid rgba(132,204,22,.7)' },
+    { id:'eclipse', name:'Eclipse Dice', cost:4000, halo:'250,204,21', style:'background:radial-gradient(circle at 50% 42%,#334155 0%,#0b1120 62%,#000 100%);color:#fde68a;border:1px solid rgba(250,204,21,.6)' },
+    { id:'prism', name:'Prism Dice', cost:5000, halo:'236,72,153', style:'background:conic-gradient(from 0deg,#f87171,#fbbf24,#a3e635,#22d3ee,#a78bfa,#f472b6,#f87171);color:#1f1147;border:1px solid rgba(255,255,255,.7)' }
   ];
 
   function loadJSON(k, f) { try { return JSON.parse(localStorage.getItem(k) || JSON.stringify(f)); } catch(e) { return f; } }
@@ -297,6 +303,16 @@
         border-radius: 6px; font-size: 1rem;
         font-family: Arial, sans-serif;
       }
+      /* Heartbeat halo on ELITE skin previews (--halo = "r,g,b"). */
+      .rh-skin-preview span.rh-halo { animation: rhHeartbeat 1.5s ease-in-out infinite; }
+      @keyframes rhHeartbeat{
+        0%{box-shadow:0 0 0 0 rgba(var(--halo),.6),0 0 6px 1px rgba(var(--halo),.4)}
+        12%{box-shadow:0 0 0 3px rgba(var(--halo),0),0 0 11px 2px rgba(var(--halo),.55)}
+        24%{box-shadow:0 0 0 1px rgba(var(--halo),.5),0 0 7px 1px rgba(var(--halo),.4)}
+        38%{box-shadow:0 0 0 5px rgba(var(--halo),0),0 0 14px 3px rgba(var(--halo),.6)}
+        58%,100%{box-shadow:0 0 0 0 rgba(var(--halo),0),0 0 6px 1px rgba(var(--halo),.35)}
+      }
+      @media (prefers-reduced-motion: reduce){ .rh-skin-preview span.rh-halo{animation:none} }
       .rh-skin-action {
         width: 100%; border-radius: 999px;
         padding: 9px 12px; font-family: Nunito, sans-serif;
@@ -412,7 +428,9 @@
     const cards = SKINS.map(skin => {
       const isOwned = list.includes(skin.id);
       const isActive = active === skin.id;
-      const preview = DOT_FACES.map(f => `<span style="${skin.style}">${f}</span>`).join('');
+      const haloCls = skin.halo ? ' rh-halo' : '';
+      const haloVar = skin.halo ? `;--halo:${skin.halo}` : '';
+      const preview = DOT_FACES.map(f => `<span class="${haloCls.trim()}" style="${skin.style}${haloVar}">${f}</span>`).join('');
       let action;
       if (isActive) {
         action = `<button class="rh-skin-action active" disabled><i class="icn icn-check"></i> EQUIPPED</button>`;

@@ -520,7 +520,13 @@ const SKIN_COSTS = {
   cosmic:   1150,
   dragon:   1450,
   mythic:   1750,
-  diamond:  2000
+  diamond:  2000,
+  // Elite tier — heartbeat-halo dice (login-feature-finalizer.js)
+  celestial: 2500,
+  inferno:   3000,
+  venom:     3500,
+  eclipse:   4000,
+  prism:     5000
 };
 
 exports.purchaseSkin = onCall(async (req) => {
